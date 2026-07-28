@@ -1,0 +1,152 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .header-title-group {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+    .header-title-group h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .header-icon-box {
+        width: 42px;
+        height: 42px;
+        border-radius: var(--radius-sm);
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    /* Movement Badges */
+    .movement-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.65rem;
+        border-radius: var(--radius-sm);
+        font-weight: 700;
+        font-size: 0.825rem;
+    }
+    .badge-in  { background: rgba(16, 185, 129, 0.1); color: #059669; }
+    .badge-out { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header Toolbar -->
+<div class="page-header-actions">
+    <div class="header-title-group">
+        <div class="header-icon-box">
+            <i class="fas fa-chart-line"></i>
+        </div>
+        <h2>Asset Movement Report</h2>
+    </div>
+</div>
+
+<!-- Filter Card -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) 140px; gap: 1rem; align-items: flex-end;">
+            <div>
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem; color:var(--text-muted);">Inventory Item</label>
+                <select name="item" class="form-control">
+                    <option value="">All Items</option>
+                    {% for i in items %}
+                        <option value="{{ i.id }}" {% if i.id|stringformat:"s" == selected_item %}selected{% endif %}>{{ i.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem; color:var(--text-muted);">Start Date</label>
+                <input type="date" name="start_date" value="{{ start_date }}" class="form-control">
+            </div>
+            <div>
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem; color:var(--text-muted);">End Date</label>
+                <input type="date" name="end_date" value="{{ end_date }}" class="form-control">
+            </div>
+            <div>
+                <button type="submit" class="btn" style="width: 100%; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    <i class="fas fa-filter" style="margin-right:0.35rem;"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Main Table Container -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Item Name</th>
+                <th>Movement Type</th>
+                <th>Quantity</th>
+                <th>Date & Time</th>
+                <th>Reference</th>
+                <th>Remarks</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mov in movements %}
+            <tr>
+                <td style="font-weight: 600; color: var(--text-main);">
+                    <i class="fas fa-box" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ mov.item.name }}
+                </td>
+                <td>
+                    {% if mov.movement_type == 'IN' %}
+                        <span class="movement-badge badge-in"><i class="fas fa-arrow-down"></i> Asset In</span>
+                    {% else %}
+                        <span class="movement-badge badge-out"><i class="fas fa-arrow-up"></i> Asset Out</span>
+                    {% endif %}
+                </td>
+                <td style="font-weight: 700;">{{ mov.quantity }}</td>
+                <td style="font-size: 0.875rem; color: var(--text-muted);">
+                    <i class="far fa-clock" style="margin-right:0.3rem;"></i> {{ mov.date|date:"Y-m-d H:i" }}
+                </td>
+                <td style="font-weight: 600; font-size: 0.875rem;">{{ mov.reference|default:"-" }}</td>
+                <td style="color: var(--text-muted); font-size: 0.875rem;">{{ mov.remarks|default:"-" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-boxes" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No Asset movements discovered for the selected criteria.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

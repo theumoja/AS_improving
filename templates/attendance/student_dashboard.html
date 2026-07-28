@@ -1,0 +1,732 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<style>
+    /* ----- Animated gradient background for profile card ----- */
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* ----- Profile Card (Glassmorphism + Gradient) ----- */
+    .profile-card {
+        background: linear-gradient(135deg, #0a2a4a, #1a3a6e, #0f3a5a);
+        background-size: 300% 300%;
+        animation: gradientShift 6s ease infinite;
+        border-radius: 24px;
+        padding: 2rem;
+        color: #fff;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 15px 40px -10px rgba(10, 42, 74, 0.4);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(2px);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .profile-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -30%;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .profile-card::after {
+        content: '';
+        position: absolute;
+        bottom: -40%;
+        left: -20%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .profile-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.12);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3.2rem;
+        color: #bfdbfe;
+        border: 3px solid rgba(255,255,255,0.25);
+        flex-shrink: 0;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        transition: transform 0.3s ease;
+    }
+    .profile-avatar:hover {
+        transform: scale(1.05);
+    }
+    .profile-info {
+        flex: 1;
+        min-width: 200px;
+        position: relative;
+        z-index: 1;
+    }
+    .profile-info h2 {
+        color: #fff;
+        margin: 0 0 0.2rem 0;
+        font-size: 1.9rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .profile-info .reg {
+        color: #bfdbfe;
+        font-weight: 500;
+        font-size: 0.95rem;
+        margin-bottom: 0.3rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .profile-info .email {
+        color: #93b4e0;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .profile-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-top: 0.6rem;
+    }
+    .profile-tags .tag {
+        background: rgba(255,255,255,0.12);
+        backdrop-filter: blur(4px);
+        padding: 0.2rem 1.2rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border: 1px solid rgba(255,255,255,0.08);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: all 0.2s;
+    }
+    .profile-tags .tag:hover {
+        background: rgba(255,255,255,0.2);
+        transform: translateY(-1px);
+    }
+    .profile-tags .tag i {
+        font-size: 0.75rem;
+        opacity: 0.8;
+    }
+
+    /* ----- Stats on profile (right side) ----- */
+    .profile-stats {
+        display: flex;
+        gap: 1.5rem;
+        margin-left: auto;
+        position: relative;
+        z-index: 1;
+        flex-wrap: wrap;
+    }
+    .profile-stats .stat-item {
+        text-align: center;
+        background: rgba(255,255,255,0.08);
+        padding: 0.6rem 1.2rem;
+        border-radius: 16px;
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.06);
+        min-width: 90px;
+        transition: all 0.2s;
+    }
+    .profile-stats .stat-item:hover {
+        background: rgba(255,255,255,0.15);
+        transform: translateY(-2px);
+    }
+    .profile-stats .stat-item .number {
+        font-size: 1.8rem;
+        font-weight: 700;
+        display: block;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
+    }
+    .profile-stats .stat-item .label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        opacity: 0.7;
+        letter-spacing: 0.04em;
+        font-weight: 500;
+    }
+    .profile-stats .stat-item.attendance .number {
+        color: #34d399;
+    }
+    .profile-stats .stat-item.present .number {
+        color: #60a5fa;
+    }
+    .profile-stats .stat-item.absent .number {
+        color: #f87171;
+    }
+
+    /* ----- Stats Grid (cards) ----- */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: #ffffff;
+        border-radius: 18px;
+        padding: 1.25rem 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+        border: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: default;
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.5), transparent);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+        border-color: #e2e8f0;
+    }
+    .stat-card:hover::after {
+        opacity: 1;
+    }
+    .stat-card .icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        flex-shrink: 0;
+        transition: transform 0.3s;
+    }
+    .stat-card:hover .icon {
+        transform: scale(1.05) rotate(-3deg);
+    }
+    .stat-card .icon.blue { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #2563eb; }
+    .stat-card .icon.green { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #16a34a; }
+    .stat-card .icon.red { background: linear-gradient(135deg, #fee2e2, #fecaca); color: #dc2626; }
+    .stat-card .icon.purple { background: linear-gradient(135deg, #f3e8ff, #e9d5ff); color: #7c3aed; }
+    .stat-card .info h4 {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: #64748b;
+        margin: 0;
+        letter-spacing: 0.05em;
+    }
+    .stat-card .info .number {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* ----- Chart container ----- */
+    .chart-container {
+        position: relative;
+        height: 260px;
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+
+    /* ----- Info Cards (Hostel + Library) with glass effect ----- */
+    .info-card {
+        background: rgba(255,255,255,0.85);
+        backdrop-filter: blur(6px);
+        border-radius: 18px;
+        padding: 1.5rem;
+        border: 1px solid rgba(255,255,255,0.3);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.04);
+        height: 100%;
+        transition: all 0.3s;
+    }
+    .info-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 35px rgba(0,0,0,0.08);
+        border-color: rgba(255,255,255,0.6);
+    }
+    .info-card h4 {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 0.5rem;
+    }
+    .info-card h4 i {
+        color: #2c6e6b;
+        width: 1.6rem;
+        text-align: center;
+        font-size: 1.1rem;
+    }
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #f8fafc;
+        transition: background 0.15s;
+    }
+    .detail-row:hover {
+        background: #f8fafc;
+        margin: 0 -0.5rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+        border-radius: 6px;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-row .label { color: #64748b; font-weight: 500; font-size: 0.9rem; }
+    .detail-row .value { font-weight: 600; color: #0f172a; font-size: 0.95rem; }
+
+    /* ----- Scrollable tables (Library + Attendance) ----- */
+    .scroll-table-container {
+        max-height: 220px;
+        overflow-y: auto;
+        border-radius: 12px;
+        border: 1px solid #f1f5f9;
+        background: #fff;
+    }
+    .scroll-table-container table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+    .scroll-table-container thead {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #f8fafc;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .scroll-table-container th {
+        padding: 0.5rem 0.6rem;
+        text-align: left;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        letter-spacing: 0.04em;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .scroll-table-container th i {
+        margin-right: 0.3rem;
+        opacity: 0.6;
+    }
+    .scroll-table-container td {
+        padding: 0.5rem 0.6rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    .scroll-table-container tbody tr {
+        transition: background 0.15s;
+    }
+    .scroll-table-container tbody tr:hover {
+        background: #f8fafc;
+    }
+    .scroll-table-container tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .badge-status {
+        display: inline-block;
+        padding: 0.15rem 0.6rem;
+        border-radius: 50px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: capitalize;
+    }
+    .badge-issued { background: #fef3c7; color: #d97706; }
+    .badge-returned { background: #dcfce7; color: #15803d; }
+
+    /* ----- Attendance table (taller) ----- */
+    .scroll-table-container.attendance-scroll {
+        max-height: 320px;
+    }
+
+    /* ----- Download button (floating style) ----- */
+    .download-wrapper {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 1rem;
+    }
+    .btn-download {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: #fff;
+        border: none;
+        padding: 0.7rem 1.8rem;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        transition: all 0.3s;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .btn-download:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        background: linear-gradient(135deg, #059669, #047857);
+    }
+    .btn-download:disabled {
+        background: #e2e8f0;
+        color: #94a3b8;
+        box-shadow: none;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* ----- Responsive ----- */
+    @media (max-width: 768px) {
+        .profile-card {
+            flex-direction: column;
+            align-items: stretch;
+            text-align: center;
+            padding: 1.5rem;
+        }
+        .profile-stats {
+            margin-left: 0;
+            justify-content: center;
+        }
+        .profile-avatar {
+            margin: 0 auto;
+        }
+        .profile-info h2 {
+            font-size: 1.4rem;
+        }
+        .stats-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+        .info-card {
+            padding: 1rem;
+        }
+        .download-wrapper {
+            justify-content: center;
+        }
+    }
+    @media (max-width: 480px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        .profile-stats .stat-item {
+            min-width: 70px;
+            padding: 0.4rem 0.8rem;
+        }
+        .profile-stats .stat-item .number {
+            font-size: 1.3rem;
+        }
+    }
+</style>
+
+<!-- ====== DOWNLOAD BUTTON (floating above profile) ====== -->
+<div class="download-wrapper">
+    {% if eligible_for_card %}
+        <a href="{% url 'attendance:download_attendance_card' %}" class="btn-download">
+            <i class="fas fa-id-card"></i> Download Attendance Card
+        </a>
+    {% else %}
+        <button class="btn-download" disabled>
+            <i class="fas fa-lock"></i> Card Locked (< 75%)
+        </button>
+    {% endif %}
+</div>
+
+<!-- ====== PROFILE CARD ====== -->
+<div class="profile-card">
+    <div class="profile-avatar">
+        <i class="fas fa-user-graduate"></i>
+    </div>
+    <div class="profile-info">
+        <h2>{{ student.name }}</h2>
+        <span class="reg"><i class="fas fa-id-badge"></i> {{ student.reg_number }}</span>
+        <span class="email"><i class="fas fa-envelope"></i> {{ user.email|default:"No email provided" }}</span>
+        <div class="profile-tags">
+            <span class="tag"><i class="fas fa-book"></i> {{ student.course.code }} - {{ student.course.name }}</span>
+            <span class="tag"><i class="fas fa-stream"></i> {{ student.stream.name }}</span>
+            <span class="tag"><i class="fas fa-building"></i> {{ student.course.department.name|default:"No Department" }}</span>
+        </div>
+    </div>
+    <div class="profile-stats">
+        <div class="stat-item attendance">
+            <span class="number" data-target="{{ attendance_percentage }}">0%</span>
+            <span class="label">Attendance</span>
+        </div>
+        <div class="stat-item present">
+            <span class="number" data-target="{{ total_present }}">0</span>
+            <span class="label">Present</span>
+        </div>
+        <div class="stat-item absent">
+            <span class="number" data-target="{{ total_absent }}">0</span>
+            <span class="label">Absent</span>
+        </div>
+    </div>
+</div>
+
+<!-- ====== STATS GRID ====== -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="icon blue"><i class="fas fa-calendar-check"></i></div>
+        <div class="info">
+            <h4>Total Sessions</h4>
+            <div class="number" data-target="{{ records|length }}">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon green"><i class="fas fa-check-circle"></i></div>
+        <div class="info">
+            <h4>Present</h4>
+            <div class="number" data-target="{{ total_present }}">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon red"><i class="fas fa-times-circle"></i></div>
+        <div class="info">
+            <h4>Absent</h4>
+            <div class="number" data-target="{{ total_absent }}">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon purple"><i class="fas fa-chart-line"></i></div>
+        <div class="info">
+            <h4>Completion Rate</h4>
+            <div class="number" style="color: {% if eligible_for_card %}#16a34a{% else %}#dc2626{% endif %};" data-target="{{ attendance_percentage }}">0%</div>
+        </div>
+    </div>
+</div>
+
+<!-- ====== CHART ====== -->
+<div class="card" style="margin-bottom: 2rem;">
+    <h3><i class="fas fa-chart-bar"></i> Attendance by Course Unit</h3>
+    <div class="chart-container">
+        <canvas id="studentBarChart"></canvas>
+    </div>
+</div>
+
+<!-- ====== TWO-COLUMN: Hostel + Library ====== -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- Hostel Allocation -->
+    <div class="info-card">
+        <h4><i class="fas fa-bed"></i> Current Hostel Allocation</h4>
+        {% if current_room_allocation %}
+            <div class="detail-row">
+                <span class="label">Hostel</span>
+                <span class="value">{{ current_room_allocation.room.hostel.name }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Room</span>
+                <span class="value">{{ current_room_allocation.room.name_or_number }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Term</span>
+                <span class="value">{{ current_room_allocation.term }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Allocated On</span>
+                <span class="value">{{ current_room_allocation.allocated_at|date:"d M Y" }}</span>
+            </div>
+        {% else %}
+            <p style="color: #64748b; margin: 0.5rem 0;">
+                {% if current_term %}
+                    No room allocation for this term.
+                {% else %}
+                    No active academic term set.
+                {% endif %}
+            </p>
+        {% endif %}
+    </div>
+
+    <!-- Library Borrowing History -->
+    <div class="info-card">
+        <h4><i class="fas fa-book"></i> Library Borrowing History</h4>
+        {% if library_records %}
+            <div class="scroll-table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-tag"></i> Book Title</th>
+                            <th><i class="fas fa-calendar-plus"></i> Borrowed</th>
+                            <th><i class="fas fa-calendar-check"></i> Returned</th>
+                            <th style="text-align:center;"><i class="fas fa-info-circle"></i> Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in library_records %}
+                        <tr>
+                            <td><strong>{{ record.book.title|default:"Unknown" }}</strong></td>
+                            <td>{{ record.issue_date|date:"d M Y" }}</td>
+                            <td>{{ record.return_date|date:"d M Y"|default:"—" }}</td>
+                            <td style="text-align:center;">
+                                <span class="badge-status {% if record.status == 'RETURNED' %}badge-returned{% else %}badge-issued{% endif %}">
+                                    {{ record.get_status_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="color: #64748b; margin: 0.5rem 0;">No books borrowed yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ====== ATTENDANCE RECORDS TABLE ====== -->
+<div class="card">
+    <h3><i class="fas fa-history"></i> Recent Attendance Records</h3>
+    <div class="scroll-table-container attendance-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th><i class="fas fa-calendar-day"></i> Date</th>
+                    <th><i class="fas fa-building"></i> Department</th>
+                    <th><i class="fas fa-book-open"></i> Course Unit</th>
+                    <th><i class="fas fa-stream"></i> Stream</th>
+                    <th><i class="fas fa-chalkboard-teacher"></i> Teacher</th>
+                    <th><i class="fas fa-flag"></i> Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in records %}
+                <tr>
+                    <td>{{ rec.session.date_marked|date:"Y-m-d" }}</td>
+                    <td><span style="color: #475569; font-weight: 500;">{{ rec.session.timetable_entry.course_unit.course.department.name|default:"Unassigned" }}</span></td>
+                    <td>{{ rec.session.timetable_entry.course_unit.name }}</td>
+                    <td><strong>{{ rec.session.timetable_entry.stream.name }}</strong></td>
+                    <td>{{ rec.session.timetable_entry.teacher.name }}</td>
+                    <td>
+                        {% if rec.status == 'PRESENT' %}
+                            <span style="color: #16a34a; font-weight:600;">✅ Present</span>
+                        {% else %}
+                            <span style="color: #dc2626; font-weight:600;">❌ Absent</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" style="text-align: center; padding: 1.5rem; color: #94a3b8;">No attendance records found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    window.addEventListener('DOMContentLoaded', function() {
+        // ----- Animated number counters -----
+        const counters = document.querySelectorAll('.number[data-target]');
+        const animateCounter = (el) => {
+            const target = parseFloat(el.dataset.target);
+            const isPercentage = el.textContent.includes('%');
+            const duration = 1200;
+            const startTime = performance.now();
+            
+            const update = (currentTime) => {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                // Ease out cubic
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = eased * target;
+                
+                if (isPercentage) {
+                    el.textContent = Math.round(current) + '%';
+                } else {
+                    el.textContent = Math.round(current);
+                }
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                } else {
+                    // Final value
+                    if (isPercentage) {
+                        el.textContent = target + '%';
+                    } else {
+                        el.textContent = target;
+                    }
+                }
+            };
+            requestAnimationFrame(update);
+        };
+        
+        // Start counters after a small delay
+        setTimeout(() => {
+            counters.forEach(counter => {
+                // Reset to 0 / 0%
+                if (counter.textContent.includes('%')) {
+                    counter.textContent = '0%';
+                } else {
+                    counter.textContent = '0';
+                }
+                animateCounter(counter);
+            });
+        }, 300);
+
+        // ----- Chart -----
+        const unitNames = {{ unit_names|safe }};
+        const presentCounts = {{ present_counts|safe }};
+        const absentCounts = {{ absent_counts|safe }};
+    
+        new Chart(document.getElementById('studentBarChart'), {
+            type: 'bar',
+            data: {
+                labels: unitNames,
+                datasets: [
+                    {
+                        label: 'Present',
+                        data: presentCounts,
+                        backgroundColor: '#10b981',
+                        borderRadius: 4,
+                    },
+                    {
+                        label: 'Absent',
+                        data: absentCounts,
+                        backgroundColor: '#ef4444',
+                        borderRadius: 4,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, grid: { display: false } },
+                    y: { stacked: true, grid: { color: '#f1f5f9' } }
+                },
+                plugins: { legend: { position: 'top' } }
+            }
+        });
+    });
+</script>
+{% endblock %}

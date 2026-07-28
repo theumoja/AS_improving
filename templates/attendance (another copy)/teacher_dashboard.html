@@ -1,0 +1,135 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<style>
+    .chart-container { position: relative; height: 250px; width: 100%; margin-top: 0.5rem; }
+    .student-list { max-height: 300px; overflow-y: auto; }
+</style>
+
+<h2><i class="fas fa-chalkboard-teacher"></i> Teacher Dashboard</h2>
+
+<!-- Summary Stats -->
+<div class="grid-3" style="margin-bottom: 2rem;">
+    <div class="stat-card">
+        <div class="icon"><i class="fas fa-clock"></i></div>
+        <div class="info">
+            <h4>Today's Sessions</h4>
+            <div class="number">{{ timetable|length }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon"><i class="fas fa-users"></i></div>
+        <div class="info">
+            <h4>Your Students</h4>
+            <div class="number">{{ students|length }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon"><i class="fas fa-book"></i></div>
+        <div class="info">
+            <h4>Course Units</h4>
+            <div class="number">{{ course_units|length }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance per Course Unit (Bar Chart) -->
+<div class="card" style="margin-bottom: 2rem;">
+    <h3><i class="fas fa-chart-bar" style="color:var(--secondary);"></i> Attendance Rate by Course Unit</h3>
+    <div class="chart-container">
+        <canvas id="teacherBarChart"></canvas>
+    </div>
+</div>
+
+<!-- Today's Timetable (with full date) -->
+<div class="card" style="margin-bottom: 2rem;">
+    <h3><i class="fas fa-calendar-day"></i> Active Timetable (Week starting {{ week_start|date:"Y-m-d" }})</h3>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Time</th>
+                    <th>Course Unit</th>
+                    <th>Class</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in timetable %}
+                <tr>
+                    <td>{{ entry.day }}</td>
+                    <td>{{ entry.start_time|time:"H:i" }} – {{ entry.end_time|time:"H:i" }}</td>
+                    <td>{{ entry.course_unit.name }}</td>
+                    <td>{{ entry.class_name }}</td>
+                    <td>
+                        <a href="{% url 'attendance:mark_attendance' entry.id %}" class="btn btn-sm">
+                            <i class="fas fa-clipboard-check"></i> Mark
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-muted">No active sessions.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Student List -->
+<div class="card">
+    <h3><i class="fas fa-users"></i> Your Students</h3>
+    <div class="student-list table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Registration</th>
+                    <th>Name</th>
+                    <th>Course</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in students %}
+                <tr>
+                    <td>{{ s.reg_number }}</td>
+                    <td>{{ s.name }}</td>
+                    <td>{{ s.course.name }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="text-muted">No students assigned.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    window.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('teacherBarChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ unit_names|safe }},
+                datasets: [{
+                    label: 'Attendance Rate (%)',
+                    data: {{ unit_rates|safe }},
+                    backgroundColor: '#2c6e6b',
+                    borderRadius: 6,
+                    barPercentage: 0.6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { min: 0, max: 100, grid: { color: '#f1f5f9' } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    });
+</script>
+{% endblock %}

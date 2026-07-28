@@ -1,0 +1,138 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .header-title-group {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+    .header-title-group h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .header-icon-box {
+        width: 42px;
+        height: 42px;
+        border-radius: var(--radius-sm);
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    /* Submission Card Layout */
+    .submission-card {
+        background: #ffffff;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        padding: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        max-width: 800px;
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-muted);
+    }
+    .form-control-file {
+        width: 100%;
+        padding: 1rem;
+        border: 2px dashed var(--border);
+        border-radius: var(--radius-sm);
+        background: #f8fafc;
+        font-family: var(--font);
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    .form-control-file:hover {
+        border-color: #2563eb;
+        background: #eff6ff;
+    }
+    .btn-cancel {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.25rem;
+        border-radius: var(--radius-sm);
+        background-color: #ffffff;
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        text-decoration: none;
+    }
+    .btn-cancel:hover {
+        background-color: #f1f5f9;
+        color: var(--text-main);
+    }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header Toolbar -->
+<div class="page-header-actions">
+    <div class="header-title-group">
+        <div class="header-icon-box">
+            <i class="fas fa-file-upload"></i>
+        </div>
+        <h2>Submit Assignment: {{ assignment.title }}</h2>
+    </div>
+</div>
+
+<!-- Main Submission Card -->
+<div class="submission-card">
+    <form method="POST" enctype="multipart/form-data" action="">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="file">
+                <i class="fas fa-paperclip" style="margin-right: 0.3rem;"></i> Select File to Upload
+            </label>
+            <input type="file" id="file" name="file" class="form-control-file" required>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 2rem;">
+            <a href="{% url 'attendance:view_course_materials' assignment.lesson.course.id %}" class="btn-cancel">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+            <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); min-width: 160px;">
+                <i class="fas fa-paper-plane" style="margin-right: 0.4rem;"></i> Submit
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

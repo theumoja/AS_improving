@@ -1,0 +1,30 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<div class="card" style="max-width: 680px; margin: 0 auto;">
+    <h2><i class="fas fa-book"></i> Bulk Upload Courses</h2>
+
+    <div class="instruction-box">
+        <h3 style="margin-top:0;"><i class="fas fa-info-circle"></i> Template Requirements</h3>
+        <p style="margin-bottom: 0.75rem;">Ensure your CSV file contains the following exact columns:</p>
+        <code style="background: rgba(0,0,0,0.05); padding: 0.3rem 0.6rem; border-radius: 4px;">course_name, course_code, course_unit_code, course_unit_name</code>
+        <ul style="margin-top: 0.8rem; padding-left: 1.2rem; color: var(--text-muted);">
+            <li><i class="fas fa-check-circle" style="color:var(--success);"></i> <code>course_code</code> must match existing course codes.</li>
+            <li><i class="fas fa-check-circle" style="color:var(--success);"></i> Sub-units are automatically linked to parent courses.</li>
+        </ul>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div style="margin-bottom: 1.5rem;">
+            <label for="csvFile"><i class="fas fa-file-csv"></i> Select CSV File</label>
+            <input type="file" name="csv_file" id="csvFile" accept=".csv" required>
+        </div>
+        <button type="submit" class="btn" style="width:100%;">
+            <i class="fas fa-upload"></i> Import Courses
+        </button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends 'attendance/base.html' %}
+{% block admin_content %}
+<h2><i class="fas fa-book"></i> Manage Courses</h2>
+
+<button class="btn btn-outline btn-sm" onclick="toggleSection('singleCourseForm')"><i class="fas fa-plus"></i> Add Course</button>
+<button class="btn btn-outline btn-sm" onclick="toggleSection('bulkCourseForm')"><i class="fas fa-upload"></i> Bulk Upload</button>
+
+<div id="singleCourseForm" style="display:none; background:var(--surface); padding:1.5rem; border-radius:var(--radius-sm); border:1px solid var(--border); margin-bottom:1.5rem;">
+    <h4>Add Single Course</h4>
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="single">
+        <div class="grid-2">
+            <div><label>Code</label><input type="text" name="code" required></div>
+            <div><label>Name</label><input type="text" name="name" required></div>
+        </div>
+        <button type="submit" class="btn"><i class="fas fa-save"></i> Add Course</button>
+    </form>
+</div>
+
+<div id="bulkCourseForm" style="display:none; background:var(--surface); padding:1.5rem; border-radius:var(--radius-sm); border:1px solid var(--border); margin-bottom:1.5rem;">
+    <h4>Bulk Upload Courses (CSV)</h4>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="bulk">
+        <div class="drop-zone" style="border:2px dashed var(--border); padding:2rem; text-align:center; cursor:pointer; background:#fafafa;">
+            <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:var(--secondary);"></i>
+            <p>Drop CSV here or click to browse</p>
+            <input type="file" name="csv_file" accept=".csv" required style="display:none;">
+        </div>
+        <button type="submit" class="btn"><i class="fas fa-upload"></i> Upload</button>
+    </form>
+</div>
+
+<div class="table-wrapper">
+    <table>
+        <thead><tr><th>Code</th><th>Name</th></tr></thead>
+        <tbody>
+            {% for c in courses %}
+            <tr><td>{{ c.code }}</td><td>{{ c.name }}</td></tr>
+            {% empty %}
+            <tr><td colspan="2" class="text-muted">No courses found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>function toggleSection(id) { const el=document.getElementById(id); el.style.display=el.style.display==='none'?'block':'none'; }</script>
+{% endblock %}

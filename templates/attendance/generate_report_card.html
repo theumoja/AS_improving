@@ -1,0 +1,78 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .header-title-group {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+    .header-title-group h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .header-icon-box {
+        width: 42px;
+        height: 42px;
+        border-radius: var(--radius-sm);
+        background: rgba(220, 38, 38, 0.1);
+        color: #dc2626;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header Toolbar -->
+<div class="page-header-actions">
+    <div class="header-title-group">
+        <div class="header-icon-box">
+            <i class="fas fa-file-pdf"></i>
+        </div>
+        <h2>Generate Report Card</h2>
+    </div>
+</div>
+
+<!-- Main Content Card -->
+<div class="card">
+    <div class="card-body" style="text-align: center; padding: 3rem 1.5rem;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(220, 38, 38, 0.1); color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; margin: 0 auto 1.25rem;">
+            <i class="fas fa-file-pdf"></i>
+        </div>
+        <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem;">Report Card Ready</h3>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem; max-width: 400px; margin-left: auto; margin-right: auto;">Your report card is being prepared. Click the button below to download[cite: 17].</p>
+        <a href="{% url 'attendance:generate_report_card' request.user.student_profile.reg_number current_term.id %}" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 0.75rem 1.5rem; font-size: 1rem; color: #fff; display: inline-flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-download"></i> Download Report Card[cite: 17]
+        </a>
+    </div>
+</div>
+
+{% endblock %}

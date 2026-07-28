@@ -1,0 +1,339 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    :root {
+        --nav-blue-dark: #0f172a;
+        --nav-blue-mid: #1e3a8a;
+        --professional-slate: #475569;
+    }
+
+    .finance-header {
+        background: linear-gradient(135deg, var(--nav-blue-dark), var(--nav-blue-mid));
+        color: #ffffff;
+        border-radius: var(--radius-sm, 6px);
+        padding: 1.5rem 2rem;
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .finance-header h2 {
+        margin: 0;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #ffffff;
+    }
+    .finance-header p {
+        font-size: 0.85rem;
+        color: #cbd5e1;
+        margin-top: 0.25rem;
+    }
+    .finance-header .term-badge {
+        background: rgba(255, 255, 255, 0.15);
+        padding: 0.4rem 1.2rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .finance-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        align-items: start;
+    }
+    @media (min-width: 1200px) {
+        .finance-grid.has-sidebar {
+            grid-template-columns: 3fr 1fr;
+        }
+    }
+
+    .dashboard-segment-card {
+        background: #ffffff;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        padding: 1.75rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+    }
+    .segment-header-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--nav-blue-mid);
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .view-switching-tabs {
+        display: flex;
+        gap: 0.5rem;
+        border-bottom: 2px solid #e2e8f0;
+        margin-bottom: 1.5rem;
+    }
+    .tab-trigger-item {
+        padding: 0.6rem 1.2rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #64748b;
+        background: none;
+        border: none;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s;
+    }
+    .tab-trigger-item.active {
+        color: var(--nav-blue-mid);
+        border-bottom-color: var(--nav-blue-mid);
+    }
+
+    .search-input-field {
+        width: 100%;
+        max-width: 360px;
+        padding: 0.6rem 1.2rem;
+        border-radius: 50px;
+        border: 1px solid #e2e8f0;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+
+    .badge-pill-status {
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        display: inline-block;
+    }
+    .badge-cleared { background: #dcfce7; color: #166534; }
+    .badge-pending { background: #fef9c3; color: #854d0e; }
+    .badge-unpaid { background: #fee2e2; color: #991b1b; }
+
+    .btn-finance-submit {
+        background: var(--nav-blue-mid);
+        color: #fff;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .btn-finance-submit:hover { background: #2563eb; }
+
+    .form-control-input {
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+        font-size: 0.9rem;
+        width: 100%;
+    }
+    .form-group-block {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        margin-bottom: 1rem;
+    }
+    .form-group-block label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #64748b;
+    }
+</style>
+
+<div class="finance-header">
+    <div>
+        <h2><i class="fas fa-wallet"></i> Student Fees Management</h2>
+        <p>{{ is_management|yesno:"Manage all student fee accounts and record payments,View your personal fee account" }}</p>
+    </div>
+    <div class="term-badge">
+        <i class="far fa-calendar-alt"></i> {{ current_term|default:"No Active Term" }}
+    </div>
+</div>
+
+<div class="finance-grid {% if is_management %}has-sidebar{% endif %}">
+
+    <div class="main-ledger-area">
+        <div class="view-switching-tabs">
+            <button class="tab-trigger-item active" id="tabBalances" onclick="switchTab('balances')">Student Balances</button>
+            <button class="tab-trigger-item" id="tabHistory" onclick="switchTab('history')">Transaction History</button>
+        </div>
+
+        <!-- ====== BALANCES TAB ====== -->
+        <div id="paneBalances" class="dashboard-segment-card">
+            <div class="segment-header-title"><i class="fas fa-list"></i> Fee Accounts</div>
+            {% if is_management %}
+                <input type="text" id="financeSearch" class="search-input-field" placeholder="Search by student name or registration...">
+            {% endif %}
+            <div class="table-wrapper" style="overflow-x: auto;">
+                <table id="ledgerTable" style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #e2e8f0; color: var(--professional-slate);">
+                            <th style="padding: 0.75rem 0.5rem;">Student</th>
+                            <th style="padding: 0.75rem 0.5rem;">Registration</th>
+                            <th style="padding: 0.75rem 0.5rem;">Total Billed</th>
+                            <th style="padding: 0.75rem 0.5rem;">Amount Paid</th>
+                            <th style="padding: 0.75rem 0.5rem;">Balance</th>
+                            <th style="padding: 0.75rem 0.5rem;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for account in fee_accounts %}
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 0.75rem 0.5rem;"><strong>{{ account.student.name }}</strong></td>
+                            <td style="padding: 0.75rem 0.5rem;"><code>{{ account.student.reg_number }}</code></td>
+                            <td style="padding: 0.75rem 0.5rem;">UGX {{ account.total_fees_due }}</td>
+                            <td style="padding: 0.75rem 0.5rem;">UGX {{ account.total_amount_paid }}</td>
+                            <td style="padding: 0.75rem 0.5rem;"><strong>UGX {{ account.remaining_balance }}</strong></td>
+                            <td style="padding: 0.75rem 0.5rem;">
+                                {% if account.remaining_balance <= 0 %}
+                                    <span class="badge-pill-status badge-cleared">Cleared</span>
+                                {% elif account.total_amount_paid > 0 %}
+                                    <span class="badge-pill-status badge-pending">Partial</span>
+                                {% else %}
+                                    <span class="badge-pill-status badge-unpaid">Unpaid</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" style="padding: 1rem; color: #94a3b8; text-align: center;">No fee accounts found for this term.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ====== TRANSACTION HISTORY TAB ====== -->
+        <div id="paneHistory" class="dashboard-segment-card" style="display: none;">
+            <div class="segment-header-title"><i class="fas fa-history"></i> Payment Transactions</div>
+            <div class="table-wrapper" style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #e2e8f0; color: var(--professional-slate);">
+                            <th style="padding: 0.75rem 0.5rem;">Reference</th>
+                            <th style="padding: 0.75rem 0.5rem;">Student</th>
+                            <th style="padding: 0.75rem 0.5rem;">Amount</th>
+                            <th style="padding: 0.75rem 0.5rem;">Method</th>
+                            <th style="padding: 0.75rem 0.5rem;">Status</th>
+                            <th style="padding: 0.75rem 0.5rem;">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in transactions %}
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 0.75rem 0.5rem;">
+                                <strong>{{ tx.reference_number }}</strong>
+                                {% if tx.description %}<br><small style="color: #64748b;">{{ tx.description }}</small>{% endif %}
+                            </td>
+                            <td style="padding: 0.75rem 0.5rem;">{{ tx.term_fee_account.student.name }}</td>
+                            <td style="padding: 0.75rem 0.5rem;">UGX {{ tx.amount }}</td>
+                            <td style="padding: 0.75rem 0.5rem;"><code>{{ tx.get_payment_method_display|default:"Bank-Draft" }}</code></td>
+                            <td style="padding: 0.75rem 0.5rem;">
+                                {% if tx.is_confirmed %}
+                                    <span class="badge-pill-status badge-cleared">Confirmed</span>
+                                {% else %}
+                                    <span class="badge-pill-status badge-pending">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 0.75rem 0.5rem;">{{ tx.date_recorded|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" style="padding: 1rem; color: #94a3b8; text-align: center;">No transactions recorded.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== SIDEBAR – Record Payment (management only) ====== -->
+    {% if is_management %}
+    <div class="sidebar-creation-panel">
+        <div class="dashboard-segment-card">
+            <div class="segment-header-title"><i class="fas fa-receipt"></i> Record Payment</div>
+            <form method="POST" action="">
+                {% csrf_token %}
+                <div class="form-group-block">
+                    <label for="account_id">Student Account</label>
+                    <select name="account_id" id="account_id" class="form-control-input" required>
+                        <option value="" disabled selected>-- Select Student --</option>
+                        {% for acc in all_accounts %}
+                            <option value="{{ acc.id }}">{{ acc.student.name }} ({{ acc.student.reg_number }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group-block">
+                    <label for="id_amount">Amount (UGX)</label>
+                    <input id="id_amount" type="number" name="amount" placeholder="e.g. 600000" class="form-control-input" required step="0.01">
+                </div>
+
+                <div class="form-group-block">
+                    <label for="id_reference_number">Reference Number</label>
+                    <input id="id_reference_number" type="text" name="reference_number" placeholder="e.g. REC-84920" class="form-control-input" required>
+                </div>
+
+                <div class="form-group-block">
+                    <label for="id_description">Description (optional)</label>
+                    <textarea id="id_description" name="description" placeholder="Internal note..." class="form-control-input" style="resize: vertical; min-height: 60px;"></textarea>
+                </div>
+
+                <button type="submit" class="btn-finance-submit" style="width: 100%; justify-content: center;">
+                    <i class="fas fa-check-circle"></i> Commit Payment
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    function switchTab(target) {
+        const balTab = document.getElementById('tabBalances');
+        const histTab = document.getElementById('tabHistory');
+        const balPane = document.getElementById('paneBalances');
+        const histPane = document.getElementById('paneHistory');
+
+        if (target === 'balances') {
+            balTab.classList.add('active');
+            histTab.classList.remove('active');
+            balPane.style.display = 'block';
+            histPane.style.display = 'none';
+        } else {
+            balTab.classList.remove('active');
+            histTab.classList.add('active');
+            balPane.style.display = 'none';
+            histPane.style.display = 'block';
+        }
+    }
+
+    // Client-side search (management only)
+    {% if is_management %}
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('financeSearch');
+        if (searchInput) {
+            searchInput.addEventListener('keyup', function() {
+                const filter = this.value.toLowerCase();
+                const rows = document.querySelectorAll('#ledgerTable tbody tr');
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(filter) ? '' : 'none';
+                });
+            });
+        }
+    });
+    {% endif %}
+</script>
+
+{% endblock %}

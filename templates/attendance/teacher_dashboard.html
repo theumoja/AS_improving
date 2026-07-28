@@ -1,0 +1,976 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<style>
+    /* ----- Animated gradient for profile card ----- */
+    @keyframes shimmer {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* ----- Profile Card (Glass + Gradient) ----- */
+    .profile-card {
+        background: linear-gradient(135deg, #0a2a4a, #1a3a6e, #0f3a5a);
+        background-size: 300% 300%;
+        animation: shimmer 6s ease infinite;
+        border-radius: 24px;
+        padding: 2rem 2rem 1.5rem 2rem;
+        color: #fff;
+        margin-bottom: 2rem;
+        box-shadow: 0 15px 40px -10px rgba(10, 42, 74, 0.4);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .profile-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .profile-card::after {
+        content: '';
+        position: absolute;
+        bottom: -40%;
+        left: -20%;
+        width: 350px;
+        height: 350px;
+        background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .profile-top {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1.5rem;
+        position: relative;
+        z-index: 1;
+    }
+    .profile-avatar {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.12);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.8rem;
+        color: #bfdbfe;
+        border: 3px solid rgba(255,255,255,0.25);
+        flex-shrink: 0;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        transition: transform 0.3s;
+    }
+    .profile-avatar:hover {
+        transform: scale(1.05);
+    }
+    .profile-info {
+        flex: 1;
+    }
+    .profile-info h2 {
+        color: #fff;
+        margin: 0 0 0.2rem 0;
+        font-size: 1.9rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .profile-info .staff-id {
+        color: #bfdbfe;
+        font-weight: 500;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .profile-info .email {
+        color: #93b4e0;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .profile-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-top: 0.4rem;
+    }
+    .profile-tags .tag {
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(4px);
+        padding: 0.2rem 1.2rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border: 1px solid rgba(255,255,255,0.08);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: 0.2s;
+    }
+    .profile-tags .tag:hover {
+        background: rgba(255,255,255,0.2);
+        transform: translateY(-1px);
+    }
+    .profile-tags .tag i {
+        opacity: 0.8;
+        font-size: 0.7rem;
+    }
+    .profile-stats-summary {
+        display: flex;
+        gap: 1.2rem;
+        margin-left: auto;
+        flex-wrap: wrap;
+        position: relative;
+        z-index: 1;
+    }
+    .profile-stats-summary .stat-badge {
+        text-align: center;
+        background: rgba(255,255,255,0.08);
+        padding: 0.4rem 1rem;
+        border-radius: 16px;
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.06);
+        min-width: 80px;
+        transition: 0.2s;
+    }
+    .profile-stats-summary .stat-badge:hover {
+        background: rgba(255,255,255,0.15);
+        transform: translateY(-2px);
+    }
+    .profile-stats-summary .stat-badge .number {
+        font-size: 1.6rem;
+        font-weight: 700;
+        display: block;
+        line-height: 1.2;
+    }
+    .profile-stats-summary .stat-badge .label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        opacity: 0.7;
+        letter-spacing: 0.04em;
+        font-weight: 500;
+    }
+    .profile-stats-summary .stat-badge.attendance .number {
+        color: #34d399;
+    }
+    .profile-stats-summary .stat-badge.present .number {
+        color: #60a5fa;
+    }
+    .profile-stats-summary .stat-badge.absent .number {
+        color: #f87171;
+    }
+
+    /* ----- Stats Grid (cards) ----- */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: #fff;
+        border-radius: 18px;
+        padding: 1.25rem 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+        border: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        cursor: default;
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.5), transparent);
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+    }
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+        border-color: #e2e8f0;
+    }
+    .stat-card:hover::after {
+        opacity: 1;
+    }
+    .stat-card .icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        flex-shrink: 0;
+        transition: transform 0.3s;
+    }
+    .stat-card:hover .icon {
+        transform: scale(1.05) rotate(-3deg);
+    }
+    .stat-card .icon.blue { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #2563eb; }
+    .stat-card .icon.green { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #16a34a; }
+    .stat-card .icon.orange { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #d97706; }
+    .stat-card .icon.purple { background: linear-gradient(135deg, #f3e8ff, #e9d5ff); color: #7c3aed; }
+    .stat-card .info h4 {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: #64748b;
+        margin: 0;
+        letter-spacing: 0.05em;
+    }
+    .stat-card .info .number {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* ----- Chart containers ----- */
+    .chart-container-box {
+        position: relative;
+        height: 260px;
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+
+    /* ----- Activity Timeline (glass) ----- */
+    .activity-timeline {
+        margin-top: 0.5rem;
+        position: relative;
+        padding-left: 1.5rem;
+        border-left: 2px solid #e2e8f0;
+    }
+    .activity-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+        background: rgba(255,255,255,0.6);
+        backdrop-filter: blur(4px);
+        padding: 0.75rem 1rem 0.75rem 1.25rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.3);
+        transition: all 0.2s;
+    }
+    .activity-item:hover {
+        background: rgba(255,255,255,0.85);
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    .activity-item::before {
+        content: '';
+        position: absolute;
+        left: calc(-1.5rem - 6px);
+        top: 18px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #2c6e6b;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 3px rgba(44,110,107,0.2);
+    }
+    .activity-time {
+        font-size: 0.7rem;
+        color: #64748b;
+        font-weight: 600;
+        float: right;
+        background: #f1f5f9;
+        padding: 0.1rem 0.6rem;
+        border-radius: 20px;
+    }
+    .activity-item h4 {
+        margin: 0 0 0.2rem 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #0f172a;
+    }
+    .activity-item p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #475569;
+    }
+
+    /* ----- Quick Actions (glass tiles) ----- */
+    .quick-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+    }
+    .action-tile {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1.25rem 0.5rem;
+        background: rgba(255,255,255,0.7);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 16px;
+        text-decoration: none;
+        color: #1e293b;
+        font-weight: 500;
+        font-size: 0.85rem;
+        text-align: center;
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+    .action-tile i {
+        font-size: 1.8rem;
+        color: #2c6e6b;
+        margin-bottom: 0.4rem;
+        transition: transform 0.3s;
+    }
+    .action-tile:hover {
+        transform: translateY(-4px);
+        border-color: #2c6e6b;
+        box-shadow: 0 8px 25px rgba(44,110,107,0.12);
+        background: #ffffff;
+        color: #0f172a;
+    }
+    .action-tile:hover i {
+        transform: scale(1.1);
+    }
+
+    /* ----- Tables (with glass effect) ----- */
+    .table-wrapper {
+        border-radius: 16px;
+        border: 1px solid #f1f5f9;
+        background: #fff;
+        overflow: hidden;
+    }
+    .table-wrapper table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    .table-wrapper th {
+        background: #f8fafc;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        letter-spacing: 0.04em;
+        padding: 0.8rem 1rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .table-wrapper td {
+        padding: 0.7rem 1rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    .table-wrapper tbody tr:hover {
+        background: #f8fafc;
+    }
+    .table-wrapper tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* ----- Badges ----- */
+    .badge {
+        display: inline-block;
+        padding: 0.2rem 0.7rem;
+        border-radius: 50px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: capitalize;
+    }
+    .badge-present { background: #dcfce7; color: #15803d; }
+    .badge-absent { background: #fee2e2; color: #dc2626; }
+    .badge-locked { background: #f1f5f9; color: #64748b; }
+    .badge-submitted { background: #d1fae5; color: #065f46; }
+
+    /* ----- Buttons (refined) ----- */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 0.5rem 1.2rem;
+        border: none;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #2c6e6b, #1e4f4d);
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(44,110,107,0.2);
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(44,110,107,0.3);
+        filter: brightness(1.05);
+    }
+    .btn-success {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(16,185,129,0.2);
+    }
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(16,185,129,0.3);
+        filter: brightness(1.05);
+    }
+    .btn-outline {
+        background: transparent;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+    }
+    .btn-outline:hover {
+        background: #f1f5f9;
+        transform: translateY(-2px);
+    }
+    .btn-sm { padding: 0.3rem 0.8rem; font-size: 0.75rem; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+
+    /* ----- Filter form (glass) ----- */
+    .filter-section {
+        background: rgba(255,255,255,0.6);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 16px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .filter-section .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+    .filter-section label {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #64748b;
+        display: block;
+        margin-bottom: 0.3rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .filter-section select,
+    .filter-section input[type="date"] {
+        width: 100%;
+        padding: 0.5rem 0.8rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        background: #fff;
+        font-size: 0.9rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .filter-section select:focus,
+    .filter-section input[type="date"]:focus {
+        border-color: #2c6e6b;
+        box-shadow: 0 0 0 3px rgba(44,110,107,0.12);
+        outline: none;
+    }
+    .filter-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 1.25rem;
+    }
+    .filter-group {
+        display: flex;
+        gap: 0.4rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .btn-toggle {
+        background: #fff;
+        border: 1.5px solid #e2e8f0;
+        padding: 0.3rem 0.8rem;
+        border-radius: 50px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #475569;
+        transition: all 0.2s;
+    }
+    .btn-toggle:hover {
+        border-color: #94a3b8;
+        background: #f8fafc;
+    }
+    .btn-toggle.active {
+        background: #2c6e6b;
+        color: #fff;
+        border-color: #2c6e6b;
+    }
+
+    /* ----- Responsive ----- */
+    @media (max-width: 768px) {
+        .profile-top {
+            flex-direction: column;
+            align-items: stretch;
+            text-align: center;
+        }
+        .profile-stats-summary {
+            margin-left: 0;
+            justify-content: center;
+        }
+        .profile-avatar {
+            margin: 0 auto;
+        }
+        .profile-info h2 {
+            font-size: 1.4rem;
+        }
+        .stats-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+        .filter-section .grid-3 {
+            grid-template-columns: 1fr;
+        }
+        .filter-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .filter-group {
+            justify-content: center;
+        }
+    }
+    @media (max-width: 480px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        .profile-stats-summary .stat-badge {
+            min-width: 60px;
+            padding: 0.3rem 0.8rem;
+        }
+        .profile-stats-summary .stat-badge .number {
+            font-size: 1.2rem;
+        }
+        .quick-actions-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+</style>
+
+<!-- ====== PROFILE CARD ====== -->
+<div class="profile-card">
+    <div class="profile-top">
+        <div class="profile-avatar">
+            <i class="fas fa-chalkboard-teacher"></i>
+        </div>
+        <div class="profile-info">
+            <h2>{{ teacher_profile.name|default:user.username }}</h2>
+            {% if teacher_profile.staff_id %}
+                <span class="staff-id"><i class="fas fa-id-badge"></i> Staff ID: {{ teacher_profile.staff_id }}</span>
+            {% endif %}
+            <span class="email"><i class="fas fa-envelope"></i> {{ user.email|default:"No email provided" }}</span>
+            <div class="profile-tags">
+                <span class="tag"><i class="fas fa-user-tag"></i> {{ user.get_role_display }}</span>
+                {% if user.teacher_profile.courses.all %}
+                    <span class="tag"><i class="fas fa-book"></i> {{ user.teacher_profile.courses.count }} Course{{ user.teacher_profile.courses.count|pluralize }}</span>
+                {% endif %}
+                <span class="tag"><i class="fas fa-users"></i> {{ total_students_count }} Students</span>
+            </div>
+        </div>
+        <div class="profile-stats-summary">
+            <div class="stat-badge attendance">
+                <span class="number">{{ global_attendance_rate }}%</span>
+                <span class="label">Attendance</span>
+            </div>
+            <div class="stat-badge present">
+                <span class="number">{{ distribution.present_count|default:0 }}</span>
+                <span class="label">Present</span>
+            </div>
+            <div class="stat-badge absent">
+                <span class="number">{{ distribution.absent_count|default:0 }}</span>
+                <span class="label">Absent</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ====== MESSAGES (styled) ====== -->
+{% if messages %}
+<div style="margin-bottom: 1.5rem;">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'warning' %}warning{% else %}success{% endif %} alert-dismissible fade show" role="alert" style="padding: 0.75rem 1.25rem; border-radius: 12px; background: {% if message.tags == 'error' %}#fee2e2{% elif message.tags == 'warning' %}#fef3c7{% else %}#dcfce7{% endif %}; border-left: 4px solid {% if message.tags == 'error' %}#dc2626{% elif message.tags == 'warning' %}#d97706{% else %}#16a34a{% endif %}; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; position: relative;">
+        <i class="fas {% if message.tags == 'success' %}fa-check-circle text-success{% elif message.tags == 'warning' %}fa-exclamation-triangle text-warning{% else %}fa-times-circle text-danger{% endif %} fa-lg"></i>
+        <div><strong>System Notification:</strong> {{ message }}</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.5;"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ====== STATS GRID ====== -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="icon blue"><i class="fas fa-users"></i></div>
+        <div class="info">
+            <h4>Total Students</h4>
+            <div class="number" data-target="{{ total_students_count }}">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon orange"><i class="fas fa-graduation-cap"></i></div>
+        <div class="info">
+            <h4>Active Classes</h4>
+            <div class="number" data-target="{{ active_classes_count }}">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon purple"><i class="fas fa-clock"></i></div>
+        <div class="info">
+            <h4>Today's Sessions</h4>
+            <div class="number" data-target="{{ todays_sessions_count }}">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon green"><i class="fas fa-percent"></i></div>
+        <div class="info">
+            <h4>Attendance Rate</h4>
+            <div class="number" data-target="{{ global_attendance_rate }}">0%</div>
+        </div>
+    </div>
+</div>
+
+<!-- ====== CHARTS ====== -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <div class="card" style="padding: 1.5rem;">
+        <h3><i class="fas fa-chart-bar" style="color: #2c6e6b;"></i> Weekly Attendance Trend</h3>
+        <div class="chart-container-box">
+            <canvas id="weeklyTrendChart"></canvas>
+        </div>
+    </div>
+    <div class="card" style="padding: 1.5rem;">
+        <h3><i class="fas fa-chart-pie" style="color: #2c6e6b;"></i> Attendance Distribution</h3>
+        <div style="display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; height: 240px; gap: 0.5rem;">
+            <div><canvas id="distributionPieChart"></canvas></div>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:0.4rem;">
+                    <span><i class="fas fa-circle" style="color:#10b981;"></i> Present</span>
+                    <strong>{{ distribution.present_pct }}%</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:0.4rem;">
+                    <span><i class="fas fa-circle" style="color:#ef4444;"></i> Absent</span>
+                    <strong>{{ distribution.absent_pct }}%</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ====== ACTIVITY + QUICK ACTIONS ====== -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+    <div class="card" style="padding: 1.5rem;">
+        <h3><i class="fas fa-history" style="color: #2c6e6b;"></i> Recent Activity</h3>
+        <div class="activity-timeline">
+            {% for log in recent_activity_feed %}
+                <div class="activity-item">
+                    <span class="activity-time">{{ log.time }}</span>
+                    <h4>Attendance recorded for {{ log.stream_name }}</h4>
+                    <p>
+                        <span style="color:#16a34a; font-weight:600;">{{ log.present }} present</span>
+                        &bull; <span style="color:#dc2626; font-weight:600;">{{ log.absent }} absent</span>
+                    </p>
+                </div>
+            {% empty %}
+                <p style="color: #94a3b8; padding: 1rem 0;">No recent activity.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card" style="padding: 1.5rem;">
+        <h3><i class="fas fa-bolt" style="color: #d97706;"></i> Quick Actions</h3>
+        <div class="quick-actions-grid">
+            <a href="#timetable-section" class="action-tile">
+                <i class="fas fa-clipboard-check"></i>
+                <span>Mark Attendance</span>
+            </a>
+            <a href="{% url 'attendance:teacher_dashboard' %}#detailed-reports" class="action-tile">
+                <i class="fas fa-users"></i>
+                <span>View Roster</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ====== TIMETABLE ====== -->
+<div id="timetable-section" class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
+    <h3><i class="fas fa-calendar-day" style="color: #2c6e6b;"></i> Active Timetable (Week starting {{ week_start|date:"Y-m-d"|default:"Active Matrix" }})</h3>
+
+    {% if has_multiple_units %}
+    <div style="margin-bottom: 1.5rem; background: #fffbeb; border: 1px solid #fde68a; padding: 1.25rem; border-radius: 12px;">
+        <span style="font-weight:600; font-size:0.9rem; color:#854d0e; display:block; margin-bottom:0.5rem;">
+            <i class="fas fa-exclamation-circle"></i> Multiple Units Assigned – select a Course Unit first:
+        </span>
+        <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+            {% for cu in course_units %}
+                <a href="?selected_course_unit={{ cu.code }}{% if filter_dept %}&filter_dept={{ filter_dept }}{% endif %}{% if filter_course %}&filter_course={{ filter_course }}{% endif %}{% if filter_stream %}&filter_stream={{ filter_stream }}{% endif %}"
+                   class="btn {% if selected_course_unit_id == cu.code %}btn-primary{% else %}btn-outline{% endif %}"
+                   style="font-size:0.85rem; padding:0.4rem 1rem;">
+                    {{ cu.name }}
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Time</th>
+                    <th>Department</th>
+                    <th>Course Unit</th>
+                    <th>Stream</th>
+                    <th style="text-align:center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in timetable %}
+                <tr>
+                    <td style="font-weight:600;">{{ entry.get_day_display|default:entry.day }}</td>
+                    <td style="font-family:monospace; font-size:0.85rem;">{{ entry.start_time|time:"H:i" }} – {{ entry.end_time|time:"H:i" }}</td>
+                    <td><span style="color:#475569; font-size:0.85rem;">{{ entry.course_unit.course.department.name|default:"Unassigned" }}</span></td>
+                    <td>{{ entry.course_unit.name }}</td>
+                    <td><span style="background:#f1f5f9; padding:0.15rem 0.6rem; border-radius:4px; font-size:0.8rem; font-weight:600;">{{ entry.stream.name }}</span></td>
+                    <td style="text-align:center;">
+                        {% if has_multiple_units and not selected_course_unit_id %}
+                            <button class="btn btn-sm" style="background:#e2e8f0; color:#64748b; cursor:not-allowed;" onclick="alert('Please select a Course Unit above first.')">
+                                <i class="fas fa-lock"></i> Locked
+                            </button>
+                        {% elif entry.day != current_weekday_str %}
+                            <button class="btn btn-sm" style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border:1px solid #e2e8f0;" onclick="alert('This session is on {{ entry.get_day_display }}. Only available on the actual day.')">
+                                <i class="fas fa-calendar-times"></i> Locked
+                            </button>
+                        {% elif entry.id in marked_today_ids %}
+                            <button class="btn btn-sm" style="background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; cursor:default; font-weight:600;">
+                                <i class="fas fa-check-double"></i> Submitted
+                            </button>
+                        {% else %}
+                            <a href="{% url 'attendance:mark_attendance' entry.id %}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-clipboard-check"></i> Mark
+                            </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" style="text-align:center; padding:2rem; color:#94a3b8;">No timetable entries found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ====== STUDENT ROSTER ====== -->
+<div id="detailed-reports" class="card" style="padding: 1.5rem;">
+    <h3><i class="fas fa-users" style="color: #2c6e6b;"></i> Assigned Student Roster</h3>
+
+    <form method="GET" action="#detailed-reports" id="reportFilterForm" class="filter-section">
+        <input type="hidden" name="quick_range" id="quickRangeInput" value="{{ quick_range|default:'' }}">
+        <input type="hidden" name="selected_course_unit" value="{{ selected_course_unit_id|default:'' }}">
+
+        <div class="grid-3">
+            <div>
+                <label>Department</label>
+                <select name="filter_dept" onchange="document.getElementById('reportFilterForm').submit();">
+                    <option value="">-- All --</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if filter_dept == dept.id|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Course</label>
+                <select name="filter_course" onchange="document.getElementById('reportFilterForm').submit();">
+                    <option value="">-- All --</option>
+                    {% for course in courses %}
+                        <option value="{{ course.code }}" {% if filter_course == course.code %}selected{% endif %}>{{ course.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Stream</label>
+                <select name="filter_stream" onchange="document.getElementById('reportFilterForm').submit();">
+                    <option value="">-- All --</option>
+                    {% for stream in selectable_streams %}
+                        <option value="{{ stream.id }}" {% if filter_stream == stream.id|stringformat:"s" %}selected{% endif %}>{{ stream.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="filter-actions">
+            <div class="filter-group">
+                <span style="font-weight:500; font-size:0.8rem; color:#64748b;">Timeframe:</span>
+                <button type="button" class="btn-toggle {% if quick_range == 'today' %}active{% endif %}" onclick="setQuickRange('today')">Today</button>
+                <button type="button" class="btn-toggle {% if quick_range == 'week' %}active{% endif %}" onclick="setQuickRange('week')">This Week</button>
+                <button type="button" class="btn-toggle {% if quick_range == 'month' %}active{% endif %}" onclick="setQuickRange('month')">This Month</button>
+                <button type="button" class="btn-toggle {% if not quick_range %}active{% endif %}" onclick="setQuickRange('')">Custom</button>
+            </div>
+            <div id="customDateInputs" style="{% if quick_range %}display:none;{% endif %} display:flex; align-items:center; gap:0.5rem;">
+                <input type="date" name="start_date" value="{{ start_date|default:'' }}" placeholder="Start">
+                <span style="color:#94a3b8;">to</span>
+                <input type="date" name="end_date" value="{{ end_date|default:'' }}" placeholder="End">
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Apply</button>
+                <a href="?export=detailed_student_csv&filter_dept={{ filter_dept|default:'' }}&filter_course={{ filter_course|default:'' }}&filter_stream={{ filter_stream|default:'' }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&quick_range={{ quick_range|default:'' }}&selected_course_unit={{ selected_course_unit_id|default:'' }}"
+                   class="btn btn-success"><i class="fas fa-download"></i> Download</a>
+            </div>
+        </div>
+    </form>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Reg. Number</th>
+                    <th>Full Name</th>
+                    <th>Department</th>
+                    <th>Course</th>
+                    <th>Stream</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in students %}
+                <tr>
+                    <td style="font-family:monospace; font-size:0.85rem;">{{ s.reg_number }}</td>
+                    <td style="font-weight:600;">{{ s.name }}</td>
+                    <td>{{ s.course.department.name|default:"—" }}</td>
+                    <td>{{ s.course.name }}</td>
+                    <td><span style="background:#e2e8f0; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.8rem;">{{ s.stream.name }}</span></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" style="text-align:center; padding:2rem; color:#94a3b8;">No students match your filters.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Quick range helper
+    function setQuickRange(value) {
+        document.getElementById('quickRangeInput').value = value;
+        document.getElementById('reportFilterForm').submit();
+    }
+
+    // Toggle custom date inputs
+    document.querySelectorAll('.btn-toggle').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const parent = this.closest('.filter-actions');
+            const customDiv = parent.querySelector('#customDateInputs');
+            if (this.textContent.trim() === 'Custom') {
+                customDiv.style.display = 'flex';
+            } else {
+                customDiv.style.display = 'none';
+            }
+        });
+    });
+
+    // Animated counters
+    document.addEventListener('DOMContentLoaded', function() {
+        const counters = document.querySelectorAll('.number[data-target]');
+        const animateCounter = (el) => {
+            const target = parseFloat(el.dataset.target);
+            const isPercentage = el.textContent.includes('%');
+            const duration = 1000;
+            const startTime = performance.now();
+            const update = (currentTime) => {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = eased * target;
+                if (isPercentage) {
+                    el.textContent = Math.round(current) + '%';
+                } else {
+                    el.textContent = Math.round(current);
+                }
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                } else {
+                    if (isPercentage) {
+                        el.textContent = target + '%';
+                    } else {
+                        el.textContent = target;
+                    }
+                }
+            };
+            requestAnimationFrame(update);
+        };
+        setTimeout(() => {
+            counters.forEach(c => {
+                if (c.textContent.includes('%')) c.textContent = '0%';
+                else c.textContent = '0';
+                animateCounter(c);
+            });
+        }, 300);
+
+        // Charts
+        const ctxTrend = document.getElementById('weeklyTrendChart').getContext('2d');
+        new Chart(ctxTrend, {
+            type: 'bar',
+            data: {
+                labels: {{ weekly_trend_labels|safe }},
+                datasets: [{
+                    label: 'Attendance Rate (%)',
+                    data: {{ weekly_trend_rates|safe }},
+                    backgroundColor: '#2c6e6b',
+                    borderRadius: 6,
+                    maxBarThickness: 35
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { min: 0, max: 100, grid: { color: '#f1f5f9' } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        const ctxPie = document.getElementById('distributionPieChart').getContext('2d');
+        new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: ['Present', 'Absent'],
+                datasets: [{
+                    data: [{{ distribution.present_pct }}, {{ distribution.absent_pct }}],
+                    backgroundColor: ['#10b981', '#ef4444'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                cutout: '70%'
+            }
+        });
+    });
+</script>
+{% endblock %}

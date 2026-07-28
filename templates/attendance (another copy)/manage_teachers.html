@@ -1,0 +1,136 @@
+{% extends 'attendance/base.html' %}
+{% block admin_content %}
+<h2><i class="fas fa-chalkboard-teacher"></i> Manage Teachers</h2>
+
+<!-- Expandable: Add Single Teacher -->
+<button class="btn btn-outline btn-sm" onclick="toggleSection('singleTeacherForm')" style="margin-bottom: 1rem;">
+    <i class="fas fa-plus"></i> Add Teacher (Single)
+</button>
+<button class="btn btn-outline btn-sm" onclick="toggleSection('bulkTeacherForm')" style="margin-bottom: 1rem;">
+    <i class="fas fa-upload"></i> Bulk Upload Teachers
+</button>
+
+<div id="singleTeacherForm" style="display: none; background: var(--surface); padding: 1.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 1.5rem;">
+    <h4>Add Single Teacher</h4>
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="single">
+        <div class="grid-2" style="grid-template-columns: 1fr 1fr;">
+            <div>
+                <label>Name</label>
+                <input type="text" name="name" required>
+            </div>
+            <div>
+                <label>Email</label>
+                <input type="email" name="email" required>
+            </div>
+        </div>
+        <div style="margin-top: 0.5rem;">
+            <label>Assign Courses (hold Ctrl to select multiple)</label>
+            <select name="courses" multiple style="height: 100px;">
+                {% for c in all_courses %}
+                <option value="{{ c.code }}">{{ c.code }} - {{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn" style="margin-top: 1rem;"><i class="fas fa-save"></i> Add Teacher</button>
+    </form>
+</div>
+
+<div id="bulkTeacherForm" style="display: none; background: var(--surface); padding: 1.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 1.5rem;">
+    <h4>Bulk Upload Teachers (CSV)</h4>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="bulk">
+        <div class="drop-zone" style="border: 2px dashed var(--border); padding: 2rem; text-align: center; cursor: pointer; background: #fafafa;">
+            <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: var(--secondary);"></i>
+            <p>Drop CSV here or click to browse</p>
+            <input type="file" name="csv_file" accept=".csv" required style="display: none;">
+        </div>
+        <button type="submit" class="btn" style="margin-top: 1rem;"><i class="fas fa-upload"></i> Upload</button>
+    </form>
+</div>
+
+<!-- Teacher List with Assignments -->
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Assigned Courses</th>
+                <th>Assign Courses</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for teacher in teachers %}
+            <tr>
+                <td>{{ teacher.name }}</td>
+                <td>{{ teacher.user.email }}</td>
+                <td>
+                    {% for course in teacher.courses.all %}
+                        <span class="badge">{{ course.code }}</span>
+                    {% empty %}
+                        <span class="text-muted">None</span>
+                    {% endfor %}
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="toggleAssignment('{{ teacher.id }}')">
+                        <i class="fas fa-edit"></i> Assign
+                    </button>
+                    <div id="assign-{{ teacher.id }}" style="display: none; margin-top: 0.5rem;">
+                        <form method="POST" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="assign_courses">
+                            <input type="hidden" name="teacher_id" value="{{ teacher.id }}">
+                            <select name="courses" multiple style="min-width: 200px; height: 80px;">
+                                {% for c in all_courses %}
+                                <option value="{{ c.code }}" {% if c in teacher.courses.all %}selected{% endif %}>
+                                    {{ c.code }} - {{ c.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-sm" style="background: var(--secondary);">Update</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted">No teachers found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function toggleSection(id) {
+    const el = document.getElementById(id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function toggleAssignment(id) {
+    const el = document.getElementById('assign-' + id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+// Drag-drop for bulk upload
+document.querySelectorAll('.drop-zone').forEach(zone => {
+    const fileInput = zone.querySelector('input[type="file"]');
+    zone.addEventListener('click', () => fileInput.click());
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = 'var(--secondary)'; });
+    zone.addEventListener('dragleave', () => zone.style.borderColor = 'var(--border)');
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.style.borderColor = 'var(--border)';
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            zone.querySelector('p').textContent = `Selected: ${e.dataTransfer.files[0].name}`;
+        }
+    });
+    fileInput.addEventListener('change', function() {
+        if (this.files.length) zone.querySelector('p').textContent = `Selected: ${this.files[0].name}`;
+    });
+});
+</script>
+<style>
+.badge { background: var(--primary-light); padding: 0.1rem 0.5rem; border-radius: 50px; font-size: 0.75rem; color: var(--primary); margin: 0.1rem; display: inline-block; }
+</style>
+{% endblock %}

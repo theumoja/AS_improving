@@ -1,0 +1,340 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    .btn-download-list {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: var(--radius-sm);
+        background-color: #ffffff;
+        color: #d97706;
+        border: 1px solid #d97706;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .btn-download-list:hover {
+        background-color: #fffbe8;
+        transform: translateY(-1px);
+    }
+    .grade-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        height: 36px;
+        padding: 0 0.5rem;
+        border-radius: var(--radius-sm);
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        font-weight: 700;
+        font-size: 0.95rem;
+        border: 1px solid rgba(37, 99, 235, 0.2);
+    }
+    .action-link {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-right: 0.75rem;
+        transition: var(--transition);
+        text-decoration: none;
+        background: none;
+        border: none;
+        cursor: pointer;
+    }
+    .action-link.edit { color: var(--accent); }
+    .action-link.delete { color: var(--danger); }
+    .action-link:hover { opacity: 0.7; }
+
+    /* Modal Context Interface Components */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 550px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+</style>
+
+<!-- Header & Action Toolbar -->
+<div class="page-header-actions">
+    <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
+        <a href="?auto_grade=1" class="btn-download-list">
+            <i class="fas fa-magic"></i> Auto-Grade Marks
+        </a>
+        <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search grade name, range, GPA, remark..." style="padding-left: 2.25rem;">
+        </div>
+    </div>
+
+    <div class="action-group">
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-plus-circle"></i> Add Grade Scale
+        </button>
+    </div>
+</div>
+
+<!-- Main Table Container -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width:120px;">Grade</th>
+                <th>Score Range</th>
+                <th>GPA / Grade Point</th>
+                <th>Remark</th>
+                <th style="text-align: right;">Execution Parameters</th>
+            </tr>
+        </thead>
+        <tbody id="scalesTableBody">
+            {% for scale in scales %}  
+            <tr class="scale-row">
+                <td>
+                    <span class="grade-badge">{{ scale.name }}</span>
+                </td>
+                <td style="font-weight: 600; color: var(--text-main);">
+                    {{ scale.min_score }}% - {{ scale.max_score }}%
+                </td>
+                <td style="font-weight: 600; color: var(--text-main);">
+                    {{ scale.grade_point }}
+                </td>
+                <td style="color: var(--text-muted);">
+                    {% if scale.remark %}
+                        {{ scale.remark }}
+                    {% else %}
+                        <em style="color: #94a3b8;">--</em>
+                    {% endif %}
+                </td>
+                <td style="text-align: right;">
+                    <button type="button" class="action-link edit" onclick="openEditModal('{{ scale.id }}', '{{ scale.name|escapejs }}', '{{ scale.min_score }}', '{{ scale.max_score }}', '{{ scale.grade_point }}', '{{ scale.remark|escapejs }}')">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-graduation-cap" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No grade scales defined.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching grade scales discovered for your filter criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Scale Modal -->
+<div class="modal" id="singleAddModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Create Grade Scale</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="name">Grade Symbol (e.g. A)</label>
+                <input type="text" id="name" name="name" class="form-control" required placeholder="e.g., A">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="min_score">Min Score (%)</label>
+                    <input type="number" id="min_score" name="min_score" class="form-control" required placeholder="e.g. 80">
+                </div>
+                <div class="form-group">
+                    <label for="max_score">Max Score (%)</label>
+                    <input type="number" id="max_score" name="max_score" class="form-control" required placeholder="e.g. 100">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="grade_point">GPA / Grade Point</label>
+                    <input type="number" step="0.1" id="grade_point" name="grade_point" class="form-control" required placeholder="e.g. 5.0">
+                </div>
+                <div class="form-group">
+                    <label for="remark">Remark</label>
+                    <input type="text" id="remark" name="remark" class="form-control" placeholder="e.g. Excellent">
+                </div>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Scale</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Scale Modal -->
+<div class="modal" id="editScaleModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Edit Grade Scale</h3>
+            <button type="button" class="closeEditModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" id="edit_scale_id" name="scale_id" value="">
+            
+            <div class="form-group">
+                <label for="edit_name">Grade Symbol</label>
+                <input type="text" id="edit_name" name="name" class="form-control" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_min_score">Min Score (%)</label>
+                    <input type="number" id="edit_min_score" name="min_score" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_max_score">Max Score (%)</label>
+                    <input type="number" id="edit_max_score" name="max_score" class="form-control" required>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_grade_point">GPA / Grade Point</label>
+                    <input type="number" step="0.1" id="edit_grade_point" name="grade_point" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_remark">Remark</label>
+                    <input type="text" id="edit_remark" name="remark" class="form-control">
+                </div>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline cancelEditModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Update Scale</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Create Modal logic
+        const addModal = document.getElementById('singleAddModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeAddBtns = document.querySelectorAll('.closeModalBtn, .cancelModalBtn');
+
+        if(openBtn) openBtn.addEventListener('click', () => addModal.classList.add('active'));
+        const closeAddModal = () => addModal.classList.remove('active');
+        closeAddBtns.forEach(btn => btn.addEventListener('click', closeAddModal));
+
+        // Edit Modal logic
+        const editModal = document.getElementById('editScaleModal');
+        const closeEditBtns = document.querySelectorAll('.closeEditModalBtn, .cancelEditModalBtn');
+        const closeEditModal = () => editModal.classList.remove('active');
+        closeEditBtns.forEach(btn => btn.addEventListener('click', closeEditModal));
+
+        window.addEventListener('click', (e) => { 
+            if(e.target === addModal) closeAddModal(); 
+            if(e.target === editModal) closeEditModal();
+        });
+
+        // Automated Frontend Search Matrix
+        const searchInput = document.getElementById('dashboardSearch');
+        const dataRows = document.querySelectorAll('.scale-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const criteria = this.value.toLowerCase().trim();
+                let matchingCount = 0;
+
+                dataRows.forEach(row => {
+                    const searchableText = row.textContent.toLowerCase();
+                    if (searchableText.includes(criteria)) {
+                        row.style.display = '';
+                        matchingCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (emptyRow) {
+                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+                }
+            });
+        }
+    });
+
+    function openEditModal(id, name, minScore, maxScore, gradePoint, remark) {
+        document.getElementById('edit_scale_id').value = id;
+        document.getElementById('edit_name').value = name;
+        document.getElementById('edit_min_score').value = minScore;
+        document.getElementById('edit_max_score').value = maxScore;
+        document.getElementById('edit_grade_point').value = gradePoint;
+        document.getElementById('edit_remark').value = remark;
+        
+        document.getElementById('editScaleModal').classList.add('active');
+    }
+</script>
+
+{% endblock %}

@@ -1,0 +1,122 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .edit-container {
+        max-width: 600px;
+        margin: 2rem auto;
+    }
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        background: #ffffff;
+        padding: 1rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+        font-size: 0.95rem;
+        color: var(--text-main);
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .card-footer-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        border-top: 1px solid var(--border);
+        padding-top: 1.25rem;
+    }
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--text-muted);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: var(--transition);
+    }
+    .btn-back:hover {
+        color: var(--text-main);
+    }
+</style>
+
+<div class="edit-container">
+    <!-- Breadcrumb Actions Heading -->
+    <div class="page-header-actions">
+        <div>
+            <a href="{% url 'attendance:manage_departments' %}" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Back to Department Index
+            </a>
+        </div>
+        <div>
+            <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+                Structural Matrix Editor
+            </span>
+        </div>
+    </div>
+
+    <!-- Main Configuration Card -->
+    <div class="card" style="padding: 2rem;">
+        <div style="margin-bottom: 1.5rem;">
+            <h3 style="margin: 0 0 0.5rem 0; font-size: 1.25rem; color: var(--text-main);">
+                <i class="fas fa-edit" style="color: #2563eb; margin-right: 0.5rem;"></i> Modify Academic Department
+            </h3>
+            <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">
+                Updating this identity will securely propagate across all linked programmatic course outlines and tracking arrays.
+            </p>
+        </div>
+
+        <form method="POST" action="">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="department_name">Department Name Title</label>
+                <input 
+                    type="text" 
+                    id="department_name" 
+                    name="department_name" 
+                    class="form-control" 
+                    required 
+                    placeholder="e.g. Computing and Information Technology"
+                    value="{{ department.name }}"
+                >
+            </div>
+
+            <div class="card-footer-actions">
+                <a href="{% url 'attendance:manage_departments' %}" class="btn btn-outline" style="flex: 1; text-align: center; text-decoration: none; line-height: 2.2;">
+                    Discard Changes
+                </a>
+                <button type="submit" class="btn" style="flex: 2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    <i class="fas fa-save" style="margin-right: 0.35rem;"></i> Save Configuration Update
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,256 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    /* Score Badge Styling */
+    .score-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: var(--radius-sm);
+        font-weight: 700;
+        font-size: 0.875rem;
+    }
+    .score-high { background: rgba(16, 185, 129, 0.1); color: #059669; }
+    .score-mid { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+    .score-low { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+
+    /* Modal Context Interface Components */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 550px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header & Action Toolbar -->
+<div class="page-header-actions">
+    <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
+        <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search staff, evaluator, comments..." style="padding-left: 2.25rem;">
+        </div>
+    </div>
+
+    <div class="action-group">
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-plus-circle"></i> Add Evaluation
+        </button>
+    </div>
+</div>
+
+<!-- Main Evaluations Table Container -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Staff Member</th>
+                <th>Performance Score</th>
+                <th>Comments</th>
+                <th>Term</th>
+                <th>Evaluator</th>
+            </tr>
+        </thead>
+        <tbody id="evaluationsTableBody">
+            {% for eval in evaluations %}  
+            <tr class="eval-row">
+                <td style="font-weight: 600; color: var(--text-main);">
+                    <i class="fas fa-user-tie" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ eval.staff.username }}
+                </td>
+                <td>
+                    {% if eval.score >= 75 %}
+                        <span class="score-badge score-high"><i class="fas fa-star"></i> {{ eval.score }}%</span>
+                    {% elif eval.score >= 50 %}
+                        <span class="score-badge score-mid"><i class="fas fa-star-half-alt"></i> {{ eval.score }}%</span>
+                    {% else %}
+                        <span class="score-badge score-low"><i class="far fa-star"></i> {{ eval.score }}%</span>
+                    {% endif %}
+                </td>
+                <td style="max-width: 300px; color: var(--text-main);">
+                    {{ eval.comments|default:"-" }}
+                </td>
+                <td>
+                    <span style="font-weight: 600; color: var(--text-muted);">{{ eval.term|default:"-" }}</span>
+                </td>
+                <td>
+                    <i class="fas fa-user-check" style="margin-right: 0.3rem; color: var(--text-muted);"></i> {{ eval.evaluator.username|default:"-" }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-star" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No performance evaluations recorded.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching evaluations discovered for your filter criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Creator Interface -->
+<div class="modal" id="singleAddModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Add Evaluation</h3>
+            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="staff">Staff Member</label>
+                <select id="staff" name="staff" class="form-control" required>
+                    <option value="">Select Staff...</option>
+                    {% for u in staff_users %}
+                        <option value="{{ u.id }}">{{ u.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="score">Performance Score (Out of 100)</label>
+                <input type="number" id="score" name="score" min="0" max="100" class="form-control" required placeholder="e.g. 85">
+            </div>
+
+            <div class="form-group">
+                <label for="term">Term (Optional)</label>
+                <select id="term" name="term" class="form-control">
+                    <option value="">Select Term...</option>
+                    {% for t in terms %}
+                        <option value="{{ t.id }}">{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="comments">Comments & Feedback</label>
+                <textarea id="comments" name="comments" class="form-control" rows="3" placeholder="Enter evaluation feedback and observations..."></textarea>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Evaluation</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('singleAddModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+
+        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
+        const closeModal = () => modal.classList.remove('active');
+        
+        if(closeBtn) closeBtn.addEventListener('click', closeModal);
+        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+
+        // Automated Frontend Search Matrix
+        const searchInput = document.getElementById('dashboardSearch');
+        const dataRows = document.querySelectorAll('.eval-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const criteria = this.value.toLowerCase().trim();
+                let matchingCount = 0;
+
+                dataRows.forEach(row => {
+                    const searchableText = row.textContent.toLowerCase();
+                    if (searchableText.includes(criteria)) {
+                        row.style.display = '';
+                        matchingCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (emptyRow) {
+                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+                }
+            });
+        }
+    });
+</script>
+
+{% endblock %}

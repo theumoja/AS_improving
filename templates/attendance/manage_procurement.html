@@ -1,0 +1,290 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .header-title-group {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+    .header-title-group h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .header-icon-box {
+        width: 42px;
+        height: 42px;
+        border-radius: var(--radius-sm);
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    /* Modal Context Interface Components */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 600px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+
+    /* Status Badges */
+    .proc-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.65rem;
+        border-radius: var(--radius-sm);
+        font-weight: 700;
+        font-size: 0.825rem;
+    }
+    .status-requested { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+    .status-approved  { background: rgba(16, 185, 129, 0.1); color: #059669; }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header & Action Toolbar -->
+<div class="page-header-actions">
+    <div class="header-title-group">
+        <div class="header-icon-box">
+            <i class="fas fa-shopping-cart"></i>
+        </div>
+        <h2>Procurement Requests</h2>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <div style="position: relative; min-width: 240px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search item, supplier, status..." style="padding-left: 2.25rem;">
+        </div>
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-plus-circle"></i> New Request
+        </button>
+    </div>
+</div>
+
+<!-- Main Table Container -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Unit Cost</th>
+                <th>Supplier</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="procurementTableBody">
+            {% for proc in procurements %}[cite: 17]
+            <tr class="procurement-row">
+                <td style="font-weight: 600; color: var(--text-main);">
+                    <i class="fas fa-box" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ proc.item.name }}[cite: 17]
+                </td>
+                <td><span style="font-weight: 700;">{{ proc.quantity }}</span>[cite: 17]</td>
+                <td style="font-family: monospace;">{{ proc.unit_cost }}[cite: 17]</td>
+                <td>
+                    <i class="fas fa-truck" style="margin-right: 0.3rem; color: var(--text-muted);"></i> {{ proc.supplier.name|default:"-" }}[cite: 17]
+                </td>
+                <td>
+                    {% if proc.status == 'REQUESTED' %}
+                        <span class="proc-status status-requested"><i class="fas fa-clock"></i> {{ proc.status }}</span>
+                    {% elif proc.status == 'APPROVED' %}
+                        <span class="proc-status status-approved"><i class="fas fa-check-circle"></i> {{ proc.status }}</span>
+                    {% else %}
+                        <span class="proc-status" style="background: rgba(107, 114, 128, 0.1); color: #4b5563;"><i class="fas fa-info-circle"></i> {{ proc.status }}</span>
+                    {% endif %}[cite: 17]
+                </td>
+                <td>
+                    {% if proc.status == 'REQUESTED' %}[cite: 17]
+                    <form method="POST" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="approve">[cite: 17]
+                        <input type="hidden" name="proc_id" value="{{ proc.id }}">[cite: 17]
+                        <button type="submit" class="btn" style="padding: 0.35rem 0.75rem; font-size: 0.825rem; background: #059669; color: #fff;"><i class="fas fa-check"></i> Approve</button>
+                    </form>
+                    {% endif %}[cite: 17]
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-shopping-cart" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No procurement requests recorded.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching procurement requests discovered.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Creator Interface -->
+<div class="modal" id="singleAddModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Create Procurement Request</h3>
+            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create">[cite: 17]
+
+            <div class="form-group">
+                <label for="item">Item</label>
+                <select id="item" name="item" class="form-control" required>
+                    <option value="">Select Item...</option>
+                    {% for i in items %}[cite: 17]
+                        <option value="{{ i.id }}">{{ i.name }}</option>[cite: 17]
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="quantity">Quantity</label>
+                    <input type="number" id="quantity" name="quantity" class="form-control" placeholder="Qty" required[cite: 17]>
+                </div>
+                <div class="form-group">
+                    <label for="unit_cost">Unit Cost</label>
+                    <input type="number" step="0.01" id="unit_cost" name="unit_cost" class="form-control" placeholder="0.00" required[cite: 17]>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="supplier">Supplier</label>
+                <select id="supplier" name="supplier" class="form-control">
+                    <option value="">Select Supplier...</option>
+                    {% for s in suppliers %}[cite: 17]
+                        <option value="{{ s.id }}">{{ s.name }}</option>[cite: 17]
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="expected_delivery">Expected Delivery Date</label>
+                <input type="date" id="expected_delivery" name="expected_delivery" class="form-control"[cite: 17]>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Create Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('singleAddModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+
+        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
+        const closeModal = () => modal.classList.remove('active');
+        
+        if(closeBtn) closeBtn.addEventListener('click', closeModal);
+        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+
+        // Live Search Filter
+        const searchInput = document.getElementById('dashboardSearch');
+        const dataRows = document.querySelectorAll('.procurement-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const criteria = this.value.toLowerCase().trim();
+                let matchingCount = 0;
+
+                dataRows.forEach(row => {
+                    const searchableText = row.textContent.toLowerCase();
+                    if (searchableText.includes(criteria)) {
+                        row.style.display = '';
+                        matchingCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (emptyRow) {
+                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+                }
+            });
+        }
+    });
+</script>
+
+{% endblock %}

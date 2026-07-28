@@ -1,0 +1,396 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<style>
+    .lodging-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        margin-top: 1.5rem;
+    }
+    @media(min-width: 1200px) {
+        .lodging-grid.has-sidebar {
+            grid-template-columns: 2.5fr 1.2fr;
+        }
+    }
+    .bulk-filter-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .student-check-scroll {
+        max-height: 280px;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm, 4px);
+        padding: 0.5rem;
+        background: #f8fafc;
+    }
+    .student-check-item {
+        display: flex;
+        align-items: center;
+        padding: 0.4rem 0.5rem;
+        border-bottom: 1px solid #edf2f7;
+        font-size: 0.88rem;
+    }
+    .student-check-item:last-child { border-bottom: none; }
+    .student-check-item input { margin-right: 0.75rem; }
+    .btn-group-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    .mini-btn {
+        padding: 0.25rem 0.6rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        background: white;
+    }
+    .mini-btn:hover { background: #edf2f7; }
+    .room-card-box {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm, 6px);
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--shadow-sm);
+    }
+    .room-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #edf2f7;
+        padding-bottom: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    .occupancy-badge {
+        padding: 0.2rem 0.6rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        border-radius: 50px;
+    }
+    .badge-vacant { background-color: #e6f4ea; color: #137333; }
+    .badge-full { background-color: #fce8e6; color: #c5221f; }
+</style>
+
+<div class="toolbar">
+    <div>
+        <h2>Campus Housing & Lodgings</h2>
+        <p class="text-muted">Active Term: <strong>{{ current_term.academic_year }} - {{ current_term.get_term_display }}</strong></p>
+    </div>
+</div>
+
+<div class="lodging-grid {% if is_management %}has-sidebar{% endif %}">
+    
+    <div class="main-content-stream">
+        <h3 style="margin-bottom: 1rem;"><i class="fas fa-hotel"></i> Room Occupancy Distribution</h3>
+        
+        {% for room in rooms %}
+        <div class="room-card-box">
+            <div class="room-card-header">
+                <div>
+                    <strong style="font-size: 1.1rem; color: var(--primary);">{{ room.hostel.name }}</strong> 
+                    <span style="color: var(--text-muted); margin-left: 0.5rem;">Room: {{ room.name_or_number }}</span>
+                </div>
+                <div>
+                    {% if room.current_occupancy >= room.capacity %}
+                        <span class="occupancy-badge badge-full">FULL ({{ room.current_occupancy }}/{{ room.capacity }})</span>
+                    {% else %}
+                        <span class="occupancy-badge badge-vacant">{{ room.current_occupancy }}/{{ room.capacity }} Occupied</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <table class="table" style="margin: 0; font-size: 0.9rem;">
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Reg Number</th>
+                        <th>Class / Stream</th>
+                        <th>Assigned By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for allocation in room.term_allocations %}
+                    <tr>
+                        <td><strong>{{ allocation.student.name }}</strong></td>
+                        <td>{{ allocation.student.reg_number }}</td>
+                        <td>{{ allocation.student.stream.name }}</td>
+                        <td><small>{{ allocation.allocated_by.username }}</small></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-muted" style="text-align: center; padding: 1rem;">No active students allocated to this room for this term.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if is_management %}
+    <div class="sidebar-forms">
+        <div class="card" id="bulkAllocationCard">
+            <h3 class="card-title" id="formPanelTitle">
+                <i class="fas fa-users-cog"></i> Bulk Room Allocation
+            </h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+                Select one target room, apply layout filters below, select multiple unallocated students, and submit them in bulk.
+            </p>
+            
+            <form id="bulkAllocationForm" method="POST" action="{% url 'attendance:view_lodgings' %}">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="bulk_room_id">Target Accommodation Room</label>
+                    <select name="room_id" id="bulk_room_id" class="form-control" required>
+                        <option value="" disabled selected>-- Choose Hostel & Room --</option>
+                        {% for room in rooms %}
+                            <option value="{{ room.id }}" 
+                                    data-capacity="{{ room.capacity }}" 
+                                    data-occupancy="{{ room.current_occupancy }}"
+                                    {% if room.current_occupancy >= room.capacity %}disabled style="color:#cbd5e1;"{% endif %}>
+                                {{ room.hostel.name }} - Room {{ room.name_or_number }} 
+                                ({{ room.current_occupancy }}/{{ room.capacity }} filled)
+                            </option>
+                        {% endfor %}
+                    </select>
+                    
+                    <div id="capacityFeedback" style="margin-top: 0.5rem; font-size: 0.85rem; font-weight: 600; display: none; padding: 0.4rem; border-radius: 4px;"></div>
+                </div>
+
+                <div class="form-group" style="margin-top: 1rem; margin-bottom: 0.5rem;">
+                    <label style="font-weight: 600;">Filter Student Roster Lists</label>
+                    <input type="text" id="js_student_search" class="form-control" placeholder="Search by name or reg number..." style="margin-bottom: 0.5rem;">
+                    
+                    <div class="bulk-filter-row">
+                        <select id="filter_dept" class="form-control" style="font-size: 0.8rem; padding: 0.3rem;">
+                            <option value="">All Depts</option>
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <select id="filter_course" class="form-control" style="font-size: 0.8rem; padding: 0.3rem;">
+                            <option value="">All Courses</option>
+                            {% for c in courses %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <select id="filter_stream" class="form-control" style="font-size: 0.8rem; padding: 0.3rem;">
+                            <option value="">All Classes</option>
+                            {% for s in streams %}
+                                <option value="{{ s.id }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="btn-group-row">
+                    <button type="button" id="btnMarkAll" class="mini-btn"><i class="fas fa-check-square"></i> Mark All</button>
+                    <button type="button" id="btnUnmarkAll" class="mini-btn"><i class="fas fa-square"></i> Unmark All</button>
+                </div>
+
+                <div class="student-check-scroll" id="studentChecklistContainer">
+                    {% for student in unallocated_students %}
+                    <div class="student-check-item student-row-item" 
+                         data-dept="{{ student.course.department_id }}"
+                         data-course="{{ student.course_id }}"
+                         data-stream="{{ student.stream_id }}"
+                         data-search-tokens="{{ student.name|lower }} {{ student.reg_number|lower }}">
+                        <label style="display: flex; align-items: center; width: 100%; cursor: pointer;">
+                            <input type="checkbox" name="student_ids" value="{{ student.pk }}" class="student-checkbox">
+                            <div style="margin-left: 0.5rem;">
+                                <strong>{{ student.name }}</strong><br>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">{{ student.reg_number }} | {{ student.stream.name }}</span>
+                            </div>
+                        </label>
+                    </div>
+                    {% empty %}
+                    <div class="text-muted p-2" id="emptyStateMsg" style="text-align: center; font-size: 0.85rem;">No unallocated students found this term.</div>
+                    {% endfor %}
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="margin-top: 1.25rem; width: 100%;">
+                    <i class="fas fa-plus-circle"></i> Commit Bulk Allocation
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if is_management %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Original Filter DOM hooks
+    const searchInput = document.getElementById('js_student_search');
+    const deptSelect = document.getElementById('filter_dept');
+    const courseSelect = document.getElementById('filter_course');
+    const streamSelect = document.getElementById('filter_stream');
+    const studentRows = document.querySelectorAll('.student-row-item');
+    const unmarkAllBtn = document.getElementById('btnUnmarkAll');
+
+    // NEW: Validation and Capacity DOM hooks
+    const allocationForm = document.getElementById('bulkAllocationForm');
+    const roomSelect = document.getElementById('bulk_room_id');
+    const markAllBtn = document.getElementById('btnMarkAll');
+    const feedbackBox = document.getElementById('capacityFeedback');
+    const checklistContainer = document.getElementById('studentChecklistContainer');
+
+    /**
+     * Extracts values from selected option properties to evaluate remaining capacity.
+     */
+    function getRemainingRoomSlots() {
+        const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+        if (!selectedOption || !selectedOption.value) return 0;
+        
+        const capacity = parseInt(selectedOption.getAttribute('data-capacity')) || 0;
+        const occupancy = parseInt(selectedOption.getAttribute('data-occupancy')) || 0;
+        return Math.max(0, capacity - occupancy);
+    }
+
+    /**
+     * Evaluates selection length against remaining space and applies semantic feedback styling.
+     */
+    function evaluateCapacityMetrics() {
+        if (!roomSelect.value) {
+            feedbackBox.style.display = 'none';
+            return;
+        }
+
+        const remainingSlots = getRemainingRoomSlots();
+        const checkedCount = checklistContainer.querySelectorAll('.student-checkbox:checked').length;
+        
+        feedbackBox.style.display = 'block';
+
+        if (checkedCount > remainingSlots) {
+            // Error: Over-capacity limits crossed
+            feedbackBox.style.backgroundColor = '#fce8e6';
+            feedbackBox.style.color = '#c5221f';
+            feedbackBox.innerHTML = `<i class="fas fa-times-circle"></i> Over-Capacity Alert: Selected ${checkedCount} students, but room only has ${remainingSlots} slots open.`;
+        } else {
+            // Healthy allocation selection space remaining
+            feedbackBox.style.backgroundColor = '#e6f4ea';
+            feedbackBox.style.color = '#137333';
+            feedbackBox.innerHTML = `<i class="fas fa-check-circle"></i> Selection Valid: Chosen ${checkedCount} of ${remainingSlots} available spaces.`;
+        }
+    }
+
+    // Bind capacity listeners to selection updates
+    roomSelect.addEventListener('change', evaluateCapacityMetrics);
+    checklistContainer.addEventListener('change', function(e) {
+        if (e.target.classList.contains('student-checkbox')) {
+            evaluateCapacityMetrics();
+        }
+    });
+
+    /**
+     * Intercepts form submit execution completely if constraints are breached.
+     */
+    allocationForm.addEventListener('submit', function(event) {
+        const remainingSlots = getRemainingRoomSlots();
+        const checkedCount = checklistContainer.querySelectorAll('.student-checkbox:checked').length;
+
+        if (!roomSelect.value) {
+            event.preventDefault();
+            alert("Execution Blocked: Please designate a target accommodation room.");
+            return;
+        }
+
+        if (checkedCount === 0) {
+            event.preventDefault();
+            alert("Execution Blocked: Please check at least one unallocated student profile.");
+            return;
+        }
+
+        if (checkedCount > remainingSlots) {
+            // STOP form delivery from generating server load/page reload
+            event.preventDefault();
+            alert(`Validation Guard: Allocation rejected! You have selected ${checkedCount} students, but your target room layout only has ${remainingSlots} spaces available. Please decrease your choices.`);
+        }
+    });
+
+    /**
+     * Modified Mark All logic to selectively check rows up to the remaining capacity constraint.
+     */
+    markAllBtn.addEventListener('click', function() {
+        if (!roomSelect.value) {
+            alert("Please select an accommodation room before marking students.");
+            return;
+        }
+
+        const remainingSlots = getRemainingRoomSlots();
+        let checkedCount = checklistContainer.querySelectorAll('.student-checkbox:checked').length;
+
+        if (checkedCount >= remainingSlots) {
+            alert(`Cannot mark additional items: The selected room is already at its targeted limit (${remainingSlots} slots).`);
+            return;
+        }
+
+        // Cycle through items and fill spaces until full
+        studentRows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const checkbox = row.querySelector('.student-checkbox');
+                if (!checkbox.checked && checkedCount < remainingSlots) {
+                    checkbox.checked = true;
+                    checkedCount++;
+                }
+            }
+        });
+
+        evaluateCapacityMetrics();
+    });
+
+    // Reset feedback calculations upon structural layout resets
+    unmarkAllBtn.addEventListener('click', function() {
+        studentRows.forEach(row => {
+            if (row.style.display !== 'none') {
+                row.querySelector('.student-checkbox').checked = false;
+            }
+        });
+        evaluateCapacityMetrics();
+    });
+
+    // Core lookup and filtering mechanics (unaltered logic)
+    function filterStudentList() {
+        const query = searchInput.value.toLowerCase().trim();
+        const selDept = deptSelect.value;
+        const selCourse = courseSelect.value;
+        const selStream = streamSelect.value;
+
+        studentRows.forEach(row => {
+            const rowDept = row.getAttribute('data-dept');
+            const rowCourse = row.getAttribute('data-course');
+            const rowStream = row.getAttribute('data-stream');
+            const tokens = row.getAttribute('data-search-tokens') || '';
+
+            const matchesSearch = !query || tokens.includes(query);
+            const matchesDept = !selDept || rowDept === selDept;
+            const matchesCourse = !selCourse || rowCourse === selCourse;
+            const matchesStream = !selStream || rowStream === selStream;
+
+            if (matchesSearch && matchesDept && matchesCourse && matchesStream) {
+                row.style.display = 'flex';
+            } else {
+                row.style.display = 'none';
+                row.querySelector('.student-checkbox').checked = false;
+            }
+        });
+        evaluateCapacityMetrics();
+    }
+
+    searchInput.addEventListener('keyup', filterStudentList);
+    deptSelect.addEventListener('change', filterStudentList);
+    courseSelect.addEventListener('change', filterStudentList);
+    streamSelect.addEventListener('change', filterStudentList);
+});
+</script>
+{% endif %}
+{% endblock %}

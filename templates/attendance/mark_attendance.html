@@ -1,0 +1,214 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<style>
+    .status-checkbox {
+        width: 1.25rem;
+        height: 1.25rem;
+        cursor: pointer;
+        accent-color: var(--success, #2e7d32);
+    }
+    #geo-status {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.9rem 1.2rem;
+        border-radius: var(--radius-sm);
+        font-weight: 500;
+        transition: var(--transition);
+    }
+    #geo-status i { font-size: 1.2rem; }
+    .search-box {
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .search-box input {
+        flex: 1;
+        min-width: 200px;
+        padding: 0.6rem 1rem;
+        border-radius: 50px;
+        border: 1px solid var(--border);
+        background: #f8fafc;
+        transition: var(--transition);
+    }
+    .search-box input:focus {
+        border-color: var(--secondary);
+        box-shadow: 0 0 0 3px rgba(44,110,107,0.15);
+        background: #fff;
+    }
+    .table-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .bulk-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.85rem;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        background: #fff;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .bulk-btn:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    .legend-indicator {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text-muted);
+    }
+    .btn-loading {
+        position: relative;
+        pointer-events: none;
+        opacity: 0.8;
+    }
+    .btn-loading::after {
+        content: '';
+        position: absolute;
+        width: 1.2rem;
+        height: 1.2rem;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top: 2px solid #fff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-left: 0.5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<div class="card">
+    <h2><i class="fas fa-clipboard-check"></i> Mark Class Attendance</h2>
+    <h3 style="color: var(--text-muted); margin-bottom: 1.5rem; font-weight: 400;">
+        Session: <span style="color: var(--text-main); font-weight: 600;">{{ entry.course_unit.name }} ({{ entry.class_name }})</span>
+    </h3>
+
+    <div id="geo-status" class="instruction-box" style="background: var(--warning-light); border-left-color: var(--warning); color: #92400e;">
+        <i class="fas fa-spinner fa-pulse"></i> Acquiring geolocation lock...
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="tableSearch" placeholder="🔍 Search by name or registration..." />
+        <span class="text-muted" style="font-size:0.85rem;">{{ students|length }} students</span>
+    </div>
+
+    <form method="POST" action="{% url 'attendance:mark_attendance' entry.id %}" id="attendance-native-form">
+        {% csrf_token %}
+        
+        <input type="hidden" name="latitude" id="geo-lat-input">
+        <input type="hidden" name="longitude" id="geo-lng-input">
+
+        <div class="table-actions">
+            <div class="legend-indicator">
+                <i class="fas fa-info-circle" style="color: var(--secondary);"></i> 
+                Sign: <span style="color: #16a34a; font-weight: 600;">☑ Ticked = Present</span> | <span style="color: #dc2626; font-weight: 600;">☐ Empty = Absent</span>
+            </div>
+            <div>
+                <button type="button" class="bulk-btn" id="mark-all-btn"><i class="fas fa-check-square"></i> Mark All Present</button>
+                <button type="button" class="bulk-btn" id="unmark-all-btn"><i class="fas fa-square"></i> Unmark All</button>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table id="attendance-table">
+                <thead>
+                    <tr>
+                        <th>Registration</th>
+                        <th>Full Name</th>
+                        <th style="width: 200px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in students %}
+                    <tr data-reg="{{ s.reg_number }}" data-name="{{ s.name|lower }}">
+                        <td style="font-family: monospace; font-weight: 600;">{{ s.reg_number }}</td>
+                        <td>{{ s.name }}</td>
+                        <td>
+                            <input type="checkbox" class="status-checkbox" name="student_{{ s.reg_number }}" value="PRESENT">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <button type="submit" id="submit-payload-btn" class="btn" style="width:100%; margin-top: 1.5rem;" disabled>
+            <i class="fas fa-save"></i> Commit Attendance Log
+        </button>
+    </form>
+</div>
+
+<script>
+const statusBox = document.getElementById('geo-status');
+const submitBtn = document.getElementById('submit-payload-btn');
+const latHiddenInput = document.getElementById('geo-lat-input');
+const lngHiddenInput = document.getElementById('geo-lng-input');
+const nativeForm = document.getElementById('attendance-native-form');
+
+// Geolocation Handler
+window.addEventListener('DOMContentLoaded', () => {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                
+                // Hydrate hidden inputs natively 
+                latHiddenInput.value = lat;
+                lngHiddenInput.value = lng;
+                
+                statusBox.className = 'alert alert-success';
+                statusBox.innerHTML = `<i class="fas fa-check-circle"></i> Geospatial lock confirmed: [LAT: ${lat.toFixed(6)}, LNG: ${lng.toFixed(6)}]`;
+                submitBtn.removeAttribute('disabled');
+            },
+            (error) => {
+                statusBox.className = 'alert alert-danger';
+                statusBox.innerHTML = `<i class="fas fa-times-circle"></i> Geolocation error: ${error.message}. Access denied.`;
+            }
+        );
+    } else {
+        statusBox.className = 'alert alert-danger';
+        statusBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Geolocation not supported by this browser.`;
+    }
+});
+
+// Search filter engine
+document.getElementById('tableSearch').addEventListener('input', function() {
+    const filter = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#attendance-table tbody tr');
+    rows.forEach(row => {
+        const reg = row.getAttribute('data-reg').toLowerCase();
+        const name = row.getAttribute('data-name').toLowerCase();
+        const match = reg.includes(filter) || name.includes(filter);
+        row.style.display = match ? '' : 'none';
+    });
+});
+
+// Bulk Select / Deselect Operations
+document.getElementById('mark-all-btn').addEventListener('click', () => {
+    const checkboxes = document.querySelectorAll('.status-checkbox');
+    checkboxes.forEach(cb => cb.checked = true);
+});
+
+document.getElementById('unmark-all-btn').addEventListener('click', () => {
+    const checkboxes = document.querySelectorAll('.status-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+});
+
+// Native submission UI locking loader
+nativeForm.addEventListener('submit', function() {
+    submitBtn.classList.add('btn-loading');
+    submitBtn.disabled = true;
+});
+</script>
+{% endblock %}

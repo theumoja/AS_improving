@@ -1,0 +1,147 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .header-title-group {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+    .header-title-group h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .header-icon-box {
+        width: 42px;
+        height: 42px;
+        border-radius: var(--radius-sm);
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    /* Transfer Form Container */
+    .transfer-card {
+        background: #ffffff;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        padding: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        max-width: 1000px;
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header Toolbar -->
+<div class="page-header-actions">
+    <div class="header-title-group">
+        <div class="header-icon-box">
+            <i class="fas fa-exchange-alt"></i>
+        </div>
+        <h2>Student Transfers</h2>
+    </div>
+</div>
+
+<!-- Main Transfer Form Card -->
+<div class="transfer-card">
+    <form method="POST" action="">
+        {% csrf_token %}
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="student_id">
+                    <i class="fas fa-user-graduate" style="margin-right:0.3rem;"></i> Target Student
+                </label>
+                <select id="student_id" name="student_id" class="form-control" required>
+                    <option value="">Select Student...</option>
+                    {% for s in students %}
+                        <option value="{{ s.reg_number }}">{{ s.name }} ({{ s.reg_number }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="new_stream">
+                    <i class="fas fa-layer-group" style="margin-right:0.3rem;"></i> New Stream
+                </label>
+                <select id="new_stream" name="new_stream" class="form-control">
+                    <option value="">No change</option>
+                    {% for st in streams %}
+                        <option value="{{ st.id }}">{{ st.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="new_course">
+                    <i class="fas fa-book" style="margin-right:0.3rem;"></i> New Course
+                </label>
+                <select id="new_course" name="new_course" class="form-control">
+                    <option value="">No change</option>
+                    {% for c in courses %}
+                        <option value="{{ c.code }}">{{ c.code }} - {{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; padding-top: 0.5rem;">
+            <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); min-width: 180px;">
+                <i class="fas fa-exchange-alt" style="margin-right: 0.5rem;"></i> Transfer Student
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

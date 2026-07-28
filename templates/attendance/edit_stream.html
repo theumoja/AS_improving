@@ -1,0 +1,30 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<div class="card" style="max-width: 600px; margin: 2rem auto;">
+    <h2><i class="fas fa-edit"></i> Edit Operational Stream</h2>
+    <form method="POST" action="">
+        {% csrf_token %}
+        <div style="margin-bottom: 1.25rem;">
+            <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem; color:var(--text-muted);" for="stream_name">Stream Layout Name</label>
+            <input type="text" id="stream_name" name="stream_name" class="form-control" style="width:100%; padding:0.65rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius-sm);" value="{{ stream.name }}" required>
+        </div>
+        <div style="margin-bottom: 1.25rem;">
+            <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem; color:var(--text-muted);" for="course_code">Parent Course Framework Reference</label>
+            <select id="course_code" name="course_code" class="form-control" style="width:100%; padding:0.65rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius-sm);" required>
+                {% for course in courses %}
+                <option value="{{ course.code }}" {% if stream.course.code == course.code %}selected{% endif %}>{{ course.code }} - {{ course.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="display:flex; gap:0.75rem; margin-top:2rem;">
+            <a href="{% url 'attendance:manage_streams' %}" class="btn btn-outline" style="flex:1; text-align:center;">Cancel</a>
+            <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Changes</button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

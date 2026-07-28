@@ -1,0 +1,9 @@
+openpyxl
+defusedxml
+Django>=4.2,<5.0
+gunicorn>=21.2,<22
+whitenoise>=6.6,<7
+psycopg2-binary>=2.9,<3
+dj-database-url
+reportlab
+python-dateutil

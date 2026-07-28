@@ -1,0 +1,743 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<style>
+    /* ----- Page background subtle ----- */
+    body {
+        background: #f8fafc;
+    }
+
+    /* ----- Form Card ----- */
+    .form-card {
+        background: #ffffff;
+        border: none;
+        border-radius: 20px;
+        padding: 2.5rem 2.5rem 2rem;
+        max-width: 850px;
+        margin: 2rem auto;
+        box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.08), 0 4px 8px -2px rgba(0, 0, 0, 0.02);
+        transition: box-shadow 0.3s ease;
+    }
+    .form-card:hover {
+        box-shadow: 0 30px 50px -15px rgba(0, 0, 0, 0.12);
+    }
+
+    /* ----- Header ----- */
+    .form-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 3px solid #f1f5f9;
+        position: relative;
+    }
+    .form-header::after {
+        content: '';
+        position: absolute;
+        bottom: -3px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 3px;
+        background: linear-gradient(90deg, #2c6e6b, #10b981);
+        border-radius: 4px;
+    }
+    .form-header h2 {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 0.4rem;
+        letter-spacing: -0.02em;
+    }
+    .form-header h2 i {
+        color: #2c6e6b;
+        margin-right: 0.5rem;
+    }
+    .form-header p {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    /* ----- Form Groups ----- */
+    .form-group {
+        margin-bottom: 1.4rem;
+    }
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #1e293b;
+        margin-bottom: 0.3rem;
+    }
+    .form-group label i {
+        margin-right: 0.4rem;
+        color: #2c6e6b;
+        width: 1.4rem;
+        text-align: center;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 1rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        background: #fafbfc;
+        transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        color: #0f172a;
+    }
+    .form-control:focus {
+        border-color: #2c6e6b;
+        box-shadow: 0 0 0 3px rgba(44, 110, 107, 0.12);
+        background: #ffffff;
+        outline: none;
+    }
+    .form-control::placeholder {
+        color: #94a3b8;
+    }
+
+    input[type="number"].form-control {
+        -moz-appearance: textfield;
+    }
+    input[type="number"].form-control::-webkit-outer-spin-button,
+    input[type="number"].form-control::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    /* ----- Book search & selection ----- */
+    .book-selector {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+        background: #fafbfc;
+        padding: 1rem;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+    }
+    .book-selector .search-wrap {
+        flex: 2;
+        min-width: 200px;
+        position: relative;
+    }
+    .book-selector .search-wrap i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+    }
+    .book-selector .search-wrap input {
+        padding-left: 2.5rem;
+        width: 100%;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 0.5rem 1rem 0.5rem 2.5rem;
+        font-size: 0.9rem;
+        background: #ffffff;
+        transition: border-color 0.2s;
+    }
+    .book-selector .search-wrap input:focus {
+        border-color: #2c6e6b;
+        box-shadow: 0 0 0 3px rgba(44, 110, 107, 0.1);
+        outline: none;
+    }
+
+    .book-selector .qty-wrap {
+        flex: 0 0 100px;
+    }
+    .book-selector .qty-wrap input {
+        width: 100%;
+        text-align: center;
+    }
+
+    .book-selector .add-btn {
+        flex: 0 0 auto;
+        padding: 0.5rem 1.2rem;
+        background: #2c6e6b;
+        color: #fff;
+        border: none;
+        border-radius: 50px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+    .book-selector .add-btn:hover {
+        background: #1e4f4d;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px -2px rgba(44, 110, 107, 0.3);
+    }
+    .book-selector .add-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .book-results {
+        margin-top: 0.75rem;
+        max-height: 180px;
+        overflow-y: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #ffffff;
+        padding: 0.25rem 0;
+    }
+    .book-results .result-item {
+        padding: 0.5rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #f1f5f9;
+        cursor: pointer;
+        transition: background 0.1s;
+        font-size: 0.9rem;
+    }
+    .book-results .result-item:hover {
+        background: #f1f5f9;
+    }
+    .book-results .result-item:last-child {
+        border-bottom: none;
+    }
+    .book-results .result-item .stock {
+        font-size: 0.75rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+    .book-results .result-item .stock .available {
+        color: #10b981;
+    }
+    .book-results .result-item .stock .out {
+        color: #ef4444;
+    }
+    .book-results .result-item .select-action {
+        color: #2c6e6b;
+        font-weight: 600;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        transition: background 0.1s;
+    }
+    .book-results .result-item .select-action:hover {
+        background: #e2e8f0;
+    }
+
+    /* ----- Selected books list ----- */
+    .selected-books {
+        margin-top: 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        background: #fafbfc;
+        min-height: 60px;
+    }
+    .selected-books .empty-msg {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        text-align: center;
+        padding: 0.5rem 0;
+    }
+    .selected-books table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    .selected-books table th {
+        text-align: left;
+        font-weight: 600;
+        color: #475569;
+        padding: 0.4rem 0.5rem;
+        border-bottom: 2px solid #e2e8f0;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .selected-books table td {
+        padding: 0.5rem 0.5rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    .selected-books table tr:last-child td {
+        border-bottom: none;
+    }
+    .selected-books .remove-btn {
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        transition: background 0.1s;
+    }
+    .selected-books .remove-btn:hover {
+        background: #fee2e2;
+    }
+
+    /* ----- Hidden inputs for selected books ----- */
+    #selectedBooksContainer {
+        display: none;
+    }
+
+    /* ----- Buttons ----- */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.5rem;
+        border: none;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #2c6e6b, #1e4f4d);
+        color: #fff;
+        box-shadow: 0 4px 10px -2px rgba(44, 110, 107, 0.3);
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -4px rgba(44, 110, 107, 0.4);
+        background: linear-gradient(135deg, #1e4f4d, #0f3a38);
+    }
+    .btn-secondary {
+        background: #f1f5f9;
+        color: #475569;
+    }
+    .btn-secondary:hover {
+        background: #e2e8f0;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px -2px rgba(0,0,0,0.05);
+    }
+
+    .button-group {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    .button-group .btn {
+        flex: 1;
+        padding: 0.75rem 1.5rem;
+    }
+    @media (max-width: 480px) {
+        .button-group {
+            flex-direction: column;
+        }
+        .button-group .btn {
+            width: 100%;
+        }
+        .book-selector {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .book-selector .qty-wrap {
+            flex: 1;
+        }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .form-card {
+            padding: 1.5rem;
+            margin: 1rem;
+            border-radius: 16px;
+        }
+        .form-header h2 {
+            font-size: 1.5rem;
+        }
+        .form-group label {
+            font-size: 0.8rem;
+        }
+        .form-control {
+            font-size: 0.9rem;
+            padding: 0.55rem 0.8rem;
+        }
+    }
+</style>
+
+<div class="form-card">
+    <div class="form-header">
+        <h2><i class="fas fa-book-reader"></i> Dedicated Issuance Portal</h2>
+        <p>Log institutional book loans for active Students and Teachers</p>
+    </div>
+
+    <form action="{% url 'attendance:issue_book' %}" method="POST" id="issueForm">
+        {% csrf_token %}
+
+        <!-- Borrower Type -->
+        <div class="form-group">
+            <label for="borrower_type"><i class="fas fa-user-tag"></i> Borrower Profile</label>
+            <select name="borrower_type" id="borrower_type" class="form-control" required>
+                <option value="student" selected>Student Profile</option>
+                <option value="teacher">Teacher Profile</option>
+            </select>
+        </div>
+
+        <!-- Student Select -->
+        <div class="form-group" id="student-group">
+            <label for="student_id"><i class="fas fa-user-graduate"></i> Search Student (Name / Reg. No.)</label>
+            <input type="text" name="student_id" id="student_id" class="form-control" list="student_list" placeholder="Type name or registration number...">
+            <datalist id="student_list">
+                {% for student in students %}
+                    <option value="{{ student.reg_number }}">{{ student.name }} ({{ student.reg_number }})</option>
+                {% endfor %}
+            </datalist>
+        </div>
+
+        <!-- Teacher Select -->
+        <div class="form-group" id="teacher-group" style="display:none;">
+            <label for="teacher_id"><i class="fas fa-chalkboard-teacher"></i> Search Teacher (Name / Staff ID)</label>
+            <input type="text" name="teacher_id" id="teacher_id" class="form-control" list="teacher_list" placeholder="Type staff name or ID...">
+            <datalist id="teacher_list">
+                {% for teacher in teachers %}
+                    <option value="{{ teacher.name }}">{{ teacher.name }} ({{ teacher.user.username }})</option>
+                {% endfor %}
+            </datalist>
+        </div>
+
+        <!-- ========== BOOK SELECTION WITH QUANTITY ========== -->
+        <div class="form-group">
+            <label><i class="fas fa-book-open"></i> Select Books with Quantities</label>
+            
+            <!-- Search + Add -->
+            <div class="book-selector">
+                <div class="search-wrap">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="bookSearch" placeholder="Search by title or author..." autocomplete="off">
+                </div>
+                <div class="qty-wrap">
+                    <input type="number" id="bookQty" class="form-control" min="1" value="1" placeholder="Qty">
+                </div>
+                <button type="button" class="add-btn" id="addBookBtn" disabled>
+                    <i class="fas fa-plus"></i> Add Book
+                </button>
+            </div>
+
+            <!-- Results dropdown -->
+            <div class="book-results" id="bookResults" style="display:none;"></div>
+
+            <!-- Selected books list -->
+            <div class="selected-books" id="selectedBooks">
+                <div class="empty-msg"><i class="fas fa-inbox"></i> No books selected yet. Search and add above.</div>
+            </div>
+
+            <!-- Hidden container for submitted data -->
+            <div id="selectedBooksContainer"></div>
+        </div>
+
+        <!-- Due Date -->
+        <div class="form-group">
+            <label for="due_date"><i class="fas fa-calendar-alt"></i> Return Deadline</label>
+            <input type="date" name="due_date" id="due_date" class="form-control" value="{{ default_due }}" required>
+        </div>
+
+        <!-- Remarks -->
+        <div class="form-group">
+            <label for="remarks"><i class="fas fa-pen"></i> Remarks (Optional)</label>
+            <textarea name="remarks" id="remarks" rows="2" class="form-control" placeholder="Any additional notes about this loan..."></textarea>
+        </div>
+
+        <!-- Buttons -->
+        <div class="button-group">
+            <a href="{% url 'attendance:manage_library' %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                <i class="fas fa-check-circle"></i> Authorize Transaction
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // ----- Borrower type toggle -----
+        const bType = document.getElementById('borrower_type');
+        const sGrp = document.getElementById('student-group');
+        const tGrp = document.getElementById('teacher-group');
+        const sInput = document.getElementById('student_id');
+        const tInput = document.getElementById('teacher_id');
+
+        function toggleUI() {
+            if (bType.value === 'student') {
+                sGrp.style.display = 'block';
+                sInput.required = true;
+                tGrp.style.display = 'none';
+                tInput.required = false;
+                tInput.value = '';
+            } else {
+                sGrp.style.display = 'none';
+                sInput.required = false;
+                sInput.value = '';
+                tGrp.style.display = 'block';
+                tInput.required = true;
+            }
+        }
+        bType.addEventListener('change', toggleUI);
+        toggleUI();
+
+        // ----- Book data from Django -----
+        const booksData = [
+            {% for book in books %}
+            {
+                id: {{ book.id }},
+                title: "{{ book.title|escapejs }}",
+                author: "{{ book.author|default:''|escapejs }}",
+                available: {{ book.available_copies }},
+                total: {{ book.total_copies }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+
+        // ----- DOM refs -----
+        const searchInput = document.getElementById('bookSearch');
+        const qtyInput = document.getElementById('bookQty');
+        const addBtn = document.getElementById('addBookBtn');
+        const resultsDiv = document.getElementById('bookResults');
+        const selectedContainer = document.getElementById('selectedBooks');
+        const hiddenContainer = document.getElementById('selectedBooksContainer');
+        const form = document.getElementById('issueForm');
+
+        // ----- State -----
+        let selected = []; // array of {id, title, author, qty, available, total}
+
+        // ----- Render selected list -----
+        function renderSelected() {
+            if (selected.length === 0) {
+                selectedContainer.innerHTML = `<div class="empty-msg"><i class="fas fa-inbox"></i> No books selected yet. Search and add above.</div>`;
+                hiddenContainer.innerHTML = '';
+                return;
+            }
+
+            let html = `<table>
+                <thead><tr><th>Book</th><th>Qty</th><th>Stock</th><th>Remove</th></tr></thead><tbody>`;
+            selected.forEach((item, index) => {
+                const stockDisplay = item.available > 0 ? 
+                    `<span class="available">${item.available} available</span>` : 
+                    `<span class="out">Out of stock</span>`;
+                html += `<tr>
+                    <td><strong>${item.title}</strong> ${item.author ? 'by '+item.author : ''}</td>
+                    <td>${item.qty}</td>
+                    <td>${stockDisplay}</td>
+                    <td><button type="button" class="remove-btn" data-index="${index}"><i class="fas fa-trash-alt"></i></button></td>
+                </tr>`;
+            });
+            html += `</tbody></table>`;
+            selectedContainer.innerHTML = html;
+
+            // Attach remove handlers
+            selectedContainer.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const idx = parseInt(this.dataset.index);
+                    selected.splice(idx, 1);
+                    renderSelected();
+                    updateHiddenFields();
+                });
+            });
+
+            updateHiddenFields();
+        }
+
+        // ----- Update hidden fields for form submission -----
+        function updateHiddenFields() {
+            hiddenContainer.innerHTML = '';
+            selected.forEach((item, idx) => {
+                const idInput = document.createElement('input');
+                idInput.type = 'hidden';
+                idInput.name = `book_ids[]`;
+                idInput.value = item.id;
+                hiddenContainer.appendChild(idInput);
+
+                const qtyInput = document.createElement('input');
+                qtyInput.type = 'hidden';
+                qtyInput.name = `quantities[]`;
+                qtyInput.value = item.qty;
+                hiddenContainer.appendChild(qtyInput);
+            });
+        }
+
+        // ----- Search logic -----
+        let currentResults = [];
+
+        function performSearch(query) {
+            query = query.toLowerCase().trim();
+            if (query.length === 0) {
+                resultsDiv.style.display = 'none';
+                addBtn.disabled = true;
+                return;
+            }
+
+            const filtered = booksData.filter(b => 
+                b.title.toLowerCase().includes(query) || 
+                (b.author && b.author.toLowerCase().includes(query))
+            ).filter(b => b.available > 0); // only show in-stock
+
+            currentResults = filtered;
+            if (filtered.length === 0) {
+                resultsDiv.innerHTML = `<div class="result-item" style="color:#94a3b8; cursor:default;">No matching books with stock available.</div>`;
+                resultsDiv.style.display = 'block';
+                addBtn.disabled = true;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(b => {
+                const stockText = b.available > 0 ? 
+                    `<span class="available">${b.available} available</span>` : 
+                    `<span class="out">Out of stock</span>`;
+                html += `<div class="result-item" data-id="${b.id}">
+                    <div><strong>${b.title}</strong> ${b.author ? '– '+b.author : ''}</div>
+                    <div class="stock">${stockText}</div>
+                </div>`;
+            });
+            resultsDiv.innerHTML = html;
+            resultsDiv.style.display = 'block';
+            addBtn.disabled = false;
+
+            // Click on result -> select it and add automatically?
+            resultsDiv.querySelectorAll('.result-item').forEach(el => {
+                el.addEventListener('click', function() {
+                    const id = parseInt(this.dataset.id);
+                    const book = booksData.find(b => b.id === id);
+                    if (book) {
+                        // Add with current quantity
+                        addBook(book);
+                    }
+                    // Clear search and hide results
+                    searchInput.value = '';
+                    resultsDiv.style.display = 'none';
+                    addBtn.disabled = true;
+                });
+            });
+        }
+
+        // ----- Add book to selection -----
+        function addBook(book) {
+            const qty = parseInt(qtyInput.value) || 1;
+            if (qty < 1) {
+                alert('Please enter a quantity of at least 1.');
+                return;
+            }
+            if (qty > book.available) {
+                alert(`Only ${book.available} copies available. Please reduce quantity.`);
+                return;
+            }
+
+            // Check if already selected (then update qty)
+            const existing = selected.find(item => item.id === book.id);
+            if (existing) {
+                const newQty = existing.qty + qty;
+                if (newQty > book.available) {
+                    alert(`You already selected ${existing.qty} copies. The total would exceed available stock (${book.available}).`);
+                    return;
+                }
+                existing.qty = newQty;
+            } else {
+                selected.push({
+                    id: book.id,
+                    title: book.title,
+                    author: book.author,
+                    qty: qty,
+                    available: book.available,
+                    total: book.total
+                });
+            }
+
+            renderSelected();
+            // Reset quantity to 1
+            qtyInput.value = 1;
+            // Clear search
+            searchInput.value = '';
+            resultsDiv.style.display = 'none';
+            addBtn.disabled = true;
+        }
+
+        // ----- Add button click -----
+        addBtn.addEventListener('click', function() {
+            // Get the first result or use the search query?
+            // We'll pick the first result if any
+            if (currentResults.length > 0) {
+                const book = currentResults[0];
+                addBook(book);
+            } else {
+                alert('No book selected from search results.');
+            }
+        });
+
+        // ----- Search input events -----
+        searchInput.addEventListener('input', function() {
+            performSearch(this.value);
+        });
+        searchInput.addEventListener('blur', function() {
+            // Delay hiding to allow click on results
+            setTimeout(() => {
+                // Only hide if not focused on results
+                if (!resultsDiv.contains(document.activeElement)) {
+                    resultsDiv.style.display = 'none';
+                    addBtn.disabled = true;
+                }
+            }, 150);
+        });
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim().length > 0) {
+                performSearch(this.value);
+            }
+        });
+
+        // ----- Keyboard: Enter on search adds first result -----
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (currentResults.length > 0) {
+                    addBook(currentResults[0]);
+                }
+            }
+        });
+
+        // ----- Quantity validation -----
+        qtyInput.addEventListener('change', function() {
+            if (this.value < 1) this.value = 1;
+        });
+
+        // ----- Form submission validation -----
+        form.addEventListener('submit', function(e) {
+            if (selected.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one book to issue.');
+                return;
+            }
+            // Check that quantities don't exceed available
+            for (let item of selected) {
+                if (item.qty > item.available) {
+                    e.preventDefault();
+                    alert(`"${item.title}" only has ${item.available} copies available. You selected ${item.qty}.`);
+                    return;
+                }
+            }
+            // All good
+        });
+
+        // Initial render
+        renderSelected();
+
+        // Also close results on outside click
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.book-selector') && !e.target.closest('.book-results')) {
+                resultsDiv.style.display = 'none';
+                addBtn.disabled = true;
+            }
+        });
+    });
+</script>
+{% endblock %}

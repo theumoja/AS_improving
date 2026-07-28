@@ -1,0 +1,728 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+    <style>
+        /* ── Existing styles (kept intact) ── */
+        .disc-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            margin-top: 1rem;
+        }
+        @media (min-width: 992px) {
+            .disc-grid.has-sidebar { grid-template-columns: 2fr 1fr; }
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .data-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .data-table th { background: #f8fafc; color: #475569; font-weight: 600; padding: 1rem; border-bottom: 2px solid var(--border); }
+        .data-table td { padding: 1rem; border-bottom: 1px solid var(--border); color: #334155; vertical-align: top; }
+        .data-table tr:hover { background-color: #f1f5f9; }
+        
+        /* ── Badge styles (extended for new severities) ── */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .sev-MILD { background-color: #fef3c7; color: #d97706; }
+        .sev-SEVERE { background-color: #ffedd5; color: #ea580c; }
+        .sev-VERY_SEVERE { background-color: #fee2e2; color: #b91c1c; }
+        .sev-SUSPENDED_2W { background-color: #fde68a; color: #b45309; }
+        .sev-INDEF_SUSPENDED { background-color: #fdba74; color: #9a3412; }
+        .sev-EXPELLED { background-color: #fca5a5; color: #7f1d1d; }
+
+        /* ── Filter bar styles ── */
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem 1rem;
+            padding: 1rem 1.25rem;
+            background: #f8fafc;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+        }
+        .filter-bar .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .filter-bar .filter-group label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .filter-bar .filter-group .form-control {
+            padding: 0.45rem 0.75rem;
+            font-size: 0.9rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid #d1d5db;
+            background: #fff;
+            transition: border-color 0.2s;
+            min-width: 140px;
+        }
+        .filter-bar .filter-group .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        .filter-bar .btn-clear {
+            background: #e2e8f0;
+            color: #475569;
+            border: none;
+            padding: 0.45rem 1.2rem;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .filter-bar .btn-clear:hover { background: #cbd5e1; }
+        .filter-bar .filter-count {
+            margin-left: auto;
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .filter-bar .filter-count strong { color: #0f172a; }
+
+        .no-results-row td {
+            text-align: center;
+            padding: 2.5rem 1rem;
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+        .no-results-row td .icon {
+            display: block;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .data-table tbody tr.row-hidden { display: none; }
+        .data-table tbody tr.row-visible { display: table-row; }
+
+        /* ── Action buttons ── */
+        .action-group {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.3rem 0.8rem;
+            border: none;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-action:hover { transform: translateY(-1px); }
+        .btn-edit {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+        .btn-edit:hover { background: #bae6fd; }
+        .btn-delete {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .btn-delete:hover { background: #fecaca; }
+        .btn-readonly {
+            background: #f1f5f9;
+            color: #94a3b8;
+            cursor: default;
+        }
+        .btn-readonly:hover { transform: none; }
+
+        /* ── Professional form styles (unchanged) ── */
+        .form-card {
+            border: none !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06) !important;
+            border-radius: 1rem !important;
+            overflow: hidden;
+        }
+        .form-card .card-title {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            padding: 1rem 1.75rem;
+            margin: -1.5rem -1.5rem 1.8rem -1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 1.15rem;
+            color: #1e293b;
+        }
+        .form-card .card-title svg {
+            color: #4f46e5;
+        }
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        .form-label-enhanced {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 0.35rem;
+            font-size: 0.9rem;
+        }
+        .required-star {
+            color: #ef4444;
+            margin-left: 0.15rem;
+        }
+        .input-icon-wrapper {
+            position: relative;
+        }
+        .input-icon-wrapper .form-control {
+            padding-left: 2.6rem;
+            padding-right: 1rem;
+        }
+        .input-icon-wrapper .input-icon {
+            position: absolute;
+            left: 0.85rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            width: 1.2rem;
+            height: 1.2rem;
+            pointer-events: none;
+            stroke-width: 2;
+        }
+        .form-control-enhanced {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.6rem;
+            background: #ffffff;
+            font-size: 0.95rem;
+            transition: all 0.2s ease-in-out;
+            font-family: var(--font);
+            box-sizing: border-box;
+            color: #1e293b;
+        }
+        .form-control-enhanced:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+            outline: none;
+        }
+        .form-control-enhanced::placeholder {
+            color: #b0b9c8;
+            font-size: 0.9rem;
+        }
+        select.form-control-enhanced {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.2rem;
+            padding-right: 2.8rem;
+        }
+        .form-row-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .char-counter {
+            text-align: right;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 0.3rem;
+            font-weight: 500;
+        }
+        .char-counter.warning {
+            color: #d97706;
+        }
+        .char-counter.danger {
+            color: #ef4444;
+        }
+        .btn-submit {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            border: none;
+            padding: 0.85rem 1.5rem;
+            border-radius: 0.6rem;
+            font-weight: 600;
+            width: 100%;
+            transition: transform 0.15s ease, box-shadow 0.25s ease;
+            box-shadow: 0 4px 10px -2px rgba(79, 70, 229, 0.35);
+            font-size: 1rem;
+            letter-spacing: 0.02em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            margin-top: 0.5rem;
+            cursor: pointer;
+        }
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 20px -5px rgba(79, 70, 229, 0.45);
+            background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+        }
+        .btn-submit:active {
+            transform: translateY(0px);
+            box-shadow: 0 4px 8px -2px rgba(79, 70, 229, 0.3);
+        }
+
+        @media (max-width: 640px) {
+            .form-row-grid {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            .form-card .card-title {
+                padding: 0.8rem 1.25rem;
+                font-size: 1rem;
+            }
+            .form-card {
+                padding: 1.25rem !important;
+            }
+            .filter-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-bar .filter-group {
+                flex-wrap: wrap;
+            }
+            .filter-bar .filter-group .form-control {
+                min-width: 100%;
+                flex: 1;
+            }
+            .filter-bar .filter-count {
+                margin-left: 0;
+                text-align: center;
+            }
+            .filter-bar .btn-clear {
+                width: 100%;
+                justify-content: center;
+            }
+            .action-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .btn-action {
+                justify-content: center;
+            }
+        }
+        @media (max-width: 480px) {
+            .filter-bar .filter-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-bar .filter-group label {
+                margin-bottom: 0.2rem;
+            }
+        }
+    </style>
+
+    <div class="container-fluid">
+        <div class="toolbar">
+            <div>
+                <h1 style="margin: 0; color: #1e293b;">Conduct & Disciplinary Logs</h1>
+                <p style="margin: 0.25rem 0 0 0; color: #64748b;">
+                    {% if can_report %}Log conduct breaches and manage filed case sheets.{% else %}Review academic conduct records evaluation grid.{% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="disc-grid {% if can_report %}has-sidebar{% endif %}">
+            <!-- INCIDENT TIMELINE LOGS (with filters) -->
+            <div class="card">
+                <div class="card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    Incident Timeline Logs
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="filter-bar" id="filterBar">
+                    <div class="filter-group">
+                        <label for="searchInput">🔍</label>
+                        <input type="text" id="searchInput" class="form-control" placeholder="Search incidents…" autocomplete="off">
+                    </div>
+                    <div class="filter-group">
+                        <label for="severityFilter">Severity</label>
+                        <select id="severityFilter" class="form-control">
+                            <option value="">All</option>
+                            <option value="MILD">Mild</option>
+                            <option value="SEVERE">Severe</option>
+                            <option value="VERY_SEVERE">Very Severe</option>
+                            <option value="SUSPENDED_2W">Suspended (2 weeks)</option>
+                            <option value="INDEF_SUSPENDED">Indefinitely Suspended</option>
+                            <option value="EXPELLED">Expelled</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="studentFilter">Student</label>
+                        <select id="studentFilter" class="form-control">
+                            <option value="">All Students</option>
+                        </select>
+                    </div>
+                    <button class="btn-clear" id="clearFiltersBtn">Clear Filters</button>
+                    <span class="filter-count" id="filterCount">Showing <strong id="visibleCount">0</strong> of <strong id="totalCount">0</strong> records</span>
+                </div>
+
+                <!-- Table -->
+                <div style="overflow-x: auto;">
+                    <table class="data-table" id="incidentTable">
+                        <thead>
+                            <tr>
+                                <th>Student Target</th>
+                                <th>Incident Case / Details</th>
+                                <th>Severity</th>
+                                <th>Logged By</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            {% for record in records %}
+                                <tr data-severity="{{ record.severity }}" data-student="{{ record.student.name|lower }}">
+                                    <td style="white-space: nowrap;">
+                                        <strong>{{ record.student.name }}</strong><br>
+                                        <small style="color: #64748b;">{{ record.student.reg_number }}</small>
+                                    </td>
+                                    <td>
+                                        <span style="font-weight: 700; color: #0f172a; display: block; margin-bottom: 0.25rem;">{{ record.subject }}</span>
+                                        <p style="margin: 0; font-size: 0.9rem; color: #475569;">{{ record.details }}</p>
+                                        <small style="color: #94a3b8; display: block; margin-top: 0.5rem;">Reported: {{ record.date_logged|date:"d M Y H:i" }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge sev-{{ record.severity }}">{{ record.get_severity_display }}</span>
+                                    </td>
+                                    <td>
+                                        <span style="font-size: 0.9rem; font-weight: 500;">{{ record.reported_by.get_role_display }}</span><br>
+                                        <small style="color:#64748b;">@{{ record.reported_by.username }}</small>
+                                    </td>
+                                    <td style="text-align: right; vertical-align: middle;">
+                                        <div class="action-group">
+                                            {% if is_admin or record.reported_by == request.user %}
+                                                <!-- Edit button -->
+                                                <a href="{% url 'attendance:edit_complaint' record.id %}" class="btn-action btn-edit">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                                    </svg>
+                                                    Edit
+                                                </a>
+                                                <!-- Delete button -->
+                                                <a href="{% url 'attendance:delete_complaint' record.id %}"
+                                                   class="btn-action btn-delete"
+                                                   onclick="return confirm('Are you sure you want to permanently delete this file record?');">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <polyline points="3 6 5 6 21 6"/>
+                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                                    </svg>
+                                                    Delete
+                                                </a>
+                                            {% else %}
+                                                <span class="btn-action btn-readonly">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <circle cx="12" cy="12" r="10"/>
+                                                        <line x1="12" y1="8" x2="12" y2="12"/>
+                                                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                                    </svg>
+                                                    Read-Only
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr id="emptyStateRow">
+                                    <td colspan="5" style="text-align: center; padding: 3rem; color: #64748b;">
+                                        The code registry clean sheet is clear. No behavior complaints recorded.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            <tr id="noMatchesRow" style="display: none;" class="no-results-row">
+                                <td colspan="5">
+                                    <span class="icon">🔎</span>
+                                    No incidents match your current filters.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!--  🚀  PROFESSIONAL FORM (Log New Incident Case) -->
+            <!-- ============================================ -->
+            {% if can_report %}
+                <div class="card form-card">
+                    <div class="card-title">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        Log New Incident Case
+                    </div>
+
+                    <form method="POST" action="{% url 'attendance:add_complaint' %}" id="incidentForm">
+                        {% csrf_token %}
+
+                        <!-- Grid: Student + Severity -->
+                        <div class="form-row-grid">
+                            <div class="form-group">
+                                <label for="student_id" class="form-label-enhanced">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                        <circle cx="12" cy="7" r="4"/>
+                                    </svg>
+                                    Target Student <span class="required-star">*</span>
+                                </label>
+                                <select name="student_id" id="student_id" class="form-control form-control-enhanced" required>
+                                    <option value="" disabled selected>— Choose Student Profile —</option>
+                                    {% for student in students %}
+                                        <option value="{{ student.reg_number }}">{{ student.name }} ({{ student.reg_number }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="severity" class="form-label-enhanced">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    Severity <span class="required-star">*</span>
+                                </label>
+                                <select name="severity" id="severity" class="form-control form-control-enhanced" required>
+                                    {% for code, label in severities %}
+                                        <option value="{{ code }}">{{ label }}</option>
+                                    {% endfor %}
+                                    <option value="SUSPENDED_2W">Suspended (2 weeks)</option>
+                                    <option value="INDEF_SUSPENDED">Indefinitely Suspended</option>
+                                    <option value="EXPELLED">Expelled</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Subject -->
+                        <div class="form-group">
+                            <label for="subject" class="form-label-enhanced">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                    <line x1="16" y1="13" x2="8" y2="13"/>
+                                    <line x1="16" y1="17" x2="8" y2="17"/>
+                                    <polyline points="10 9 9 9 8 9"/>
+                                </svg>
+                                Case Headline <span class="required-star">*</span>
+                            </label>
+                            <div class="input-icon-wrapper">
+                                <input type="text" name="subject" id="subject" class="form-control form-control-enhanced"
+                                       placeholder="e.g., Examination malpractice attempt" maxlength="200" required>
+                            </div>
+                        </div>
+
+                        <!-- Details -->
+                        <div class="form-group">
+                            <label for="details" class="form-label-enhanced">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                    <polyline points="9 10 11 12 15 8"/>
+                                </svg>
+                                Detailed Narrative <span class="required-star">*</span>
+                            </label>
+                            <textarea name="details" id="details" rows="4" class="form-control form-control-enhanced"
+                                      placeholder="Provide factual context regarding the infraction…" maxlength="1500" required></textarea>
+                            <div class="char-counter" id="charCounter">0 / 1500</div>
+                        </div>
+
+                        <button type="submit" class="btn-submit">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"/>
+                                <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/>
+                            </svg>
+                            Commit Complaint Record
+                        </button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ─── FILTER & COUNTER JAVASCRIPT ─── -->
+    <script>
+        (function() {
+            'use strict';
+
+            const tbody = document.getElementById('tableBody');
+            const searchInput = document.getElementById('searchInput');
+            const severityFilter = document.getElementById('severityFilter');
+            const studentFilter = document.getElementById('studentFilter');
+            const clearBtn = document.getElementById('clearFiltersBtn');
+            const visibleCountEl = document.getElementById('visibleCount');
+            const totalCountEl = document.getElementById('totalCount');
+            const emptyStateRow = document.getElementById('emptyStateRow');
+            const noMatchesRow = document.getElementById('noMatchesRow');
+
+            function getDataRows() {
+                return Array.from(tbody.querySelectorAll('tr'))
+                    .filter(row => row.id !== 'emptyStateRow' && row.id !== 'noMatchesRow');
+            }
+
+            function populateStudentFilter() {
+                const rows = getDataRows();
+                const studentSet = new Set();
+                rows.forEach(row => {
+                    const nameCell = row.querySelector('td:first-child strong');
+                    if (nameCell) {
+                        const name = nameCell.textContent.trim();
+                        if (name) studentSet.add(name);
+                    }
+                });
+                const sorted = Array.from(studentSet).sort((a, b) => a.localeCompare(b));
+                const currentVal = studentFilter.value;
+                studentFilter.innerHTML = '<option value="">All Students</option>';
+                sorted.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name.toLowerCase();
+                    opt.textContent = name;
+                    studentFilter.appendChild(opt);
+                });
+                if (currentVal && sorted.some(n => n.toLowerCase() === currentVal)) {
+                    studentFilter.value = currentVal;
+                }
+            }
+
+            function applyFilters() {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                const severityVal = severityFilter.value;
+                const studentVal = studentFilter.value.toLowerCase().trim();
+
+                const rows = getDataRows();
+                let visible = 0;
+                const total = rows.length;
+
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    const severityCode = row.getAttribute('data-severity') || '';
+                    const studentAttr = row.getAttribute('data-student') || '';
+
+                    let matches = true;
+                    if (searchTerm && !text.includes(searchTerm)) matches = false;
+                    if (matches && severityVal && severityCode !== severityVal) matches = false;
+                    if (matches && studentVal && !studentAttr.includes(studentVal)) matches = false;
+
+                    if (matches) {
+                        row.classList.remove('row-hidden');
+                        row.classList.add('row-visible');
+                        visible++;
+                    } else {
+                        row.classList.remove('row-visible');
+                        row.classList.add('row-hidden');
+                    }
+                });
+
+                totalCountEl.textContent = total;
+                visibleCountEl.textContent = visible;
+
+                if (emptyStateRow) {
+                    emptyStateRow.style.display = (total > 0) ? 'none' : '';
+                }
+                if (noMatchesRow) {
+                    noMatchesRow.style.display = (total > 0 && visible === 0) ? '' : 'none';
+                }
+                rows.forEach(row => {
+                    if (row.classList.contains('row-visible')) {
+                        row.style.display = 'table-row';
+                    } else if (row.classList.contains('row-hidden')) {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+
+            function debounce(fn, delay) {
+                let timer = null;
+                return function(...args) {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => fn.apply(this, args), delay);
+                };
+            }
+
+            const debouncedFilter = debounce(applyFilters, 250);
+
+            function clearFilters() {
+                searchInput.value = '';
+                severityFilter.value = '';
+                studentFilter.value = '';
+                applyFilters();
+                searchInput.focus();
+            }
+
+            searchInput.addEventListener('input', debouncedFilter);
+            severityFilter.addEventListener('change', applyFilters);
+            studentFilter.addEventListener('change', applyFilters);
+            clearBtn.addEventListener('click', clearFilters);
+
+            if (window.MutationObserver) {
+                const observer = new MutationObserver(function(mutations) {
+                    populateStudentFilter();
+                    applyFilters();
+                });
+                observer.observe(tbody, { childList: true, subtree: true });
+            }
+
+            populateStudentFilter();
+            applyFilters();
+
+            // ─── Character counter for textarea ───
+            const detailsTextarea = document.getElementById('details');
+            const charCounter = document.getElementById('charCounter');
+            if (detailsTextarea && charCounter) {
+                const max = parseInt(detailsTextarea.getAttribute('maxlength')) || 1500;
+                function updateCounter() {
+                    const len = detailsTextarea.value.length;
+                    const remaining = max - len;
+                    charCounter.textContent = `${len} / ${max}`;
+                    charCounter.classList.remove('warning', 'danger');
+                    if (remaining <= 50) charCounter.classList.add('warning');
+                    if (remaining <= 20) charCounter.classList.add('danger');
+                }
+                detailsTextarea.addEventListener('input', updateCounter);
+                updateCounter();
+            }
+
+            window.discFilter = {
+                applyFilters,
+                clearFilters,
+                populateStudentFilter,
+                getDataRows
+            };
+
+        })();
+    </script>
+{% endblock %}

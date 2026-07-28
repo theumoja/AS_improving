@@ -1,0 +1,119 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<div class="card" style="background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: #ffffff; padding: 4rem 2.5rem; text-align: center; margin-bottom: 2.5rem; border: none; position: relative; overflow: hidden;">
+    <div style="position: absolute; top: -20%; right: -10%; font-size: 15rem; color: rgba(255,255,255,0.03); pointer-events: none;">
+        <i class="fas fa-university"></i>
+    </div>
+    <h1 style="font-size: 2.8rem; font-weight: 700; margin-bottom: 0.5rem; color: #ffffff;">UTC Bushenyi Attendance Hub</h1>
+    <p style="font-size: 1.2rem; color: var(--primary-light); max-width: 700px; margin: 0 auto 2rem auto; opacity: 0.9;">
+        A high-integrity, localized digital telemetry engine designed to automate, track, and analyze student presence across academic units.
+    </p>
+    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        {% if user.is_authenticated %}
+            {% if user.role == 'ADMIN' %}
+                <a href="{% url 'attendance:admin_dashboard' %}" class="btn" style="background: #ffffff; color: var(--primary-dark); font-weight: 600; padding: 0.8rem 2rem;">
+                    <i class="fas fa-chart-line"></i> Control Console
+                </a>
+            {% elif user.role == 'TEACHER' %}
+                <a href="{% url 'attendance:teacher_dashboard' %}" class="btn" style="background: #ffffff; color: var(--primary-dark); font-weight: 600; padding: 0.8rem 2rem;">
+                    <i class="fas fa-chalkboard-teacher"></i> Lecturer Portal
+                </a>
+            {% else %}
+                <a href="{% url 'attendance:student_dashboard' %}" class="btn" style="background: #ffffff; color: var(--primary-dark); font-weight: 600; padding: 0.8rem 2rem;">
+                    <i class="fas fa-user-graduate"></i> Student Analytics
+                </a>
+            {% endif %}
+        {% else %}
+            <a href="{% url 'attendance:login' %}" class="btn" style="background: var(--success); color: #ffffff; font-weight: 600; padding: 0.8rem 2.5rem; border-radius: 50px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
+                <i class="fas fa-sign-in-alt"></i> Portal Sign In
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 2.5rem; padding: 2.5rem;">
+    <h2 style="margin-top: 0; color: var(--primary); font-weight: 700;"><i class="fas fa-cubes" style="color: var(--secondary);"></i> Architectural Overview</h2>
+    <p style="color: var(--text-main); font-size: 1.05rem; line-height: 1.6;">
+        The Attendance Hub replaces legacy paper logs with an immutable tracking system. It bridges physical classroom attendance with analytical software by cross-referencing scheduled weekly timetables against active verification data. The platform registers student statuses in real-time, compiles localized telemetry, and outputs clean structured data streams for administrative audit logs.
+    </p>
+</div>
+
+<h3 style="margin-bottom: 1rem; color: var(--text-main); font-weight: 600;"><i class="fas fa-network-wired"></i> Institutional Workflows</h3>
+<div class="grid-3" style="margin-bottom: 2.5rem;">
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+            <div style="background: var(--primary-light); width: 50px; height: 50px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem;">
+                <i class="fas fa-user-shield" style="font-size: 1.5rem; color: var(--primary);"></i>
+            </div>
+            <h4 style="margin: 0 0 0.5rem 0; font-size: 1.2rem;">1. Control & Provisioning</h4>
+            <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.5rem;">
+                Administrators ingest core data batches (courses, student cohorts, lecturer profiles) via optimized CSV compilation frameworks and direct weekly matrix replication.
+            </p>
+        </div>
+        <span style="font-size: 0.8rem; font-weight: 700; color: var(--secondary); text-transform: uppercase; letter-spacing: 0.05em;">Admin Domain</span>
+    </div>
+
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+            <div style="background: var(--primary-light); width: 50px; height: 50px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem;">
+                <i class="fas fa-marker" style="font-size: 1.5rem; color: var(--primary);"></i>
+            </div>
+            <h4 style="margin: 0 0 0.5rem 0; font-size: 1.2rem;">2. Session Validation</h4>
+            <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.5rem;">
+                Instructors isolate their active session from their dynamic timetable matrix, record geolocated coordinate validation telemetry, and process roster arrays with a single submit routine.
+            </p>
+        </div>
+        <span style="font-size: 0.8rem; font-weight: 700; color: var(--secondary); text-transform: uppercase; letter-spacing: 0.05em;">Lecturer Domain</span>
+    </div>
+
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+            <div style="background: var(--primary-light); width: 50px; height: 50px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem;">
+                <i class="fas fa-chart-pie" style="font-size: 1.5rem; color: var(--primary);"></i>
+            </div>
+            <h4 style="margin: 0 0 0.5rem 0; font-size: 1.2rem;">3. Telemetry Consumption</h4>
+            <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.5rem;">
+                Students track their academic integrity indexes across individual course units through clear stacked visualizations and extract certified compliance reports via CSV.
+            </p>
+        </div>
+        <span style="font-size: 0.8rem; font-weight: 700; color: var(--secondary); text-transform: uppercase; letter-spacing: 0.05em;">Student Domain</span>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 2.5rem; padding: 2.5rem;">
+    <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary); font-weight: 700;"><i class="fas fa-medal" style="color: #eab308;"></i> Institutional Benefits</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+        <div>
+            <strong style="display: block; margin-bottom: 0.25rem; color: var(--text-main);"><i class="fas fa-bolt" style="color: var(--accent); margin-right: 0.4rem;"></i> Zero Administration Overhead</strong>
+            <p style="margin: 0; color: var(--text-muted); font-size: 0.95rem; line-height: 1.4;">Automated metric collation reduces processing time from hours to instantaneous database reads.</p>
+        </div>
+        <div>
+            <strong style="display: block; margin-bottom: 0.25rem; color: var(--text-main);"><i class="fas fa-map-pin" style="color: var(--danger); margin-right: 0.4rem;"></i> Anti-Proxy Enforcement</strong>
+            <p style="margin: 0; color: var(--text-muted); font-size: 0.95rem; line-height: 1.4;">Integrated location telemetry records teacher coordinates when parsing data matrices, mitigating missing tracking signals.</p>
+        </div>
+        <div>
+            <strong style="display: block; margin-bottom: 0.25rem; color: var(--text-main);"><i class="fas fa-file-export" style="color: var(--success); margin-right: 0.4rem;"></i> Streamlined Compliance Reports</strong>
+            <p style="margin: 0; color: var(--text-muted); font-size: 0.95rem; line-height: 1.4;">Generate clean, immediate tabular exports matching university board presentation and audit standards.</p>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="background: #fafafa; border-left: 4px solid var(--primary); padding: 2rem;">
+    <h3 style="margin-top: 0; color: var(--primary); font-weight: 700; display: flex; align-items: center; gap: 0.5rem; font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fas fa-shield-alt"></i> System Core: Prime Directives
+    </h3>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem; line-height: 1.5;">
+        The execution environment of this attendance infrastructure operates strictly within deterministic parameters governed by the following core directives:
+    </p>
+    <ul style="margin: 0; padding-left: 1.25rem; color: var(--text-main); font-size: 0.95rem; font-family: monospace; display: flex; flex-direction: column; gap: 0.6rem;">
+        <li><b style="color: var(--primary-dark);">[DIRECTIVE-01] DATA_INTEGRITY:</b> Relational state evaluations must remain clean and structured. System transformations must not inject corrupt or non-deterministic variables into the persistence matrix.</li>
+        <li><b style="color: var(--primary-dark);">[DIRECTIVE-02] ABSOLUTE_PRIVACY:</b> Cryptographic archiving structures secure sensitive credentials during batch transitions, ensuring isolated operations.</li>
+        <li><b style="color: var(--primary-dark);">[DIRECTIVE-03] LOCALIZED_EVALUATION:</b> All core metric matrices parse on-demand safely within request-response cycles, maintaining lightweight system footprints.</li>
+    </ul>
+</div>
+
+{% endblock %}

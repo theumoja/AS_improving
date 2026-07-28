@@ -1,0 +1,391 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .header-title-group {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+    .header-title-group h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .header-icon-box {
+        width: 42px;
+        height: 42px;
+        border-radius: var(--radius-sm);
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    /* Tab Navigation */
+    .custom-tabs-container { margin-bottom: 1.5rem; }
+    .tab-nav {
+        display: flex;
+        gap: 0.5rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .tab-btn {
+        background: transparent;
+        border: none;
+        padding: 0.65rem 1.25rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .tab-btn:hover { color: #2563eb; background: rgba(37, 99, 235, 0.05); }
+    .tab-btn.active { color: #2563eb; background: rgba(37, 99, 235, 0.1); }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* Modals */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center; justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%; max-width: 600px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        max-height: 90vh; overflow-y: auto;
+    }
+    .form-group { margin-bottom: 1.25rem; }
+    .form-group label {
+        display: block; font-size: 0.85rem; font-weight: 600;
+        margin-bottom: 0.4rem; color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%; padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header Toolbar -->
+<div class="page-header-actions">
+    <div class="header-title-group">
+        <div class="header-icon-box">
+            <i class="fas fa-bus"></i>
+        </div>
+        <h2>Vehicles & Routes Management</h2>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem;">
+        <button class="btn" id="openVehicleModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-plus-circle"></i> Add Vehicle
+        </button>
+        <button class="btn btn-outline" id="openRouteModalBtn">
+            <i class="fas fa-plus-circle"></i> Add Route
+        </button>
+    </div>
+</div>
+
+<!-- Tabs & Tables Container -->
+<div class="custom-tabs-container">
+    <div class="tab-nav">
+        <button type="button" class="tab-btn active" data-tab="vehicles-pane">
+            <i class="fas fa-truck"></i> Fleet Vehicles
+        </button>
+        <button type="button" class="tab-btn" data-tab="routes-pane">
+            <i class="fas fa-route"></i> Transport Routes
+        </button>
+    </div>
+
+    <!-- Vehicles Pane -->
+    <div class="tab-pane active" id="vehicles-pane">
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Registration No</th>
+                        <th>Model</th>
+                        <th>Capacity</th>
+                        <th>Driver</th>
+                        <th>Contact</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vehicles %}
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-main);">{{ v.registration_number }}</td>
+                        <td>{{ v.model }}</td>
+                        <td><span style="font-weight: 600;">{{ v.capacity }} seats</span></td>
+                        <td><i class="fas fa-user-circle" style="margin-right:0.3rem; color:var(--text-muted);"></i> {{ v.driver_name }}</td>
+                        <td style="color: var(--text-muted); font-size: 0.875rem;">{{ v.driver_contact }}</td>
+                        <td>
+                            {% if v.status == 'ACTIVE' %}
+                                <span style="color: #059669; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-check-circle"></i> Active</span>
+                            {% elif v.status == 'MAINTENANCE' %}
+                                <span style="color: #d97706; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-tools"></i> Maintenance</span>
+                            {% else %}
+                                <span style="color: #6b7280; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-times-circle"></i> Inactive</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                            <i class="fas fa-bus" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                            No fleet vehicles registered.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Routes Pane -->
+    <div class="tab-pane" id="routes-pane">
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Route Name</th>
+                        <th>Assigned Vehicle</th>
+                        <th>Start Location</th>
+                        <th>End Location</th>
+                        <th>Schedule (Dep / Arr)</th>
+                        <th>Operational Days</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in routes %}
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-main);">{{ r.name }}</td>
+                        <td>
+                            {% if r.vehicle %}
+                                <span style="font-weight: 600; color: #2563eb;">{{ r.vehicle.registration_number }}</span>
+                            {% else %}
+                                <span style="color: var(--text-muted); font-size: 0.85rem;">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ r.start_location }}</td>
+                        <td>{{ r.end_location }}</td>
+                        <td style="font-size: 0.875rem;">
+                            <div><i class="far fa-clock" style="margin-right: 0.3rem; color: var(--text-muted);"></i> {{ r.departure_time|time:"H:i" }}</div>
+                            <small style="color: var(--text-muted);">Arr: {{ r.arrival_time|time:"H:i" }}</small>
+                        </td>
+                        <td><span style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted);">{{ r.days_of_week }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                            <i class="fas fa-route" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                            No transport routes configured.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 1: Add Vehicle -->
+<div class="modal" id="addVehicleModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Add Fleet Vehicle</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_vehicle">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="registration_number">Registration Number</label>
+                    <input type="text" id="registration_number" name="registration_number" class="form-control" required placeholder="e.g. UAB 123X">
+                </div>
+                <div class="form-group">
+                    <label for="model">Vehicle Model</label>
+                    <input type="text" id="model" name="model" class="form-control" required placeholder="e.g. Toyota Coaster">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="capacity">Passenger Capacity</label>
+                    <input type="number" id="capacity" name="capacity" class="form-control" required placeholder="e.g. 30">
+                </div>
+                <div class="form-group">
+                    <label for="status">Initial Status</label>
+                    <select id="status" name="status" class="form-control">
+                        <option value="ACTIVE">Active</option>
+                        <option value="MAINTENANCE">Maintenance</option>
+                        <option value="INACTIVE">Inactive</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="driver_name">Driver Name</label>
+                    <input type="text" id="driver_name" name="driver_name" class="form-control" required placeholder="Full name">
+                </div>
+                <div class="form-group">
+                    <label for="driver_contact">Driver Contact</label>
+                    <input type="text" id="driver_contact" name="driver_contact" class="form-control" required placeholder="Phone number">
+                </div>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Vehicle</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 2: Add Route -->
+<div class="modal" id="addRouteModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Add Transport Route</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_route">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="route_name">Route Name</label>
+                    <input type="text" id="route_name" name="name" class="form-control" required placeholder="e.g. Northern Express">
+                </div>
+                <div class="form-group">
+                    <label for="route_vehicle">Assigned Vehicle</label>
+                    <select id="route_vehicle" name="vehicle" class="form-control">
+                        <option value="">No vehicle assigned</option>
+                        {% for v in vehicles %}
+                            <option value="{{ v.id }}">{{ v.registration_number }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="start_location">Start Location</label>
+                    <input type="text" id="start_location" name="start_location" class="form-control" required placeholder="Starting point">
+                </div>
+                <div class="form-group">
+                    <label for="end_location">End Location</label>
+                    <input type="text" id="end_location" name="end_location" class="form-control" required placeholder="Destination">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="departure_time">Departure Time</label>
+                    <input type="time" id="departure_time" name="departure_time" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="arrival_time">Arrival Time</label>
+                    <input type="time" id="arrival_time" name="arrival_time" class="form-control" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="days_of_week">Operational Days</label>
+                <input type="text" id="days_of_week" name="days_of_week" class="form-control" required placeholder="e.g. MON,WED,FRI">
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Route</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabPanes = document.querySelectorAll('.tab-pane');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetTab = this.getAttribute('data-tab');
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabPanes.forEach(p => p.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById(targetTab).classList.add('active');
+            });
+        });
+
+        const vehicleModal = document.getElementById('addVehicleModal');
+        const routeModal = document.getElementById('addRouteModal');
+        const openVehicleBtn = document.getElementById('openVehicleModalBtn');
+        const openRouteBtn = document.getElementById('openRouteModalBtn');
+        const closeBtns = document.querySelectorAll('.closeModalBtn');
+
+        if(openVehicleBtn) openVehicleBtn.addEventListener('click', () => vehicleModal.classList.add('active'));
+        if(openRouteBtn) openRouteBtn.addEventListener('click', () => routeModal.classList.add('active'));
+
+        closeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                vehicleModal.classList.remove('active');
+                routeModal.classList.remove('active');
+            });
+        });
+
+        window.addEventListener('click', (e) => {
+            if(e.target === vehicleModal) vehicleModal.classList.remove('active');
+            if(e.target === routeModal) routeModal.classList.remove('active');
+        });
+    });
+</script>
+
+{% endblock %}

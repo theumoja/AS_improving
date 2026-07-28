@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UTC Bushenyi Attendance Hub</title>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* ----- CSS Variables ----- */
+        :root {
+            --primary: #0f3b3e;
+            --primary-dark: #082b2e;
+            --primary-light: #e6f4f1;
+            --secondary: #2c6e6b;
+            --accent: #3b82f6;
+            --success: #10b981;
+            --success-light: #d1fae5;
+            --danger: #ef4444;
+            --danger-light: #fee2e2;
+            --warning: #f59e0b;
+            --warning-light: #fef3c7;
+            --bg-main: #f1f5f9;
+            --surface: #ffffff;
+            --surface-hover: #f8fafc;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.03);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.03);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: all 0.25s ease-in-out;
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --nav-height: 72px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font);
+            background: var(--bg-main);
+            color: var(--text-main);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        a { text-decoration: none; color: inherit; }
+        ul { list-style: none; }
+
+        /* ----- Navbar ----- */
+        nav {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            color: #fff;
+            padding: 0 2rem;
+            height: var(--nav-height);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        .nav-brand i { font-size: 1.6rem; color: #a7f3d0; }
+
+        /* Desktop nav links */
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .nav-links a, .dropdown-btn {
+            color: rgba(255,255,255,0.85);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-sm);
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .nav-links a:hover, .dropdown-btn:hover {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+        }
+        .nav-links a i { font-size: 1rem; }
+
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            background: var(--surface);
+            min-width: 200px;
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            z-index: 1000;
+        }
+        .dropdown-content a {
+            color: var(--text-main);
+            padding: 0.7rem 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border-bottom: 1px solid var(--border);
+            transition: var(--transition);
+        }
+        .dropdown-content a:last-child { border-bottom: none; }
+        .dropdown-content a:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .dropdown:hover .dropdown-content { display: block; }
+
+        .nav-user {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .nav-user .user-greeting {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        .nav-user .user-greeting strong { font-weight: 600; }
+        .nav-user .logout-btn, .nav-user .login-btn {
+            padding: 0.4rem 1rem;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: var(--transition);
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .nav-user .logout-btn:hover {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+        .nav-user .login-btn:hover {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        /* ----- Hamburger (mobile) ----- */
+        .hamburger {
+            display: none;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.6rem;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            transition: var(--transition);
+        }
+        .hamburger:hover { opacity: 0.8; }
+
+        /* ----- Mobile Side Drawer ----- */
+        .drawer-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .drawer-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+        .drawer {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 280px;
+            height: 100%;
+            background: var(--surface);
+            box-shadow: var(--shadow-lg);
+            z-index: 1001;
+            transition: left 0.3s ease;
+            padding: 1.5rem 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .drawer.open {
+            left: 0;
+        }
+        .drawer .close-btn {
+            align-self: flex-end;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .drawer .close-btn:hover { color: var(--danger); }
+        .drawer .drawer-brand {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .drawer .drawer-brand i { color: var(--primary); }
+        .drawer .drawer-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            flex: 1;
+        }
+        .drawer .drawer-links a {
+            padding: 0.7rem 1rem;
+            border-radius: var(--radius-sm);
+            color: var(--text-main);
+            font-weight: 500;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .drawer .drawer-links a:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .drawer .drawer-links a i { width: 1.2rem; text-align: center; }
+        /* Drawer dropdown (nested) */
+        .drawer .drawer-dropdown .dropdown-btn {
+            background: none;
+            border: none;
+            padding: 0.7rem 1rem;
+            width: 100%;
+            text-align: left;
+            font-weight: 500;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+        }
+        .drawer .drawer-dropdown .dropdown-btn:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .drawer .drawer-dropdown .dropdown-content {
+            display: none;
+            flex-direction: column;
+            padding-left: 1.5rem;
+            border-left: 2px solid var(--border);
+            margin-left: 0.5rem;
+        }
+        .drawer .drawer-dropdown .dropdown-content a {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            border-bottom: none;
+        }
+        .drawer .drawer-dropdown.open .dropdown-content {
+            display: flex;
+        }
+        .drawer .drawer-user {
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .drawer .drawer-user .user-info {
+            font-weight: 500;
+            color: var(--text-main);
+        }
+        .drawer .drawer-user .logout-btn,
+        .drawer .drawer-user .login-btn {
+            padding: 0.4rem 1rem;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.85rem;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        .drawer .drawer-user .logout-btn:hover { background: var(--danger); }
+        .drawer .drawer-user .login-btn:hover { background: var(--success); }
+
+        /* ----- Responsive ----- */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hamburger { display: block; }
+            .drawer-overlay.active { display: block; }
+        }
+        @media (min-width: 769px) {
+            .drawer-overlay, .drawer { display: none !important; }
+        }
+
+        /* ----- Container & rest of styles (unchanged) ----- */
+        .container {
+            max-width: 1280px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            flex: 1;
+            width: 100%;
+        }
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            transition: var(--transition);
+        }
+        .card:hover {
+            box-shadow: var(--shadow-lg);
+            border-color: #cbd5e1;
+        }
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        h2 i { color: var(--secondary); }
+        h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        th, td {
+            padding: 0.9rem 1.2rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+        }
+        tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: var(--surface-hover); }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            color: #fff;
+            padding: 0.75rem 1.8rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: var(--shadow-sm);
+            text-decoration: none;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            filter: brightness(1.05);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+        .btn-outline:hover {
+            background: var(--surface-hover);
+            border-color: var(--secondary);
+            color: var(--secondary);
+        }
+        input[type="file"],
+        input[type="text"],
+        input[type="password"],
+        select {
+            width: 100%;
+            padding: 0.7rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            background: #f8fafc;
+            transition: var(--transition);
+            font-family: var(--font);
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--secondary);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(44, 110, 107, 0.15);
+        }
+        label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--text-main);
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 2rem;
+        }
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+        }
+        .instruction-box {
+            background: var(--primary-light);
+            border-left: 4px solid var(--primary);
+            padding: 1.25rem;
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+            color: var(--primary-dark);
+        }
+        .text-muted { color: var(--text-muted); }
+        .mt-2 { margin-top: 2rem; }
+        .mb-1 { margin-bottom: 1rem; }
+        .flex-center { display: flex; align-items: center; gap: 0.5rem; }
+        .stat-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 1.5rem 1.8rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+        }
+        .stat-card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-3px);
+        }
+        .stat-card .icon {
+            font-size: 2.2rem;
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .stat-card .info h4 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 0.2rem;
+        }
+        .stat-card .info .number {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .footer {
+            text-align: center;
+            padding: 1.5rem 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+        }
+        @media (max-width: 768px) {
+            nav { padding: 0 1rem; }
+            .container { padding: 0 1rem; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .stat-card { padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-brand">
+            <i class="fas fa-graduation-cap"></i>
+            <span>UTC Bushenyi</span>
+        </div>
+
+        <!-- Hamburger -->
+        <button class="hamburger" id="hamburgerBtn" aria-label="Toggle menu">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Desktop nav links -->
+        {% if user.is_authenticated %}
+        <div class="nav-links">
+            <a href="{% url 'attendance:admin_dashboard' %}"><i class="fas fa-tachometer-alt"></i> Admin</a>
+            <a href="{% url 'attendance:teacher_dashboard' %}"><i class="fas fa-chalkboard-teacher"></i> Teacher</a>
+            <a href="{% url 'attendance:student_dashboard' %}"><i class="fas fa-user-graduate"></i> Student</a>
+            <div class="dropdown">
+                <button class="dropdown-btn"><i class="fas fa-cog"></i> Manage <i class="fas fa-chevron-down" style="font-size:0.7rem;margin-left:4px;"></i></button>
+                <div class="dropdown-content">
+                    <a href="{% url 'attendance:bulk_upload_courses' %}"><i class="fas fa-book"></i> Courses</a>
+                    <a href="{% url 'attendance:bulk_upload_teachers' %}"><i class="fas fa-user-tie"></i> Teachers</a>
+                    <a href="{% url 'attendance:bulk_upload_students' %}"><i class="fas fa-users"></i> Students</a>
+                    <a href="{% url 'attendance:upload_timetable' %}"><i class="fas fa-calendar-alt"></i> Timetable</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="nav-user">
+            {% if user.is_authenticated %}
+                <span class="user-greeting"><i class="fas fa-user-circle"></i> <strong>{{ user.username }}</strong></span>
+                <a href="{% url 'attendance:logout' %}" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            {% else %}
+                <a href="{% url 'attendance:login' %}" class="login-btn"><i class="fas fa-sign-in-alt"></i> Login</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Mobile Drawer Overlay -->
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+
+    <!-- Mobile Drawer -->
+    <div class="drawer" id="drawer">
+        <button class="close-btn" id="drawerCloseBtn"><i class="fas fa-times"></i></button>
+        <div class="drawer-brand">
+            <i class="fas fa-graduation-cap"></i> UTC Bushenyi
+        </div>
+        {% if user.is_authenticated %}
+        <div class="drawer-links">
+            <a href="{% url 'attendance:admin_dashboard' %}"><i class="fas fa-tachometer-alt"></i> Admin Dashboard</a>
+            <a href="{% url 'attendance:teacher_dashboard' %}"><i class="fas fa-chalkboard-teacher"></i> Teacher Hub</a>
+            <a href="{% url 'attendance:student_dashboard' %}"><i class="fas fa-user-graduate"></i> Student Hub</a>
+            <div class="drawer-dropdown" id="drawerDropdown">
+                <button class="dropdown-btn" id="drawerDropdownBtn">
+                    <span><i class="fas fa-cog"></i> Management</span>
+                    <i class="fas fa-chevron-down" style="font-size:0.7rem;"></i>
+                </button>
+                <div class="dropdown-content">
+                    <a href="{% url 'attendance:bulk_upload_courses' %}"><i class="fas fa-book"></i> Upload Courses</a>
+                    <a href="{% url 'attendance:bulk_upload_teachers' %}"><i class="fas fa-user-tie"></i> Upload Teachers</a>
+                    <a href="{% url 'attendance:bulk_upload_students' %}"><i class="fas fa-users"></i> Upload Students</a>
+                    <a href="{% url 'attendance:upload_timetable' %}"><i class="fas fa-calendar-alt"></i> Manage Timetable</a>
+                </div>
+            </div>
+        </div>
+        <div class="drawer-user">
+            <span class="user-info"><i class="fas fa-user-circle"></i> {{ user.username }}</span>
+            <a href="{% url 'attendance:logout' %}" class="logout-btn">Logout</a>
+        </div>
+        {% else %}
+        <div class="drawer-links">
+            <a href="{% url 'attendance:login' %}" class="login-btn" style="background:var(--primary);color:#fff;justify-content:center;">Login</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="container">
+        {% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}{% endblock %}
+    </div>
+
+    <div class="footer">
+        &copy; {{ now|date:"Y" }} UTC Bushenyi Attendance System &bull; Built with <i class="fas fa-heart" style="color:#ef4444;"></i>
+    </div>
+
+    <script>
+        (function() {
+            const hamburger = document.getElementById('hamburgerBtn');
+            const drawer = document.getElementById('drawer');
+            const overlay = document.getElementById('drawerOverlay');
+            const closeBtn = document.getElementById('drawerCloseBtn');
+            const dropdownBtn = document.getElementById('drawerDropdownBtn');
+            const dropdown = document.getElementById('drawerDropdown');
+
+            function openDrawer() {
+                drawer.classList.add('open');
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+            function closeDrawer() {
+                drawer.classList.remove('open');
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            hamburger.addEventListener('click', openDrawer);
+            closeBtn.addEventListener('click', closeDrawer);
+            overlay.addEventListener('click', closeDrawer);
+
+            // Toggle dropdown in drawer
+            if (dropdownBtn) {
+                dropdownBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    dropdown.classList.toggle('open');
+                });
+            }
+
+            // Close drawer on escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') closeDrawer();
+            });
+
+            // Close drawer when a link is clicked (optional)
+            drawer.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', closeDrawer);
+            });
+        })();
+    </script>
+</body>
+</html>

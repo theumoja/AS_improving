@@ -1,0 +1,153 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .edit-container {
+        max-width: 600px;
+        margin: 2rem auto;
+    }
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .form-container-card {
+        background: #ffffff;
+        padding: 2.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+        font-size: 0.95rem;
+        color: var(--text-main);
+        transition: var(--transition);
+    }
+    .form-control:focus {
+        border-color: #2563eb;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .form-control:disabled {
+        background-color: #f8fafc;
+        color: #64748b;
+        cursor: not-allowed;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2.5rem;
+    }
+    .btn-submit {
+        flex: 2;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .btn-submit:hover {
+        opacity: 0.95;
+        transform: translateY(-1px);
+    }
+    .btn-cancel {
+        flex: 1;
+        text-align: center;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+
+<div class="edit-container">
+    <!-- Breadcrumb Header Navigation Matrix -->
+    <div class="page-header-actions">
+        <div>
+            <h2 style="margin:0; font-size:1.3rem;">
+                <i class="fas fa-edit" style="color: #2563eb; margin-right: 0.5rem;"></i> 
+                Modify Program Track: {{ course.code }}
+            </h2>
+        </div>
+    </div>
+
+    <!-- Main Adjustment Form Matrix Card -->
+    <div class="form-container-card">
+        <form method="POST" action="">
+            {% csrf_token %}
+            
+            <!-- Course Tracking Code Identifier (Immutable / Read-Only Display) -->
+            <div class="form-group">
+                <label for="course_code">Program Identifier Code</label>
+                <input type="text" id="course_code" name="course_code" class="form-control" 
+                       value="{{ course.code }}" disabled title="Course code tokens cannot be modified after compilation.">
+                <small style="color: var(--text-muted); display: block; margin-top: 0.35rem; font-size: 0.8rem;">
+                    Tracking structural index labels are locked to prevent breaking relational constraints.
+                </small>
+            </div>
+
+            <!-- Course Title Definition Input -->
+            <div class="form-group">
+                <label for="course_name">Course Framework Title</label>
+                <input type="text" id="course_name" name="course_name" class="form-control" 
+                       value="{{ course.name }}" required placeholder="e.g. Business Administration">
+            </div>
+
+            <!-- Parent Academic Department Mapping Definition Assignment Dropdown Matrix -->
+            <div class="form-group">
+                <label for="department">Assigned Parent Department Branch</label>
+                <select id="department" name="department" class="form-control" required>
+                    <option value="" disabled>Select Department Allocation Line...</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.pk }}" {% if course.department.pk == dept.pk %}selected{% endif %}>
+                            {{ dept.name }}
+                        </option>
+                    {% empty %}
+                        <!-- Fallback mapping condition loops to catch context options variations -->
+                        {% for dept in active_departments_list %}
+                            <option value="{{ dept.pk }}" {% if course.department.pk == dept.pk %}selected{% endif %}>
+                                {{ dept.name }}
+                            </option>
+                        {% endfor %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Control Operational Execution Index Row Matrix -->
+            <div class="action-buttons">
+                <!-- Fallback safety checks back to reports view layout node matrix -->
+                <a href="{% url 'attendance:admin_report_page' %}" class="btn btn-outline btn-cancel">
+                    Cancel Changes
+                </a>
+                <button type="submit" class="btn btn-submit">
+                    <i class="fas fa-save" style="margin-right: 0.35rem;"></i> Update Layout Matrix
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

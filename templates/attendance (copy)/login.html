@@ -1,0 +1,39 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<div style="max-width: 420px; margin: 3rem auto;">
+    <div class="card" style="padding: 2.5rem;">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <i class="fas fa-university" style="font-size: 3rem; color: var(--primary);"></i>
+            <h2 style="margin-top: 0.5rem; margin-bottom: 0.25rem;">Welcome Back</h2>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Sign in to manage your academic duties</p>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+
+            {% if form.errors %}
+                <div style="background: var(--danger-light); color: var(--danger); padding: 0.9rem 1.2rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem; font-weight: 500; border: 1px solid rgba(239,68,68,0.2); display: flex; align-items: center; gap: 0.75rem;">
+                    <i class="fas fa-exclamation-triangle"></i> Invalid credentials. Please try again.
+                </div>
+            {% endif %}
+
+            <div style="margin-bottom: 1.25rem;">
+                <label for="id_username"><i class="fas fa-user"></i> Username / Reg Number</label>
+                <input type="text" name="username" autofocus required id="id_username" placeholder="Enter your username or registration number">
+            </div>
+
+            <div style="margin-bottom: 1.75rem;">
+                <label for="id_password"><i class="fas fa-lock"></i> Password</label>
+                <input type="password" name="password" required id="id_password" placeholder="••••••••">
+            </div>
+
+            <button type="submit" class="btn" style="width:100%; padding: 0.8rem; font-size:1rem;">
+                <i class="fas fa-sign-in-alt"></i> Sign In
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

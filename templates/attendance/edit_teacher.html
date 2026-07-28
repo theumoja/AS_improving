@@ -1,0 +1,151 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .edit-container {
+        max-width: 650px;
+        margin: 0 auto;
+        padding: 1rem 0;
+    }
+    .page-header {
+        margin-bottom: 2rem;
+    }
+    .page-header h2 {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        font-family: var(--font);
+        font-size: 0.95rem;
+        transition: var(--transition);
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: var(--secondary);
+        box-shadow: 0 0 0 3px var(--primary-light);
+    }
+    .courses-selection-card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: #f8fafc;
+        padding: 1rem;
+        max-height: 220px;
+        overflow-y: auto;
+    }
+    .checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.4rem 0.5rem;
+        border-radius: 4px;
+        transition: var(--transition);
+    }
+    .checkbox-wrapper:hover {
+        background: rgba(15, 59, 62, 0.05);
+    }
+    .checkbox-wrapper input[type="checkbox"] {
+        width: 1rem;
+        height: 1rem;
+        accent-color: var(--primary);
+        cursor: pointer;
+    }
+    .checkbox-wrapper label {
+        display: inline;
+        font-weight: 500;
+        color: var(--text-main);
+        cursor: pointer;
+        margin: 0;
+    }
+    .checkbox-wrapper code {
+        background: var(--primary-light);
+        color: var(--primary);
+        font-weight: 700;
+        padding: 0.15rem 0.35rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        margin-right: 0.25rem;
+    }
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2.5rem;
+        border-top: 1px solid var(--border);
+        padding-top: 1.5rem;
+    }
+</style>
+
+<div class="edit-container">
+    <div class="page-header">
+        <h2><i class="fas fa-user-edit" style="color: var(--accent);"></i> Modify Faculty Profile</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">
+            Updating system account details for <strong>{{ teacher.name }}</strong>
+        </p>
+    </div>
+
+    <div class="card">
+        <form method="POST" action="">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="name">Teacher Full Name</label>
+                <input type="text" id="name" name="name" class="form-control" value="{{ teacher.name }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Institutional Email Address</label>
+                <input type="email" id="email" name="email" class="form-control" value="{{ teacher.user.email }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Assigned Program Pipelines (Course Assignments)</label>
+                <div class="courses-selection-card">
+                    {% for course in all_courses %}
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" 
+                               id="course_{{ course.code }}" 
+                               name="courses" 
+                               value="{{ course.code }}"
+                               {% if course in teacher.courses.all %}checked{% endif %}>
+                        <label for="course_{{ course.code }}">
+                            <code>{{ course.code }}</code> — {{ course.name }}
+                        </label>
+                    </div>
+                    {% empty %}
+                    <div style="text-align: center; color: var(--text-muted); padding: 1rem 0; font-size: 0.9rem;">
+                        <i class="fas fa-exclamation-triangle" style="margin-right: 0.25rem;"></i> No active system courses available to link.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'attendance:manage_teachers' %}" class="btn btn-outline" style="flex: 1; text-align: center; justify-content: center;">
+                    Cancel
+                </a>
+                <button type="submit" class="btn" style="flex: 2; justify-content: center; background: var(--accent);">
+                    <i class="fas fa-save"></i> Save Profile Modifications
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

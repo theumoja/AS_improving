@@ -1,0 +1,285 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<style>
+    .dashboard-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .dashboard-nav .nav-link {
+        background: var(--surface);
+        color: var(--text-main);
+        padding: 0.9rem 1.5rem;
+        border-radius: var(--radius-sm);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex: 1 1 auto;
+        box-shadow: var(--shadow-sm);
+        position: relative;
+        overflow: hidden;
+    }
+    .dashboard-nav .nav-link::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, var(--secondary), var(--primary));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+    .dashboard-nav .nav-link:hover::after {
+        transform: scaleX(1);
+    }
+    .dashboard-nav .nav-link:hover {
+        background: var(--primary-light);
+        color: var(--primary);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+    }
+    .dashboard-nav .nav-link i { font-size: 1.2rem; }
+
+    .chart-container {
+        position: relative;
+        height: 280px;
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+    .card-chart {
+        padding: 1.5rem;
+    }
+    .stat-number {
+        transition: all 0.5s ease;
+    }
+    .export-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+    }
+    .export-buttons .btn {
+        background: #475569;
+        color: white;
+        border-radius: 50px;
+        padding: 0.6rem 1.5rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: var(--transition);
+    }
+    .export-buttons .btn:hover {
+        background: #1e293b;
+        transform: translateY(-2px);
+    }
+</style>
+
+<h2><i class="fas fa-chart-pie"></i> System Management Dashboard</h2>
+
+<!-- Summary Stats with dynamic overall rate -->
+<div class="grid-4" style="margin-bottom: 2.5rem;">
+    <div class="stat-card">
+        <div class="icon"><i class="fas fa-book-open"></i></div>
+        <div class="info">
+            <h4>Total Courses</h4>
+            <div class="number stat-number" data-target="{{ total_courses }}">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon"><i class="fas fa-chalkboard-teacher"></i></div>
+        <div class="info">
+            <h4>Teachers</h4>
+            <div class="number stat-number" data-target="{{ total_teachers }}">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon"><i class="fas fa-users"></i></div>
+        <div class="info">
+            <h4>Students</h4>
+            <div class="number stat-number" data-target="{{ total_students }}">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon"><i class="fas fa-percent"></i></div>
+        <div class="info">
+            <h4>Attendance Rate</h4>
+            <div class="number stat-number" data-target="{{ overall_rate }}">0%</div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Credentials Buttons -->
+<div class="export-buttons">
+    <a href="{% url 'attendance:export_credentials' 'teachers' %}" class="btn">
+        <i class="fas fa-download"></i> Export Teacher Credentials (.xlsx)
+    </a>
+    <a href="{% url 'attendance:export_credentials' 'students' %}" class="btn">
+        <i class="fas fa-download"></i> Export Student Credentials (.xlsx)
+    </a>
+</div>
+
+<!-- Navigation Cards -->
+<div class="dashboard-nav">
+    <a href="{% url 'attendance:bulk_upload_courses' %}" class="nav-link"><i class="fas fa-upload"></i> Upload Courses</a>
+    <a href="{% url 'attendance:bulk_upload_teachers' %}" class="nav-link"><i class="fas fa-user-plus"></i> Upload Teachers</a>
+    <a href="{% url 'attendance:bulk_upload_students' %}" class="nav-link"><i class="fas fa-user-graduate"></i> Upload Students</a>
+    <a href="{% url 'attendance:upload_timetable' %}" class="nav-link"><i class="fas fa-calendar-plus"></i> Manage Timetable</a>
+</div>
+
+<!-- Charts Row 1: Overall attendance distribution + Per-teacher rates -->
+<div class="grid-2">
+    <div class="card card-chart">
+        <h3><i class="fas fa-dot-circle" style="color:var(--success);"></i> Attendance Status Distribution</h3>
+        <div class="chart-container">
+            <canvas id="pieChartTerminal"></canvas>
+        </div>
+    </div>
+    <div class="card card-chart">
+        <h3><i class="fas fa-chart-bar" style="color:var(--secondary);"></i> Teacher Performance (Attendance Rate)</h3>
+        <div class="chart-container">
+            <canvas id="teacherBarChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 2: Student attendance breakdown (stacked bar) -->
+<div class="card card-chart" style="margin-top: 2rem;">
+    <h3><i class="fas fa-users" style="color:var(--primary);"></i> Student Attendance (Top 10)</h3>
+    <div class="chart-container" style="height: 300px;">
+        <canvas id="studentStackedBar"></canvas>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animated stats
+    const statNumbers = document.querySelectorAll('.stat-number');
+    const animateNumber = (el) => {
+        const target = parseFloat(el.getAttribute('data-target'));
+        let current = 0;
+        const increment = target / 60;
+        const update = () => {
+            current += increment;
+            if (current < target) {
+                el.textContent = Math.round(current) + (el.textContent.includes('%') ? '%' : '');
+                requestAnimationFrame(update);
+            } else {
+                el.textContent = target + (el.textContent.includes('%') ? '%' : '');
+            }
+        };
+        update();
+    };
+    statNumbers.forEach(el => animateNumber(el));
+
+    // Fetch analytics
+    fetch('/analytics/global/json/')
+        .then(response => response.json())
+        .then(data => {
+            // Pie Chart
+            new Chart(document.getElementById('pieChartTerminal'), {
+                type: 'pie',
+                data: {
+                    labels: ['Present', 'Absent'],
+                    datasets: [{
+                        data: [data.pie.present, data.pie.absent],
+                        backgroundColor: ['#10b981', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 13 } } }
+                    },
+                    cutout: '70%'
+                }
+            });
+
+            // Unit rates bar chart (already present in data)
+            new Chart(document.getElementById('teacherBarChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.bar.labels,
+                    datasets: [{
+                        label: 'Attendance Rate (%)',
+                        data: data.bar.rates,
+                        backgroundColor: '#2c6e6b',
+                        borderRadius: 6,
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { min: 0, max: 100, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        })
+        .catch(() => console.warn('Analytics data unavailable'));
+
+    // Student stacked bar chart (data already in context as JSON)
+    const studentLabels = {{ student_labels|safe }};
+    const presentData = {{ student_present|safe }};
+    const absentData = {{ student_absent|safe }};
+    if (studentLabels.length) {
+        new Chart(document.getElementById('studentStackedBar'), {
+            type: 'bar',
+            data: {
+                labels: studentLabels,
+                datasets: [
+                    {
+                        label: 'Present',
+                        data: presentData,
+                        backgroundColor: '#10b981',
+                        borderRadius: 4,
+                    },
+                    {
+                        label: 'Absent',
+                        data: absentData,
+                        backgroundColor: '#ef4444',
+                        borderRadius: 4,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, grid: { display: false } },
+                    y: { stacked: true, grid: { color: '#f1f5f9' } }
+                },
+                plugins: { legend: { position: 'top' } }
+            }
+        });
+    }
+});
+new Chart(document.getElementById('attendanceLineChart'), {
+    type: 'line',
+    data: {
+        labels: historicalLabels,
+        datasets: [{
+            label: 'Attendance Tracking Over Time',
+            data: historicalCounts,
+            borderColor: '#2c6e6b',
+            tension: 0.2,
+            fill: false
+        }]
+    }
+});
+</script>
+{% endblock %}

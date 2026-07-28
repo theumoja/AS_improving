@@ -1,0 +1,706 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    /* ----- Dashboard Layout ----- */
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        transition: var(--transition);
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+    }
+    .stat-card .icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+    .stat-card .info h4 {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: #64748b;
+        margin: 0;
+    }
+    .stat-card .info .number {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.2;
+    }
+    .stat-card .info .sub {
+        font-size: 0.7rem;
+        color: #64748b;
+    }
+
+    /* ----- Grid – stack on tablet and smaller ----- */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    @media (max-width: 992px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .card {
+        background: var(--surface);
+        border-radius: var(--radius-sm);
+        padding: 1.25rem;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+        min-width: 0;
+        overflow: visible;
+    }
+    .card h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--primary-dark);
+        margin-bottom: 0.75rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.4rem;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 160px;
+        max-height: 160px;
+        width: 100%;
+    }
+
+    /* ----- Activity Feed ----- */
+    .activity-feed {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+    }
+    .activity-feed li {
+        padding: 0.6rem 0;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        font-size: 0.9rem;
+        word-break: break-word;
+    }
+    .activity-feed li:last-child { border-bottom: none; }
+    .activity-feed .book-title {
+        font-weight: 600;
+        color: var(--text-main);
+    }
+    .activity-feed .student-name {
+        color: #475569;
+        font-size: 0.85rem;
+    }
+    .activity-feed .action-badge {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 50px;
+        font-weight: 600;
+        text-transform: capitalize;
+        white-space: nowrap;
+    }
+    .action-borrowed { background: #fef3c7; color: #d97706; }
+    .action-returned { background: #dcfce7; color: #15803d; }
+    .activity-feed .date-meta {
+        color: #94a3b8;
+        font-size: 0.7rem;
+        margin-left: 0.4rem;
+        white-space: nowrap;
+    }
+
+    /* ----- Most Borrowed Books ----- */
+    .top-books-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .top-books-list li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
+        word-break: break-word;
+    }
+    .top-books-list li:last-child { border-bottom: none; }
+    .top-books-list .book-title {
+        font-weight: 500;
+        color: var(--text-main);
+    }
+    .top-books-list .count {
+        background: #e2e8f0;
+        padding: 0.1rem 0.5rem;
+        border-radius: 50px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #334155;
+        white-space: nowrap;
+    }
+
+    /* ----- Quick Actions ----- */
+    .quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-top: 0.5rem;
+    }
+    .quick-actions .btn {
+        padding: 0.5rem 1.2rem;
+        font-size: 0.85rem;
+        border: none;
+        border-radius: 50px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    .quick-actions .btn-primary {
+        background: var(--primary);
+        color: #fff;
+    }
+    .quick-actions .btn-primary:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+    }
+    .quick-actions .btn-success {
+        background: #10b981;
+        color: #fff;
+    }
+    .quick-actions .btn-success:hover {
+        background: #059669;
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+    }
+    .quick-actions .btn-warning {
+        background: #f59e0b;
+        color: #fff;
+    }
+    .quick-actions .btn-warning:hover {
+        background: #d97706;
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+    }
+    .quick-actions .btn-info {
+        background: #0ea5e9;
+        color: #fff;
+    }
+    .quick-actions .btn-info:hover {
+        background: #0284c7;
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+    }
+
+    .info-note {
+        margin-top: 0.75rem;
+        color: #64748b;
+        font-size: 0.8rem;
+        border-top: 1px solid var(--border);
+        padding-top: 0.6rem;
+    }
+    .info-note i {
+        color: var(--accent);
+    }
+
+    /* ----- Issue CTA ----- */
+    .issue-cta {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border-radius: var(--radius-sm);
+        padding: 1.25rem 2rem;
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        color: #fff;
+        box-shadow: var(--shadow-sm);
+    }
+    .issue-cta .cta-text h3 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #fff;
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .issue-cta .cta-text p {
+        margin: 0.25rem 0 0 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+    .issue-cta .cta-btn {
+        background: #fff;
+        color: #059669;
+        padding: 0.6rem 1.8rem;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 1rem;
+        text-decoration: none;
+        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: var(--shadow-sm);
+    }
+    .issue-cta .cta-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+        background: #f0fdf4;
+    }
+
+    /* ----- Overdue Table Filters ----- */
+    .filter-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem 1.2rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f1f5f9;
+        margin-bottom: 1rem;
+    }
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .filter-group label {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #475569;
+    }
+    .filter-group .form-control-sm {
+        padding: 0.4rem 0.8rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        background: #fafbfc;
+        min-width: 130px;
+    }
+    .filter-group .form-control-sm:focus {
+        border-color: #2c6e6b;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(44, 110, 107, 0.1);
+    }
+    .filter-count {
+        margin-left: auto;
+        font-size: 0.85rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+    .filter-count strong {
+        color: #0f172a;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+        border-radius: 12px;
+        border: 1px solid #f1f5f9;
+        margin-top: 0.5rem;
+    }
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        background: #ffffff;
+    }
+    .table thead {
+        background: #f8fafc;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .table th {
+        font-weight: 700;
+        color: #1e293b;
+        padding: 0.9rem 1rem;
+        text-align: left;
+        white-space: nowrap;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .table td {
+        padding: 0.8rem 1rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    .table tbody tr:hover {
+        background: #fafbfc;
+    }
+    .table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .badge-danger {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+    .badge-warning {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    .badge-secondary {
+        background: #f1f5f9;
+        color: #475569;
+    }
+    .badge-info {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .btn-sm {
+        padding: 0.3rem 0.8rem;
+        font-size: 0.75rem;
+    }
+    .btn-success {
+        background: #10b981;
+        color: #fff;
+    }
+    .btn-success:hover {
+        background: #059669;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2.5rem 1rem;
+        color: #94a3b8;
+    }
+    .empty-state i {
+        font-size: 2.5rem;
+        display: block;
+        margin-bottom: 0.75rem;
+        color: #cbd5e1;
+    }
+
+    @media (max-width: 576px) {
+        .chart-container { height: 120px; max-height: 120px; }
+        .stat-grid { grid-template-columns: 1fr 1fr; }
+        .card { padding: 1rem; }
+        .activity-feed li { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+        .activity-feed .action-badge, .activity-feed .date-meta { align-self: flex-start; }
+        .issue-cta { flex-direction: column; text-align: center; padding: 1.25rem; }
+        .issue-cta .cta-btn { width: 100%; justify-content: center; }
+        .filter-bar { flex-direction: column; align-items: stretch; }
+        .filter-group { flex-wrap: wrap; }
+        .filter-count { margin-left: 0; text-align: center; }
+    }
+</style>
+
+<!-- ====== PROMINENT ISSUE BOOK CTA ====== -->
+<div class="issue-cta">
+    <div class="cta-text">
+        <h3><i class="fas fa-plus-circle"></i> Issue a New Book</h3>
+        <p>Quickly log a book loan for a student – just select the borrower and enter the title.</p>
+    </div>
+    <a href="{% url 'attendance:issue_book' %}" class="cta-btn">
+        <i class="fas fa-arrow-right"></i> Go to Issue Book
+    </a>
+</div>
+
+<div style="margin-bottom: 1.5rem;">
+    <h2><i class="fas fa-book-reader"></i> Librarian Command Centre</h2>
+    <p style="color: var(--text-muted);">Real‑time overview of library circulation, active loans, and borrowing trends.</p>
+</div>
+
+<!-- ====== STAT CARDS ====== -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="icon" style="background: #dbeafe; color: #1e40af;"><i class="fas fa-book"></i></div>
+        <div class="info">
+            <h4>Total Books</h4>
+            <div class="number">{{ total_books }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon" style="background: #fef3c7; color: #d97706;"><i class="fas fa-clock"></i></div>
+        <div class="info">
+            <h4>Active Loans</h4>
+            <div class="number">{{ active_loans }}</div>
+            <span class="sub">{{ overdue_count }} overdue</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon" style="background: #d1fae5; color: #059669;"><i class="fas fa-check-circle"></i></div>
+        <div class="info">
+            <h4>Returned Books</h4>
+            <div class="number">{{ returned_books }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon" style="background: #fce4ec; color: #dc2626;"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="info">
+            <h4>Overdue</h4>
+            <div class="number">{{ overdue_count }}</div>
+            <span class="sub">>14 days</span>
+        </div>
+    </div>
+</div>
+
+<!-- ====== CHARTS + ACTIVITY ====== -->
+<div class="dashboard-grid">
+    <div class="card">
+        <h3><i class="fas fa-chart-bar" style="color: var(--secondary);"></i> Monthly Borrowing Trend</h3>
+        <div class="chart-container">
+            <canvas id="monthlyTrendChart"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <h3><i class="fas fa-history"></i> Recent Activity</h3>
+        <ul class="activity-feed">
+            {% for item in activity_feed %}
+            <li>
+                <div>
+                    <span class="book-title">{{ item.book }}</span>
+                    <span class="student-name">– {{ item.student }}</span>
+                </div>
+                <div>
+                    <span class="action-badge {% if item.is_returned %}action-returned{% else %}action-borrowed{% endif %}">
+                        {{ item.action }}
+                    </span>
+                    <span class="date-meta">{{ item.date }}</span>
+                </div>
+            </li>
+            {% empty %}
+            <li style="color: #94a3b8; text-align: center; padding: 1rem 0;">No recent activity.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<!-- ====== MOST BORROWED BOOKS + QUICK ACTIONS ====== -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+    <div class="card">
+        <h3><i class="fas fa-trophy" style="color: #d97706;"></i> Most Borrowed Books</h3>
+        <ul class="top-books-list">
+            {% for book in top_books %}
+            <li>
+                <span class="book-title">{{ book.book_title }}</span>
+                <span class="count">{{ book.total }} borrows</span>
+            </li>
+            {% empty %}
+            <li style="color: #94a3b8; text-align: center; padding: 1rem 0;">No data yet.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3><i class="fas fa-bolt" style="color: #d97706;"></i> Quick Actions</h3>
+        <div class="quick-actions">
+            <a href="{% url 'attendance:manage_library' %}" class="btn btn-primary">
+                <i class="fas fa-list"></i> View All Records
+            </a>
+            <a href="{% url 'attendance:issue_book' %}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Issue Book
+            </a>
+            <a href="{% url 'attendance:manage_library' %}" class="btn btn-warning">
+                <i class="fas fa-undo"></i> Return Book
+            </a>
+            <a href="{% url 'attendance:upload_books' %}" class="btn btn-info">
+                <i class="fas fa-plus-circle"></i> Add Book
+            </a>
+        </div>
+        <div class="info-note">
+            <i class="fas fa-info-circle"></i> Use the <strong>green "Issue Book"</strong> button to open the dedicated issue form, or <strong>"Add Book"</strong> to expand your catalog.
+        </div>
+    </div>
+</div>
+
+<!-- ==================================================== -->
+<!-- ====== OVERDUE BOOKS TABLE with FILTERS ============ -->
+<!-- ==================================================== -->
+<div class="card" style="margin-top: 1.5rem;">
+    <h3><i class="fas fa-exclamation-triangle" style="color: #dc2626;"></i> Overdue Books</h3>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label for="overdueSearch">🔍</label>
+            <input type="text" id="overdueSearch" class="form-control-sm" placeholder="Search by borrower or book...">
+        </div>
+        <div class="filter-group">
+            <label for="overdueStatusFilter">Status</label>
+            <select id="overdueStatusFilter" class="form-control-sm">
+                <option value="all">All Overdue</option>
+            </select>
+        </div>
+        <button class="btn btn-sm btn-primary" id="clearOverdueFilters" style="background:#e2e8f0; color:#475569;">
+            <i class="fas fa-times"></i> Clear
+        </button>
+        <span class="filter-count" id="overdueCount">
+            Showing <strong id="overdueVisible">0</strong> of <strong id="overdueTotal">0</strong> overdue items
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table" id="overdueTable">
+            <thead>
+                <tr>
+                    <th>Borrower</th>
+                    <th>Book Title</th>
+                    <th>Issue Date</th>
+                    <th>Due Date</th>
+                    <th>Days Overdue</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="overdueTableBody">
+                {% for record in overdue_records %}
+                <tr>
+                    <td>
+                        {% if record.student %}
+                            <span class="badge badge-secondary">Student</span> 
+                            <strong>{{ record.student.name }}</strong> ({{ record.student.reg_number }})
+                        {% elif record.teacher %}
+                            <span class="badge badge-info">Teacher</span> 
+                            <strong>{{ record.teacher.name }}</strong>
+                        {% endif %}
+                    </td>
+                    <td><strong>{{ record.book.title }}</strong></td>
+                    <td>{{ record.issue_date|date:"M d, Y" }}</td>
+                    <td>{{ record.due_date|date:"M d, Y" }}</td>
+                    <!-- ✅ FIXED: Now shows overdue days -->
+                    <td>
+                        <span class="badge badge-danger">
+                            {{ record.overdue_days }} day{{ record.overdue_days|pluralize }} overdue
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{% url 'attendance:return_book' record.id %}" class="btn btn-sm btn-success">
+                            <i class="fas fa-undo"></i> Return
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr id="overdueEmptyRow">
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                            <p>No overdue books – all loans are on time! 🎉</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                <!-- hidden no-match row -->
+                <tr id="overdueNoMatch" style="display:none;">
+                    <td colspan="6" style="text-align:center; padding:2rem; color:#94a3b8;">
+                        <i class="fas fa-search" style="display:block; font-size:2rem; margin-bottom:0.5rem;"></i>
+                        No overdue items match your search.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // ----- Chart (unchanged) -----
+        const ctx = document.getElementById('monthlyTrendChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ monthly_labels|safe }},
+                datasets: [{
+                    label: 'Books Issued per Month',
+                    data: {{ monthly_data|safe }},
+                    backgroundColor: '#2c6e6b',
+                    borderRadius: 6,
+                    maxBarThickness: 30
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // ----- OVERDUE TABLE FILTERS (frontend JS) -----
+        const overdueBody = document.getElementById('overdueTableBody');
+        const searchInput = document.getElementById('overdueSearch');
+        const clearBtn = document.getElementById('clearOverdueFilters');
+        const visibleSpan = document.getElementById('overdueVisible');
+        const totalSpan = document.getElementById('overdueTotal');
+        const emptyRow = document.getElementById('overdueEmptyRow');
+        const noMatchRow = document.getElementById('overdueNoMatch');
+
+        function getOverdueRows() {
+            return Array.from(overdueBody.querySelectorAll('tr'))
+                .filter(row => row.id !== 'overdueEmptyRow' && row.id !== 'overdueNoMatch');
+        }
+
+        function applyOverdueFilters() {
+            const searchVal = searchInput.value.toLowerCase().trim();
+            const rows = getOverdueRows();
+            let visible = 0;
+            const total = rows.length;
+
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                let show = true;
+                if (searchVal && !text.includes(searchVal)) {
+                    show = false;
+                }
+                if (show) {
+                    row.style.display = '';
+                    visible++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            totalSpan.textContent = total;
+            visibleSpan.textContent = visible;
+
+            if (emptyRow) {
+                emptyRow.style.display = (total === 0) ? '' : 'none';
+            }
+            if (noMatchRow) {
+                noMatchRow.style.display = (total > 0 && visible === 0) ? '' : 'none';
+            }
+        }
+
+        searchInput.addEventListener('input', applyOverdueFilters);
+        clearBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            applyOverdueFilters();
+        });
+
+        applyOverdueFilters();
+    });
+</script>
+
+{% endblock %}

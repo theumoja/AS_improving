@@ -1,0 +1,78 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+{% if messages %}
+    <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+            <div style="padding: 1rem; border-radius: var(--radius-sm); font-weight: 500; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 10px;
+                {% if message.tags == 'success' %} background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0;
+                {% else %} background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; {% endif %}">
+                <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2><i class="fas fa-calendar-alt"></i> Stream Timetable Directory</h2>
+        <p style="color: var(--text-muted); margin: 0;">Select a specific class structure below to audit or configure its respective timeline layout.</p>
+    </div>
+    {% if streams_list %}
+    <div>
+        <a href="{% url 'attendance:manage_timetable' %}?action=clear_all" 
+           onclick="return confirm('Are you sure you want to completely clear all existing timetable entries across ALL classes to start fresh? This cannot be undone.');" 
+           class="btn" 
+           style="background: #dc2626; border-radius: var(--radius-sm); text-decoration: none; font-size: 0.9rem; padding: 0.6rem 1.2rem; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fas fa-trash-alt"></i> Clear Old Test Data
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+        <thead>
+            <tr style="background: #2b3e85; color: white;">
+                <th style="padding: 1rem;">Class / Stream Name</th>
+                <th style="padding: 1rem;">Assigned Course Program</th>
+                <th style="padding: 1rem; text-align: center; width: 220px;">Timetable Status</th>
+                <th style="padding: 1rem; text-align: center; width: 180px;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in streams_list %}
+            <tr style="border-bottom: 1px solid var(--border); background: {% cycle '#ffffff' '#f8fafc' %};">
+                <td style="padding: 1rem; font-weight: 600; color: #1e293b;">{{ item.name }}</td>
+                <td style="padding: 1rem; color: #475569;">{{ item.course_name }}</td>
+                <td style="padding: 1rem; text-align: center;">
+                    {% if item.has_timetable %}
+                        <span style="background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fas fa-check-circle"></i> Configured ({{ item.entry_count }} Slots)
+                        </span>
+                    {% else %}
+                        <span style="background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fas fa-times-circle"></i> Not Set (Empty)
+                        </span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem; text-align: center;">
+                    <a href="{% url 'attendance:upload_timetable' item.id %}" class="btn" style="background: #2b3e85; padding: 6px 14px; font-size: 0.85rem; border-radius: var(--radius-sm); text-decoration: none; color: white; display: inline-flex; align-items: center; gap: 4px;">
+                        <i class="fas fa-edit"></i> Edit Matrix
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="padding: 2rem; text-align: center; color: var(--text-muted);">No academic stream records located within the system scope variables.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

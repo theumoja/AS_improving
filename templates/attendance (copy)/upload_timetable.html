@@ -1,0 +1,56 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<h2><i class="fas fa-calendar-alt"></i> Weekly Timetable Management</h2>
+
+<div class="grid-2">
+    <!-- Option A: Reuse previous -->
+    <div class="card" style="display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+            <span style="font-size:0.7rem; text-transform:uppercase; font-weight:700; color:var(--text-muted); letter-spacing:0.05em;">
+                <i class="fas fa-history"></i> Option A
+            </span>
+            <h3 style="margin-top:0.25rem;">Reuse Last Week's Matrix</h3>
+            <p style="color: var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+                Carry forward the previous active timetable configuration.
+            </p>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="use_last_one" value="true">
+            <button type="submit" class="btn" style="width:100%; background: #475569;">
+                <i class="fas fa-copy"></i> Replicate Last Week
+            </button>
+        </form>
+    </div>
+
+    <!-- Option B: Upload new CSV -->
+    <div class="card">
+        <span style="font-size:0.7rem; text-transform:uppercase; font-weight:700; color:var(--text-muted); letter-spacing:0.05em;">
+            <i class="fas fa-file-upload"></i> Option B
+        </span>
+        <h3 style="margin-top:0.25rem;">Upload New Timetable CSV</h3>
+
+        <div class="instruction-box" style="background: #fff3e0; border-left-color: #e65100; color: #bf360c;">
+            <strong>Required columns:</strong> <code>day, start_time, end_time, course_unit_code, teacher_email, class_name</code>
+            <ul style="margin-top:0.6rem; padding-left:1.2rem; font-size:0.9rem;">
+                <li><i class="fas fa-check-circle" style="color:#e65100;"></i> Day: 3‑letter uppercase (e.g., <code>MON</code>, <code>WED</code>)</li>
+                <li><i class="fas fa-check-circle" style="color:#e65100;"></i> Time: 24‑hour format (<code>08:30</code>, <code>14:00</code>)</li>
+            </ul>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div style="margin-bottom:1.5rem;">
+                <label for="csvFile"><i class="fas fa-file-csv"></i> Choose CSV File</label>
+                <input type="file" name="csv_file" id="csvFile" accept=".csv" required>
+            </div>
+            <button type="submit" class="btn" style="width:100%;">
+                <i class="fas fa-upload"></i> Process New Timetable
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

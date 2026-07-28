@@ -1,0 +1,255 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    .action-link {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-right: 0.75rem;
+        transition: var(--transition);
+        text-decoration: none;
+    }
+    .action-link.edit { color: var(--accent); }
+    .action-link.delete { color: var(--danger); }
+    .action-link:hover { opacity: 0.7; }
+
+    /* Modal Context Interface Components */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 550px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header & Action Toolbar -->
+<div class="page-header-actions">
+    <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
+        <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search exam title, course, description..." style="padding-left: 2.25rem;">
+        </div>
+    </div>
+
+    <div class="action-group">
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-plus-circle"></i> Create Online Exam
+        </button>
+    </div>
+</div>
+
+<!-- Main Table Container -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Course</th>
+                <th>Exam Title</th>
+                <th>Schedule</th>
+                <th>Published</th>
+            </tr>
+        </thead>
+        <tbody id="onlineExamsTableBody">
+            {% for exam in exams %}  
+            <tr class="online-exam-row">
+                <td style="font-weight: 600; color: var(--text-main);">
+                    {{ exam.online_course.name }}
+                </td>
+                <td>
+                    <div style="font-weight: 600; color: var(--text-main);">{{ exam.title }}</div>
+                    {% if exam.description %}
+                        <small style="color: var(--text-muted);">{{ exam.description }}</small>
+                    {% endif %}
+                </td>
+                <td>
+                    <div><i class="far fa-clock" style="margin-right:0.3rem; color:var(--text-muted);"></i> {{ exam.start_time|date:"Y-m-d H:i" }}</div>
+                    <small style="color: var(--text-muted);">To: {{ exam.end_time|date:"Y-m-d H:i" }}</small>
+                </td>
+                <td>
+                    {% if exam.is_published %}
+                        <span style="color: #059669; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-check-circle"></i> Yes</span>
+                    {% else %}
+                        <span style="color: #6b7280; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-times-circle"></i> No</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-video" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No online exams registered.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching online exams discovered for your filter criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Creator Interface -->
+<div class="modal" id="singleAddModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Create Online Exam</h3>
+            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_exam">
+
+            <div class="form-group">
+                <label for="course">Course</label>
+                <select id="course" name="course" class="form-control" required>
+                    <option value="">Select Course...</option>
+                    {% for c in courses %}
+                        <option value="{{ c.id }}">{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="title">Exam Title</label>
+                <input type="text" id="title" name="title" class="form-control" required placeholder="e.g. Mid-Term Online Assessment">
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <input type="text" id="description" name="description" class="form-control" placeholder="Optional description or guidelines">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="start_time">Start Time</label>
+                    <input type="datetime-local" id="start_time" name="start_time" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="end_time">End Time</label>
+                    <input type="datetime-local" id="end_time" name="end_time" class="form-control" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="total_marks">Total Marks</label>
+                <input type="number" id="total_marks" name="total_marks" class="form-control" required placeholder="e.g. 100">
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Create Exam</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('singleAddModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+
+        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
+        const closeModal = () => modal.classList.remove('active');
+        
+        if(closeBtn) closeBtn.addEventListener('click', closeModal);
+        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+
+        // Automated Frontend Search Matrix
+        const searchInput = document.getElementById('dashboardSearch');
+        const dataRows = document.querySelectorAll('.online-exam-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const criteria = this.value.toLowerCase().trim();
+                let matchingCount = 0;
+
+                dataRows.forEach(row => {
+                    const searchableText = row.textContent.toLowerCase();
+                    if (searchableText.includes(criteria)) {
+                        row.style.display = '';
+                        matchingCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (emptyRow) {
+                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+                }
+            });
+        }
+    });
+</script>
+
+{% endblock %}

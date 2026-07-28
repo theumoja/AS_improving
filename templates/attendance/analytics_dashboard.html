@@ -1,0 +1,761 @@
+{% extends "attendance/base.html" %}
+
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<!-- Leaflet CSS & JS with referrerpolicy to avoid blocked requests -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin="anonymous"
+      referrerpolicy="origin" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin="anonymous"
+        referrerpolicy="origin"></script>
+
+<style>
+    /* ----- Existing analytics styles (unchanged) ----- */
+    .analytics-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .filter-select, .date-input {
+        padding: 0.6rem 1.2rem;
+        border-radius: 50px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        font-family: var(--font);
+        font-size: 0.9rem;
+        color: var(--text-main);
+        outline: none;
+        transition: var(--transition);
+        cursor: pointer;
+    }
+    .date-input {
+        border-radius: 8px;
+    }
+    .filter-select:focus, .date-input:focus {
+        border-color: var(--secondary);
+    }
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+    }
+    .badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .badge-success {
+        background: var(--success-light);
+        color: #065f46;
+    }
+    .badge-danger {
+        background: var(--danger-light);
+        color: #991b1b;
+    }
+    .badge-warning {
+        background: var(--warning-light);
+        color: #92400e;
+    }
+    .chart-box {
+        min-height: 280px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .section-title {
+        margin: 3rem 0 1.5rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--border);
+        color: var(--text-main);
+        font-size: 1.4rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .table-container-scroller {
+        max-height: 480px;
+        overflow-y: auto;
+    }
+    .btn-toggle {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: var(--text-main);
+        transition: all 0.2s ease;
+    }
+    .btn-toggle.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    /* ----- GPS clickable & map modal styles (unchanged) ----- */
+    .gps-link {
+        color: var(--accent);
+        text-decoration: underline;
+        cursor: pointer;
+        font-family: monospace;
+        font-weight: 500;
+    }
+    .gps-link:hover {
+        color: #1d4ed8;
+    }
+
+    .map-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.65);
+        backdrop-filter: blur(6px);
+        z-index: 2000;
+        justify-content: center;
+        align-items: center;
+    }
+    .map-modal-overlay.active {
+        display: flex;
+    }
+    .map-modal {
+        background: white;
+        border-radius: 20px;
+        width: 90%;
+        max-width: 900px;
+        height: 75vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 30px 50px rgba(0,0,0,0.3);
+        overflow: hidden;
+    }
+    .map-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.8rem 1.5rem;
+        background: #f8fafc;
+        border-bottom: 1px solid var(--border);
+    }
+    .map-modal-header h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .map-modal-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+    .map-modal-actions button {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 0.4rem 1rem;
+        border-radius: 50px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 0.85rem;
+        transition: var(--transition);
+    }
+    .map-modal-actions button:hover {
+        background: var(--primary-light);
+        color: var(--primary-dark);
+    }
+    .map-modal-body {
+        flex: 1;
+        position: relative;
+    }
+    #locationMap {
+        width: 100%;
+        height: 100%;
+    }
+</style>
+
+<div class="analytics-container">
+    <!-- Header Block (unchanged) -->
+    <div style="margin-bottom: 1.5rem;">
+        <h2><i class="fas fa-chart-line"></i> Reports & Analytics</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">Analyze real-time attendance patterns, student performance logs, and teacher submission compliance schedules.</p>
+    </div>
+
+    <!-- Dynamic Filters & Action Bar (unchanged) -->
+    <div class="analytics-toolbar">
+        <div class="filter-group">
+            <label for="classFilter" style="font-weight: 500; font-size: 0.9rem; color: var(--text-muted);">Scope Data:</label>
+            <select id="classFilter" class="filter-select" onchange="location = this.value;">
+                <option value="?stream=all">All Academic Streams</option>
+                {% for stream in streams %}
+                    <option value="?stream={{ stream.id }}" {% if selected_stream == stream.id|stringformat:"i" %}selected{% endif %}>
+                        {{ stream.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="action-buttons">
+            <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+            <a href="?export=csv{% if selected_stream %}&stream={{ selected_stream }}{% endif %}" class="btn">
+                <i class="fas fa-file-csv"></i> Export CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Live Metrics Breakdown Cards Component (unchanged) -->
+    <div class="grid-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 2rem; gap: 1rem; display: grid;">
+        <div class="stat-card">
+            <div class="icon" style="background: var(--primary-light); color: var(--primary);"><i class="fas fa-folder-open"></i></div>
+            <div class="info">
+                <h4>Total Records</h4>
+                <div class="number">{{ stats.total_records }}</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="icon" style="background: var(--success-light); color: var(--success);"><i class="fas fa-check-circle"></i></div>
+            <div class="info">
+                <h4>Present Rate</h4>
+                <div class="number">{{ stats.present_rate }}%</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="icon" style="background: var(--danger-light); color: var(--danger);"><i class="fas fa-times-circle"></i></div>
+            <div class="info">
+                <h4>Absent Rate</h4>
+                <div class="number">{{ stats.absent_rate }}%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Visualization Data Panels (unchanged) -->
+    <div class="grid-2" style="margin-bottom: 2.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem;">
+        <div class="card">
+            <h3><i class="fas fa-chart-pie" style="color: var(--secondary); margin-right: 0.5rem;"></i> Attendance Distribution</h3>
+            <div class="chart-box">
+                <canvas id="distributionChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <h3><i class="fas fa-chart-bar" style="color: var(--secondary); margin-right: 0.5rem;"></i> Attendance by Stream</h3>
+            <div class="chart-box">
+                <canvas id="classChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 0: DETAILED STUDENT ATTENDANCE REPORT (unchanged) -->
+    <div class="section-title" id="detailed-reports">
+        <i class="fas fa-file-invoice" style="color: var(--secondary);"></i> Comprehensive Student Roster Attendance Reports
+    </div>
+
+    <div class="card" style="margin-bottom: 2.5rem;">
+        <form method="GET" action="#detailed-reports" id="reportFilterForm">
+            <input type="hidden" name="quick_range" id="quickRangeInput" value="{{ quick_range|default:'' }}">
+            
+            <div class="grid-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                <div>
+                    <label style="font-weight: 500; font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Academic Department</label>
+                    <select name="filter_dept" class="filter-select" style="width: 100%; border-radius: 8px;" onchange="document.getElementById('reportFilterForm').submit();">
+                        <option value="">-- All Departments --</option>
+                        {% for dept in departments %}
+                            <option value="{{ dept.id }}" {% if filter_dept == dept.id|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label style="font-weight: 500; font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Program Course</label>
+                    <select name="filter_course" class="filter-select" style="width: 100%; border-radius: 8px;" onchange="document.getElementById('reportFilterForm').submit();">
+                        <option value="">-- All Matching Courses --</option>
+                        {% for course in courses %}
+                            <option value="{{ course.code }}" {% if filter_course == course.code %}selected{% endif %}>[{{ course.code }}] {{ course.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label style="font-weight: 500; font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Class Stream Scope</label>
+                    <select name="filter_stream" class="filter-select" style="width: 100%; border-radius: 8px;" onchange="document.getElementById('reportFilterForm').submit();">
+                        <option value="">-- All Stream Classes --</option>
+                        {% for stream in selectable_streams %}
+                            <option value="{{ stream.id }}" {% if filter_stream == stream.id|stringformat:"s" %}selected{% endif %}>{{ stream.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; border-top: 1px solid var(--border); padding-top: 1.25rem;">
+                <div class="filter-group">
+                    <span style="font-weight: 500; font-size: 0.85rem; color: var(--text-muted);">Timeframe Matrix:</span>
+                    <button type="button" class="btn-toggle {% if quick_range == 'today' %}active{% endif %}" onclick="setQuickRange('today')">Today</button>
+                    <button type="button" class="btn-toggle {% if quick_range == 'week' %}active{% endif %}" onclick="setQuickRange('week')">This Week</button>
+                    <button type="button" class="btn-toggle {% if quick_range == 'month' %}active{% endif %}" onclick="setQuickRange('month')">This Month</button>
+                    <button type="button" class="btn-toggle {% if not quick_range %}active{% endif %}" onclick="setQuickRange('')">Custom Range</button>
+                </div>
+
+                <div class="filter-group" id="customDateInputs" style="{% if quick_range %}display: none;{% endif %}">
+                    <input type="date" name="start_date" value="{{ start_date|default:'' }}" class="date-input" placeholder="Start Date">
+                    <span style="color: var(--text-muted);">to</span>
+                    <input type="date" name="end_date" value="{{ end_date|default:'' }}" class="date-input" placeholder="End Date">
+                </div>
+
+                <div class="action-buttons">
+                    <button type="submit" class="btn"><i class="fas fa-filter"></i> Apply Constraints</button>
+                    <a href="?export=detailed_student_csv&filter_dept={{ filter_dept|default:'' }}&filter_course={{ filter_course|default:'' }}&filter_stream={{ filter_stream|default:'' }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&quick_range={{ quick_range|default:'' }}" class="btn" style="background-color: #047857;">
+                        <i class="fas fa-download"></i> Download Report
+                    </a>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-wrapper" style="margin-top: 1.5rem;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student Full Name</th>
+                        <th>Registration Identifier</th>
+                        <th>Assigned Academic Stream</th>
+                        <th style="text-align: center;">Total Records</th>
+                        <th style="text-align: center;">Present Days</th>
+                        <th>Absolute Attendance Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in detailed_student_reports %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ item.name }}</td>
+                        <td style="font-family: monospace; font-size: 0.85rem;">{{ item.reg_number }}</td>
+                        <td><span class="badge" style="background:#f1f5f9; color:var(--text-main);">{{ item.stream_name }}</span></td>
+                        <td style="text-align: center; font-weight: 500;">{{ item.total_logs }}</td>
+                        <td style="text-align: center; color: var(--success); font-weight: 600;">{{ item.present_logs }}</td>
+                        <td>
+                            <strong style="{% if item.percentage_num >= 75 %}color: var(--success);{% else %}color: var(--danger);{% endif %}">
+                                {{ item.attendance_percentage }}
+                            </strong>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                            <i class="fas fa-folder-open" style="font-size: 2rem; display: block; margin-bottom: 0.5rem; color: var(--border);"></i>
+                            No unique log frameworks match specified query metric configurations.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SECTION 1: STUDENT PERFORMANCE MATRIX (unchanged) -->
+    <div class="section-title">
+        <i class="fas fa-user-graduate" style="color: var(--primary);"></i> Student Performance Metrics (Top 20 Analytics)
+    </div>
+    
+    <div class="grid-2" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+        <div class="card">
+            <h3 style="margin-bottom: 1rem; color: var(--success);"><i class="fas fa-star"></i> Top 20 Present Students</h3>
+            <div class="table-wrapper table-container-scroller">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Reg No.</th>
+                            <th>Stream</th>
+                            <th>Attendance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in top_present_students %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ student.name }}</td>
+                            <td style="font-family: monospace; font-size: 0.85rem;">{{ student.reg }}</td>
+                            <td><span class="badge" style="background:#f1f5f9; color:var(--text-main);">{{ student.class }}</span></td>
+                            <td><strong style="color: var(--success);">{{ student.p_rate }}</strong></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">No logs available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 1rem; color: var(--danger);"><i class="fas fa-heart-broken"></i> Top 20 Absent Students</h3>
+            <div class="table-wrapper table-container-scroller">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Reg No.</th>
+                            <th>Stream</th>
+                            <th>Absent Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in top_absent_students %}
+                        <tr>
+                            <td style="font-weight: 600;">{{ student.name }}</td>
+                            <td style="font-family: monospace; font-size: 0.85rem;">{{ student.reg }}</td>
+                            <td><span class="badge" style="background:#f1f5f9; color:var(--text-main);">{{ student.class }}</span></td>
+                            <td><strong style="color: var(--danger);">{{ student.a_rate }}</strong></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">No logs available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 2: TEACHER COMPLIANCE SUBMISSIONS REPORT (fully restored with filters) -->
+    <div class="section-title" id="teacher-compliance">
+        <i class="fas fa-chalkboard-teacher" style="color: var(--secondary);"></i> Lecturer Attendance Submission Compliance Report
+    </div>
+
+    <!-- Interactive Cascading Filters Form Layout for Lecturer Compliance -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <form method="GET" action="#teacher-compliance" id="teacherFilterForm">
+            <div class="grid-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                <div>
+                    <label style="font-weight: 500; font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Academic Department</label>
+                    <select name="filter_dept" class="filter-select" style="width: 100%; border-radius: 8px;" onchange="document.getElementById('teacherFilterForm').submit();">
+                        <option value="">-- All Departments --</option>
+                        {% for dept in departments %}
+                            <option value="{{ dept.id }}" {% if filter_dept == dept.id|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label style="font-weight: 500; font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Program Course</label>
+                    <select name="filter_course" class="filter-select" style="width: 100%; border-radius: 8px;" onchange="document.getElementById('teacherFilterForm').submit();">
+                        <option value="">-- All Matching Courses --</option>
+                        {% for course in courses %}
+                            <option value="{{ course.code }}" {% if filter_course == course.code %}selected{% endif %}>[{{ course.code }}] {{ course.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label style="font-weight: 500; font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Class Stream Scope</label>
+                    <select name="filter_stream" class="filter-select" style="width: 100%; border-radius: 8px;" onchange="document.getElementById('teacherFilterForm').submit();">
+                        <option value="">-- All Stream Classes --</option>
+                        {% for stream in selectable_streams %}
+                            <option value="{{ stream.id }}" {% if filter_stream == stream.id|stringformat:"s" %}selected{% endif %}>{{ stream.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="grid-2" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+        <div class="card">
+            <h3 style="margin-bottom: 1rem; color: var(--primary);"><i class="fas fa-check-double"></i> Most Active Submissions (Top 20)</h3>
+            <div class="table-wrapper table-container-scroller">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Lecturer Email</th>
+                            <th>Sessions Logged</th>
+                            <th>System Activity Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for teacher in top_submitted_teachers %}
+                        <tr>
+                            <td style="font-weight: 500; font-size:0.9rem;">{{ teacher.email }}</td>
+                            <td style="font-weight: 600; text-align: center;">{{ teacher.submitted }}</td>
+                            <td><span class="badge badge-success">{{ teacher.rate }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2rem;">No structural schedules tracked.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 1rem; color: var(--warning);"><i class="fas fa-exclamation-circle"></i> Least Active / Unsubmitted (Top 20)</h3>
+            <div class="table-wrapper table-container-scroller">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Lecturer Email</th>
+                            <th>Sessions Logged</th>
+                            <th>System Activity Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for teacher in top_unsubmitted_teachers %}
+                        <tr>
+                            <td style="font-weight: 500; font-size:0.9rem;">{{ teacher.email }}</td>
+                            <td style="font-weight: 600; text-align: center;">{{ teacher.submitted }}</td>
+                            <td>
+                                {% if teacher.submitted == 0 %}
+                                    <span class="badge badge-danger">0.0% (No Submissions)</span>
+                                {% else %}
+                                    <span class="badge badge-warning">{{ teacher.rate }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2rem;">No structural schedules tracked.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 3: LOCATION GEOSPATIAL LOGS (GPS feature fully integrated) -->
+    <div class="section-title">
+        <i class="fas fa-fingerprint" style="color: var(--text-main);"></i> System Location Security & Audit Logs
+    </div>
+
+    <div class="card" style="margin-bottom: 2.5rem;">
+        <h3 style="margin-bottom: 1.25rem;"><i class="fas fa-map-marker-alt" style="color: var(--secondary); margin-right: 0.5rem;"></i> Lecturer Location Audit Log</h3>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Class Stream</th>
+                        <th>Lecturer Email</th>
+                        <th>GPS Coordinates</th>
+                        <th>Verification Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in audit_logs %}
+                    <tr>
+                        <td style="font-weight: 500; white-space: nowrap;">{{ log.date }}</td>
+                        <td><span style="background: #f1f5f9; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600;">{{ log.class }}</span></td>
+                        <td style="color: var(--text-muted); font-size: 0.9rem;">{{ log.lecturer }}</td>
+                        <td>
+                            <!-- GPS link: clicking opens the small expandable map modal -->
+                            <span class="gps-link" data-coords="{{ log.location }}">
+                                {{ log.location }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if log.verified %}
+                                <span class="badge badge-success"><i class="fas fa-shield-alt"></i> Verified GPS</span>
+                            {% else %}
+                                <span class="badge badge-danger"><i class="fas fa-exclamation-triangle"></i> Unverified</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No lecturer sessions logged in this scope.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========== GPS MAP MODAL ========== -->
+<div class="map-modal-overlay" id="mapModalOverlay">
+    <div class="map-modal">
+        <div class="map-modal-header">
+            <h3><i class="fas fa-map-pin"></i> <span id="mapCoordsDisplay">0.000, 0.000</span></h3>
+            <div class="map-modal-actions">
+                <button id="expandMapBtn" title="Open full map in new tab"><i class="fas fa-external-link-alt"></i> Expand</button>
+                <button id="closeMapModalBtn"><i class="fas fa-times"></i> Close</button>
+            </div>
+        </div>
+        <div class="map-modal-body">
+            <div id="locationMap"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart & Map Scripts -->
+<script>
+    function setQuickRange(val) {
+        document.getElementById('quickRangeInput').value = val;
+        if(val === "") {
+            document.getElementById('customDateInputs').style.display = 'flex';
+        } else {
+            document.getElementById('customDateInputs').style.display = 'none';
+            document.getElementById('reportFilterForm').submit();
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        // ============= CHARTS CORRECTION =============
+        try {
+            if (typeof Chart !== 'undefined') {
+                const ctxDist = document.getElementById('distributionChart').getContext('2d');
+                new Chart(ctxDist, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Present', 'Absent'],
+                        datasets: [{
+                            data: {{ chart_dist_data|safe }},
+                            backgroundColor: ['#10b981', '#ef4444'],
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { font: { family: 'Inter' } } }
+                        }
+                    }
+                });
+
+                const ctxClass = document.getElementById('classChart').getContext('2d');
+                new Chart(ctxClass, {
+                    type: 'bar',
+                    data: {
+                        labels: {{ stream_labels|safe }},
+                        datasets: [{
+                            label: 'Attendance Rate (%)',
+                            data: {{ stream_rates|safe }},
+                            backgroundColor: '#2c6e6b',
+                            borderRadius: 6,
+                            maxBarThickness: 40
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { min: 0, max: 100, grid: { color: '#e2e8f0' } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+        } catch (chartError) {
+            console.error("Chart generation skipped or failed:", chartError);
+        }
+
+        // ============= GPS MAP MODAL LOGIC =============
+        const overlay = document.getElementById('mapModalOverlay');
+        const closeBtn = document.getElementById('closeMapModalBtn');
+        const expandBtn = document.getElementById('expandMapBtn');
+        const coordsDisplay = document.getElementById('mapCoordsDisplay');
+        let map = null;
+        let currentLat = null, currentLng = null;
+
+        if (typeof L !== 'undefined') {
+            delete L.Icon.Default.prototype._getIconUrl;
+            L.Icon.Default.mergeOptions({
+                iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+                iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+                shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+            });
+        }
+
+        function initMap() {
+            if (map) return;
+            map = L.map('locationMap').setView([0, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                referrerPolicy: 'origin'
+            }).addTo(map);
+        }
+
+        function showMap(lat, lng, coordString) {
+            overlay.classList.add('active');
+            initMap();
+            
+            // Zoom modifier applied directly here (changed from 16 to 12 for wide city view)
+            map.setView([lat, lng], 14);
+            
+            if (map._marker) map.removeLayer(map._marker);
+            map._marker = L.marker([lat, lng]).addTo(map)
+                .bindPopup(`<b>Location:</b> ${coordString}`).openPopup();
+                
+            coordsDisplay.textContent = coordString;
+            currentLat = lat;
+            currentLng = lng;
+            
+            setTimeout(() => { map.invalidateSize(); }, 50);
+        }
+
+        function hideMap() {
+            overlay.classList.remove('active');
+        }
+
+        function parseCoords(str) {
+            if (!str) return null;
+            const cleanStr = str.replace(/[()\[\]]/g, '');
+            const parts = cleanStr.split(',').map(s => s.trim());
+            if (parts.length === 2) {
+                const lat = parseFloat(parts[0]);
+                const lng = parseFloat(parts[1]);
+                if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+            }
+            return null;
+        }
+
+        document.querySelectorAll('.gps-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const coordStr = this.getAttribute('data-coords') || this.innerText;
+                const coords = parseCoords(coordStr);
+                if (coords) {
+                    showMap(coords.lat, coords.lng, coordStr);
+                } else {
+                    alert('Invalid GPS coordinates format detected.');
+                }
+            });
+        });
+
+        closeBtn.addEventListener('click', hideMap);
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) hideMap();
+        });
+
+        expandBtn.addEventListener('click', function() {
+            if (currentLat !== null && currentLng !== null) {
+                const url = `https://www.google.com/maps?q=${currentLat},${currentLng}`;
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && overlay.classList.contains('active')) {
+                hideMap();
+            }
+        });
+    });
+</script>
+{% endblock %}

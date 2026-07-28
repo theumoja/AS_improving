@@ -1,0 +1,218 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    .action-link {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-right: 0.75rem;
+        transition: var(--transition);
+    }
+    .action-link.edit { color: var(--accent); }
+    .action-link.delete { color: var(--danger); }
+    .action-link:hover { opacity: 0.7; }
+
+    /* Modal Context Interface Components */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 500px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+</style>
+
+<div class="page-header-actions">
+    <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
+        <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search stream identifier, framework track..." style="padding-left: 2.25rem;">
+        </div>
+    </div>
+
+    <div class="action-group">
+        <button class="btn btn-outline" onclick="location.href='{% url 'attendance:bulk_upload_streams' %}'">
+            <i class="fas fa-file-upload"></i> Bulk Stream Ingestion
+        </button>
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-plus-circle"></i> Create Academic Stream
+        </button>
+    </div>
+</div>
+
+{% if messages %}
+<div style="margin-bottom: 1.5rem;">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Stream Name / Layout Identifier</th>
+                <th>Assigned Parent Course Program Framework</th>
+                <th style="text-align: right;">Execution Parameters</th>
+            </tr>
+        </thead>
+        <tbody id="streamsTableBody">
+            {% for stream in streams %}
+            <tr class="stream-row">
+                <td><code style="font-size:1rem; font-weight:700; color:var(--text-main);">{{ stream.name }}</code></td>
+                <td style="font-weight: 500;">{{ stream.course.code }} - {{ stream.course.name }}</td>
+                <td style="text-align: right;">
+                    <a href="{% url 'attendance:edit_stream' stream.id %}" class="action-link edit">
+                        <i class="fas fa-edit"></i> Edit
+                    </a>
+                    <a href="{% url 'attendance:delete_stream' stream.id %}" class="action-link delete" onclick="return confirm('Dropping this stream layout cascades to affect student associations. Proceed?');">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-stream" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No relational educational streams registered.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="3" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching academic streams discovered for your filter criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="modal" id="singleAddModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Structural Stream Creator</h3>
+            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="stream_name">Stream Layout Name</label>
+                <input type="text" id="stream_name" name="stream_name" class="form-control" required placeholder="e.g. Year 1 CIT A">
+            </div>
+            <div class="form-group">
+                <label for="course_code">Parent Course Framework Reference</label>
+                <select id="course_code" name="course_code" class="form-control" required>
+                    <option value="" disabled selected>-- Choose Target Course Map --</option>
+                    {% for course in courses %}
+                    <option value="{{ course.code }}">{{ course.code }} - {{ course.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex; gap:0.75rem; margin-top:2rem;">
+                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Confirm & Build</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('singleAddModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+
+        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
+        const closeModal = () => modal.classList.remove('active');
+        
+        if(closeBtn) closeBtn.addEventListener('click', closeModal);
+        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+
+        // Automated Frontend Search Matrix
+        const searchInput = document.getElementById('dashboardSearch');
+        const dataRows = document.querySelectorAll('.stream-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const criteria = this.value.toLowerCase().trim();
+                let matchingCount = 0;
+
+                dataRows.forEach(row => {
+                    const searchableText = row.textContent.toLowerCase();
+                    if (searchableText.includes(criteria)) {
+                        row.style.display = '';
+                        matchingCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (emptyRow) {
+                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+                }
+            });
+        }
+    });
+</script>
+
+{% endblock %}

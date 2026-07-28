@@ -1,0 +1,276 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    /* Certificate Link Style */
+    .cert-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.65rem;
+        border-radius: var(--radius-sm);
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        font-size: 0.825rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: var(--transition);
+        border: 1px solid rgba(37, 99, 235, 0.2);
+    }
+    .cert-link:hover {
+        background: #2563eb;
+        color: #ffffff;
+    }
+
+    /* Modal Context Interface Components */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 550px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+    .form-control-file {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px dashed var(--border);
+        border-radius: var(--radius-sm);
+        background: #f8fafc;
+        font-family: var(--font);
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    .form-control-file:hover {
+        border-color: #2563eb;
+        background: #eff6ff;
+    }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header & Action Toolbar -->
+<div class="page-header-actions">
+    <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
+        <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search staff, qualification, institution..." style="padding-left: 2.25rem;">
+        </div>
+    </div>
+
+    <div class="action-group">
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-plus-circle"></i> Add Qualification
+        </button>
+    </div>
+</div>
+
+<!-- Main Qualifications Table Container -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Staff Member</th>
+                <th>Qualification</th>
+                <th>Institution</th>
+                <th>Year</th>
+                <th>Certificate Document</th>
+            </tr>
+        </thead>
+        <tbody id="qualificationsTableBody">
+            {% for q in qualifications %}  
+            <tr class="qualification-row">
+                <td style="font-weight: 600; color: var(--text-main);">
+                    <i class="fas fa-user-tie" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ q.staff.username }}
+                </td>
+                <td style="font-weight: 600;">
+                    {{ q.qualification_name }}
+                </td>
+                <td>
+                    <i class="fas fa-university" style="margin-right: 0.3rem; color: var(--text-muted);"></i> {{ q.institution }}
+                </td>
+                <td>
+                    <span style="font-weight: 700; color: var(--text-muted);">{{ q.year_awarded }}</span>
+                </td>
+                <td>
+                    {% if q.certificate_file %}
+                        <a href="{{ q.certificate_file.url }}" target="_blank" class="cert-link">
+                            <i class="fas fa-file-pdf"></i> View Certificate
+                        </a>
+                    {% else %}
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">None</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-certificate" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No staff qualifications recorded.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching qualifications discovered for your filter criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Creator Interface -->
+<div class="modal" id="singleAddModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Add Staff Qualification</h3>
+            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" enctype="multipart/form-data" action="">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="staff">Staff Member</label>
+                <select id="staff" name="staff" class="form-control" required>
+                    <option value="">Select Staff...</option>
+                    {% for u in staff_users %}
+                        <option value="{{ u.id }}">{{ u.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="qualification_name">Qualification Name</label>
+                <input type="text" id="qualification_name" name="qualification_name" class="form-control" required placeholder="e.g. Bachelor of Science in Education">
+            </div>
+
+            <div class="form-group">
+                <label for="institution">Institution</label>
+                <input type="text" id="institution" name="institution" class="form-control" required placeholder="e.g. Makerere University">
+            </div>
+
+            <div class="form-group">
+                <label for="year_awarded">Year Awarded</label>
+                <input type="number" id="year_awarded" name="year_awarded" class="form-control" required placeholder="e.g. 2020">
+            </div>
+
+            <div class="form-group">
+                <label for="certificate_file">Certificate File (Optional)</label>
+                <input type="file" id="certificate_file" name="certificate_file" class="form-control-file">
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Add Qualification</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('singleAddModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+
+        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
+        const closeModal = () => modal.classList.remove('active');
+        
+        if(closeBtn) closeBtn.addEventListener('click', closeModal);
+        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+
+        // Automated Frontend Search Matrix
+        const searchInput = document.getElementById('dashboardSearch');
+        const dataRows = document.querySelectorAll('.qualification-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const criteria = this.value.toLowerCase().trim();
+                let matchingCount = 0;
+
+                dataRows.forEach(row => {
+                    const searchableText = row.textContent.toLowerCase();
+                    if (searchableText.includes(criteria)) {
+                        row.style.display = '';
+                        matchingCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (emptyRow) {
+                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+                }
+            });
+        }
+    });
+</script>
+
+{% endblock %}

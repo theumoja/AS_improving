@@ -1,0 +1,187 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .filter-indicator {
+        display: none;
+        align-items: center;
+        gap: 0.5rem;
+        background: var(--warning-light);
+        color: #92400e;
+        border: 1px solid #fde68a;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-sm);
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    .filter-indicator i { color: var(--warning); }
+    .filter-indicator .clear-filter {
+        margin-left: auto;
+        color: #b45309;
+        text-decoration: underline;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .parent-course-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.65rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: #f1f5f9;
+        border: 1px solid var(--border);
+        color: var(--text-main);
+    }
+    .form-control-select {
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        font-weight: 600;
+        color: var(--text-main);
+    }
+    .action-link {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-right: 0.75rem;
+        transition: var(--transition);
+        text-decoration: none;
+    }
+    .action-link.edit { color: var(--accent); }
+    .action-link.delete { color: var(--danger); }
+    .action-link:hover { opacity: 0.7; }
+</style>
+
+<div class="page-header-actions">
+    <div>
+        <h2 style="margin:0; font-size:1.4rem;"><i class="fas fa-file-invoice" style="color:var(--primary);"></i> Framework Breakdown Analysis</h2>
+    </div>
+
+    <div>
+        <select id="reportDeptFilter" class="form-control-select" onchange="filterByDepartment(this.value)">
+            <option value="">All Structural Departments...</option>
+            {% for dept in departments %}
+                <option value="{{ dept.pk }}">{{ dept.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<div class="filter-indicator" id="activeFilterWindow">
+    <i class="fas fa-filter"></i>
+    <span>Isolating cross-matrices down to Selected Department Group: <strong id="filterDeptName"></strong></span>
+    <a href="{% url 'attendance:admin_report_page' %}" class="clear-filter">Reset Isolation Guard</a>
+</div>
+
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width:160px;">Program Tracking Code</th>
+                <th>Course Framework Title</th>
+                <th>Assigned Parent Department</th>
+                <th style="text-align: right;">Operations Index</th>
+            </tr>
+        </thead>
+        <tbody id="reportTableBody">
+            {% for course in courses %}
+            <tr data-dept-id="{{ course.department.pk|default:'' }}">
+                <td><code style="font-size:0.95rem; font-weight:700; color:var(--text-main);">{{ course.code|default:"UNKNOWN" }}</code></td>
+                <td style="font-weight:500;">{{ course.name }}</td>
+                <td>
+                    <span class="parent-course-badge">
+                        <i class="fas fa-building" style="font-size:0.8rem; margin-right:0.35rem; color:#2563eb;"></i>
+                        {{ course.department.name|default:"Unassigned" }}
+                    </span>
+                </td>
+                <td style="text-align: right;">
+                    <!-- Added safety filters to avoid template compilation aborts on blank rows -->
+                    <a href="{% url 'attendance:edit_course' course.code|default:'malformed_pk' %}" class="action-link edit">
+                        <i class="fas fa-edit"></i> Edit
+                    </a>
+                    <a href="{% url 'attendance:delete_course' course.code|default:'malformed_pk' %}" class="action-link delete" onclick="return confirm('Drop this course program track entry from system tracking arrays?');">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-layer-group" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No relational programmatic framework tracks parsed.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="noResultsRow" style="display:none;">
+                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search-minus" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No active programmatic maps match this specific department layout.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function filterByDepartment(deptId) {
+        const url = new URL(window.location.href);
+        if (deptId) {
+            url.searchParams.set('filter_dept', deptId);
+        } else {
+            url.searchParams.delete('filter_dept');
+        }
+        window.location.href = url.toString();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchParams = new URLSearchParams(window.location.search);
+        const targetDeptId = searchParams.get('filter_dept');
+
+        if (targetDeptId) {
+            const selectSelector = document.getElementById('reportDeptFilter');
+            if (selectSelector) selectSelector.value = targetDeptId;
+
+            const filterBox = document.getElementById('activeFilterWindow');
+            const label = document.getElementById('filterDeptName');
+            const rows = document.querySelectorAll('#reportTableBody tr:not(#noResultsRow)');
+            const fallbackRow = document.getElementById('noResultsRow');
+            
+            let matchCount = 0;
+            const selectedText = selectSelector.options[selectSelector.selectedIndex]?.text || "Filtered Node";
+            
+            if (label) label.textContent = selectedText;
+            if (filterBox) filterBox.style.display = 'flex';
+
+            rows.forEach(row => {
+                if (row.getAttribute('data-dept-id') === targetDeptId) {
+                    row.style.display = '';
+                    matchCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (matchCount === 0 && rows.length > 0 && fallbackRow) {
+                fallbackRow.style.display = 'table-row';
+            }
+        }
+    });
+</script>
+
+{% endblock %}

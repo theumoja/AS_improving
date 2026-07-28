@@ -1,0 +1,212 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<style>
+    .upload-card {
+        max-width: 700px;
+        margin: 2rem auto;
+        background: #fff;
+        border-radius: 20px;
+        padding: 2.5rem;
+        box-shadow: 0 20px 40px -12px rgba(0,0,0,0.08);
+    }
+    .upload-card h2 {
+        font-weight: 800;
+        color: #0f172a;
+        border-bottom: 3px solid #f1f5f9;
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .upload-card h2 i {
+        color: #2c6e6b;
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #1e293b;
+        margin-bottom: 0.4rem;
+    }
+    .form-group label i {
+        margin-right: 0.5rem;
+        color: #2c6e6b;
+        width: 1.5rem;
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.7rem 1rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        background: #fafbfc;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-control:focus {
+        border-color: #2c6e6b;
+        box-shadow: 0 0 0 3px rgba(44,110,107,0.12);
+        outline: none;
+        background: #fff;
+    }
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    /* ----- Reserve Checkbox Styling ----- */
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: #f8fafc;
+        padding: 0.9rem 1.2rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+    }
+    .checkbox-group:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
+    .checkbox-group input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: #2c6e6b;
+        cursor: pointer;
+    }
+    .checkbox-group label {
+        margin-bottom: 0;
+        cursor: pointer;
+        flex: 1;
+        font-weight: 600;
+        color: #0f172a;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.75rem 2rem;
+        border: none;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+    .btn-success {
+        background: #10b981;
+        color: #fff;
+        box-shadow: 0 4px 10px -2px rgba(16,185,129,0.3);
+    }
+    .btn-success:hover {
+        background: #059669;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -4px rgba(16,185,129,0.4);
+    }
+    .btn-secondary {
+        background: #f1f5f9;
+        color: #475569;
+    }
+    .btn-secondary:hover {
+        background: #e2e8f0;
+    }
+    .button-group {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 2rem;
+    }
+    @media (max-width: 600px) {
+        .upload-card { padding: 1.5rem; margin: 1rem; }
+        .form-row { grid-template-columns: 1fr; }
+        .button-group { flex-direction: column; }
+        .button-group .btn { width: 100%; justify-content: center; }
+    }
+</style>
+
+<div class="upload-card">
+    <h2><i class="fas fa-upload"></i> Upload New Book to Catalog</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="POST" action="{% url 'attendance:upload_books' %}">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="id_title"><i class="fas fa-heading"></i> Book Title</label>
+            <input type="text" name="title" id="id_title" class="form-control" 
+                   placeholder="e.g., Introduction to Algorithms" required>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="id_author"><i class="fas fa-user-edit"></i> Author(s)</label>
+                <input type="text" name="author" id="id_author" class="form-control" 
+                       placeholder="e.g., Cormen, Leiserson">
+            </div>
+            <div class="form-group">
+                <label for="id_isbn"><i class="fas fa-barcode"></i> ISBN</label>
+                <input type="text" name="isbn" id="id_isbn" class="form-control" 
+                       placeholder="978-0262033848">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="id_copies"><i class="fas fa-copy"></i> Number of Copies</label>
+            <input type="number" name="total_copies" id="id_copies" class="form-control" 
+                   min="1" value="1" required>
+            <small class="form-text text-muted">How many physical copies are being added to the library.</small>
+        </div>
+
+        <!-- Department dropdown (optional) -->
+        <div class="form-group">
+            <label for="id_department"><i class="fas fa-building"></i> Department (optional)</label>
+            <select name="department" id="id_department" class="form-control">
+                <option value="">-- Select department --</option>
+                {% for dept in departments %}
+                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+            <small class="form-text text-muted">If the book is associated with a specific academic department, you may choose it here.</small>
+        </div>
+
+        <!-- Reserve Collection Checkbox -->
+        <div class="form-group">
+            <label><i class="fas fa-bookmark"></i> Collection Restrictions</label>
+            <div class="checkbox-group">
+                <input type="checkbox" name="is_reserve" id="id_is_reserve" value="true">
+                <label for="id_is_reserve">Mark as Reserve Collection</label>
+            </div>
+            <small class="form-text text-muted" style="margin-top: 0.3rem; display: block;">
+                Reserve Collection books cannot be issued via Quick Checkout and require librarian approval.
+            </small>
+        </div>
+
+        <div class="button-group">
+            <a href="{% url 'attendance:manage_library' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Return to Library
+            </a>
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-plus-circle"></i> Add Book
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

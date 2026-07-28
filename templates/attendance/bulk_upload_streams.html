@@ -1,0 +1,40 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+
+<div class="card" style="max-width: 600px; margin: 2rem auto;">
+    <h2><i class="fas fa-upload"></i> Bulk Stream Ingestion</h2>
+    <div class="instruction-box">
+        <strong>Required CSV Schema Headers:</strong><br>
+        The data file must define columns matching this ordering sequence: <code>stream_name,course_code</code><br>
+        <em>Note: Ensure the course codes are loaded into the master course table prior to ingestion.</em>
+    </div>
+
+    {% if messages %}
+    <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+        <div class="alert alert-danger">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" action="">
+        {% csrf_token %}
+        <div style="margin-bottom: 1.5rem;">
+            <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem; color:var(--text-muted);">Select Source Data CSV File</label>
+            <input type="file" name="csv_file" accept=".csv" required style="width:100%; padding:0.5rem; border:1px dashed var(--border); border-radius:var(--radius-sm);">
+        </div>
+        <div style="display:flex; gap:0.75rem;">
+            <a href="{% url 'attendance:manage_streams' %}" class="btn btn-outline" style="flex:1; text-align:center;">Back</a>
+            <button type="submit" class="btn" style="flex:2;">Upload & Ingest</button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

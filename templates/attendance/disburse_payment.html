@@ -1,0 +1,139 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .disburse-container {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    .disburse-card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: 2.5rem;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border);
+    }
+    .disburse-header {
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+    .disburse-header h2 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-dark);
+        margin: 0;
+    }
+    .disburse-header p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        margin-top: 0.25rem;
+    }
+    .disburse-form .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .disburse-form .form-group label {
+        display: block;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--text-main);
+        margin-bottom: 0.4rem;
+    }
+    .disburse-form .form-control {
+        width: 100%;
+        padding: 0.8rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 1rem;
+        background: #fff;
+        transition: var(--transition);
+        box-sizing: border-box;
+    }
+    .disburse-form .form-control:focus {
+        border-color: var(--accent);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+    /* datalist input – same style */
+    input.form-control[list] { background: #fff; }
+    .btn-disburse {
+        width: 100%;
+        padding: 0.9rem;
+        background: linear-gradient(135deg, var(--secondary), var(--primary));
+        color: #fff;
+        font-weight: 600;
+        font-size: 1.05rem;
+        border: none;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: var(--transition);
+        box-shadow: var(--shadow-sm);
+        margin-top: 0.5rem;
+    }
+    .btn-disburse:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+        filter: brightness(1.05);
+    }
+    .btn-disburse i { margin-right: 0.5rem; }
+    .back-link {
+        display: inline-block;
+        margin-top: 1.5rem;
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 0.9rem;
+    }
+    .back-link:hover { color: var(--primary); }
+    .back-link i { margin-right: 0.4rem; }
+</style>
+
+<div class="disburse-container">
+    <div class="disburse-card">
+        <div class="disburse-header">
+            <h2><i class="fas fa-credit-card" style="color:var(--secondary);"></i> Disburse Staff Payment</h2>
+            <p>Select a staff member and enter payment details to record a new payroll disbursement.</p>
+        </div>
+
+        <form method="POST" action="{% url 'attendance:staff_payments_dashboard' %}" class="disburse-form">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="staff_search">Recipient Staff Profile</label>
+                <!-- SEARCHABLE DROPDOWN using datalist -->
+                <input type="text" id="staff_search" name="staff_id" list="staff-list" class="form-control" placeholder="Start typing staff name..." required autocomplete="off">
+                <datalist id="staff-list">
+                    {% for staff in all_staff %}
+                        <option value="{{ staff.id }}">{{ staff.username }} [{{ staff.role }}]</option>
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <div class="form-group">
+                <label for="id_amount">Amount (UGX)</label>
+                <input type="number" id="id_amount" name="amount" step="0.01" min="0" placeholder="e.g. 1500000" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="id_reference_number">Reference / Voucher ID</label>
+                <input type="text" id="id_reference_number" name="reference_number" placeholder="e.g. TXN-98231B" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="id_description">Description Note</label>
+                <textarea id="id_description" name="description" placeholder="E.g., June Basic Salary, Overtime Allowance" class="form-control" rows="3"></textarea>
+            </div>
+
+            <button type="submit" class="btn-disburse">
+                <i class="fas fa-check-circle"></i> Commit Payroll Disbursal
+            </button>
+        </form>
+
+        <a href="{% url 'attendance:staff_payments_dashboard' %}" class="back-link">
+            <i class="fas fa-arrow-left"></i> Back to Payroll Ledger
+        </a>
+    </div>
+</div>
+
+{% endblock %}

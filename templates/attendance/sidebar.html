@@ -1,0 +1,367 @@
+{% load static %}
+
+<style>
+    /* ----- Sidebar‑specific CSS ----- */
+    :root {
+        --sidebar-width: 320px;
+    }
+    .sidebar {
+        width: var(--sidebar-width);
+        background: linear-gradient(180deg, #d0d6dd 0%, #b8c0c9 100%);
+        border-right: 1px solid rgba(255,255,255,0.4);
+        padding: 2rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        position: fixed;
+        top: var(--nav-height);
+        left: 0;
+        height: calc(100vh - var(--nav-height));
+        overflow-y: auto;
+        z-index: 10;
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease, opacity 0.2s ease, transform 0.3s ease;
+        opacity: 1;
+        will-change: transform;
+        box-shadow: inset -2px 0 10px rgba(0,0,0,0.06);
+    }
+    .sidebar::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+        pointer-events: none;
+        z-index: 0;
+    }
+    .sidebar > * { position: relative; z-index: 1; }
+
+    .app-layout.sidebar-collapsed .sidebar {
+        width: 0px;
+        padding: 2rem 0px;
+        overflow: hidden;
+        border-right: 0 solid transparent;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-100%);
+    }
+
+    .sidebar-heading {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #1a2a3a;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 0.75rem 0.75rem 0.25rem 0.75rem;
+        margin-top: 1.25rem;
+        white-space: nowrap;
+        opacity: 0.6;
+    }
+    .sidebar-heading:first-of-type { margin-top: 0; }
+
+    .sidebar-link {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding: 0.65rem 0.75rem;
+        border-radius: var(--radius-sm);
+        color: #1a2a3a;
+        font-weight: 500;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        white-space: nowrap;
+        background: transparent;
+        border: none;
+    }
+    .sidebar-link i {
+        width: 1.25rem;
+        text-align: center;
+        color: #2a4a6a;
+        font-size: 1rem;
+        transition: var(--transition);
+    }
+    .sidebar-link:hover {
+        background: rgba(30, 58, 138, 0.15);
+        color: #0f2a4a;
+        box-shadow: inset 0 1px 2px rgba(255,255,255,0.6), 0 2px 4px rgba(0,0,0,0.04);
+    }
+    .sidebar-link:hover i { color: #1e3a8a; }
+    .sidebar-link.active {
+        background: linear-gradient(135deg, var(--secondary), var(--primary));
+        color: #fff;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
+    }
+    .sidebar-link.active i { color: #fff; }
+
+    .sidebar-divider {
+        border: none;
+        border-top: 1px solid rgba(0,0,0,0.1);
+        margin: 0.75rem 0;
+    }
+
+    /* Hide desktop sidebar on small screens */
+    @media (max-width: 768px) {
+        .sidebar { display: none !important; }
+    }
+</style>
+
+{% if user.is_authenticated %}
+<aside class="sidebar" id="sidebarContainer">
+
+    {# --- UNIVERSAL BASE LINK (Always visible) --- #}
+    <a href="{% url 'attendance:my_apps' %}" class="sidebar-link {% if request.resolver_match.url_name == 'my_apps' %}active{% endif %}">
+        <i class="fas fa-th-large"></i> My Apps
+    </a>
+
+    {# ========================================================================= #}
+    {# 1. CONTEXT: STUDENTS MANAGEMENT / STUDENT CONSOLE                        #}
+    {# ========================================================================= #}
+    {% if 'students' in request.path or 'student' in request.path or request.resolver_match.url_name in 'manage_students,edit_student,delete_student,bulk_upload_students,student_dashboard,download_student_report,download_attendance_card' %}
+        
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Student Operations</div>
+
+        <a href="{% url 'attendance:manage_students' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_students' %}active{% endif %}">
+            <i class="fas fa-users"></i> All Students List
+        </a>
+
+    {# ========================================================================= #}
+    {# 2. CONTEXT: TEACHERS MANAGEMENT / TEACHER CONSOLE                        #}
+    {# ========================================================================= #}
+    {% elif 'teachers' in request.path or 'teacher' in request.path or request.resolver_match.url_name in 'manage_teachers,edit_teacher,delete_teacher,bulk_upload_teachers,teacher_dashboard,mark_attendance' %}
+        
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Teacher Operations</div>
+
+        {% if user.is_staff or user.role == 'ADMIN' %}
+            <a href="{% url 'attendance:manage_teachers' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_teachers' %}active{% endif %}">
+                <i class="fas fa-chalkboard-teacher"></i> All Teachers List
+            </a>
+            <a href="{% url 'attendance:bulk_upload_teachers' %}" class="sidebar-link {% if request.resolver_match.url_name == 'bulk_upload_teachers' %}active{% endif %}">
+                <i class="fas fa-file-upload"></i> Bulk Upload Teachers
+            </a>
+        {% endif %}
+
+        {% if user.role == 'TEACHER' %}
+            <a href="{% url 'attendance:teacher_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'teacher_dashboard' %}active{% endif %}">
+                <i class="fas fa-tachometer-alt"></i> Teacher Dashboard
+            </a>
+        {% endif %}
+
+    {# ========================================================================= #}
+    {# 3. CONTEXT: DEPARTMENTS MANAGEMENT                                       #}
+    {# ========================================================================= #}
+    {% elif 'departments' in request.path or request.resolver_match.url_name in 'manage_departments,add_department,edit_department,delete_department,admin_report_page' %}
+        
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Department Operations</div>
+        <a href="{% url 'attendance:admin_report_page' %}" class="sidebar-link {% if request.resolver_match.url_name == 'admin_report_page' %}active{% endif %}">
+            <i class="fas fa-chart-bar"></i> Department Reports
+        </a>
+
+        <a href="{% url 'attendance:manage_departments' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_departments' %}active{% endif %}">
+            <i class="fas fa-building"></i> Manage Departments
+        </a>
+        
+
+    {# ========================================================================= #}
+    {# 4. CONTEXT: COURSES & COURSE UNITS MANAGEMENT                            #}
+    {# ========================================================================= #}
+    {% elif 'courses' in request.path or 'course-units' in request.path or request.resolver_match.url_name in 'manage_courses,edit_course,delete_course,manage_course_units,edit_course_unit,delete_course_unit,bulk_upload_courses' %}
+        
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Course Operations</div>
+
+        <a href="{% url 'attendance:manage_courses' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_courses' %}active{% endif %}">
+            <i class="fas fa-book"></i> Manage Courses
+        </a>
+        
+
+    {# ========================================================================= #}
+    {# 5. CONTEXT: STREAMS MANAGEMENT                                           #}
+    {# ========================================================================= #}
+    {% elif 'streams' in request.path or request.resolver_match.url_name in 'manage_streams,edit_stream,delete_stream,bulk_upload_streams' %}
+        
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Stream Operations</div>
+
+        <a href="{% url 'attendance:manage_streams' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_streams' %}active{% endif %}">
+            <i class="fas fa-stream"></i> Manage Streams
+        </a>
+
+
+    {# ========================================================================= #}
+    {# 6. CONTEXT: LIBRARY MODULE                                               #}
+    {# ========================================================================= #}
+    {% elif 'library' in request.path or request.resolver_match.url_name in 'librarian_dashboard,manage_library,issue_book,add_book,upload_books,return_book,library_reader_dashboard,apply_reserve_book' %}
+        
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Library Operations</div>
+
+        {% if user.role == 'LIBRARIAN' or user.role == 'ADMIN' or user.is_staff %}
+            <a href="{% url 'attendance:librarian_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'librarian_dashboard' %}active{% endif %}">
+                <i class="fas fa-chart-pie"></i> Librarian Dashboard
+            </a>
+            <a href="{% url 'attendance:manage_library' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_library' %}active{% endif %}">
+                <i class="fas fa-books"></i> Manage Catalog
+            </a>
+            <a href="{% url 'attendance:issue_book' %}" class="sidebar-link {% if request.resolver_match.url_name == 'issue_book' %}active{% endif %}">
+                <i class="fas fa-hand-holding"></i> Issue Book
+            </a>
+            <a href="{% url 'attendance:add_book' %}" class="sidebar-link {% if request.resolver_match.url_name == 'add_book' %}active{% endif %}">
+                <i class="fas fa-plus-circle"></i> Add Single Book
+            </a>
+            <a href="{% url 'attendance:upload_books' %}" class="sidebar-link {% if request.resolver_match.url_name == 'upload_books' %}active{% endif %}">
+                <i class="fas fa-file-upload"></i> Bulk Upload Books
+            </a>
+        {% endif %}
+        {% if user.role == 'STUDENT' %}
+        <a href="{% url 'attendance:library_reader_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'library_reader_dashboard' %}active{% endif %}">
+            <i class="fas fa-book-open"></i> Reader Catalog
+        </a>
+        {% endif %}
+
+    {# ========================================================================= #}
+    {# 7. CONTEXT: ACCOUNTING & FINANCE MODULE                                  #}
+    {# ========================================================================= #}
+    {% elif 'finance' in request.path or 'fees' in request.path or 'staff-payments' in request.path or request.resolver_match.url_name in 'accountant_dashboard,fees_dashboard,staff_payments_dashboard,record_payment_attempt,disburse_payment,confirm_student_payment,edit_fee_transaction,delete_fee_transaction,edit_staff_payment,delete_staff_payment' %}
+        
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Accounting Operations</div>
+
+        {% if user.role == 'ACCOUNTANT' or user.role == 'ADMIN' or user.is_staff %}
+            <a href="{% url 'attendance:accountant_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'accountant_dashboard' %}active{% endif %}">
+                <i class="fas fa-chart-pie"></i> Finance Dashboard
+            </a>
+        {% endif %}
+
+        <a href="{% url 'attendance:fees_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'fees_dashboard' %}active{% endif %}">
+            <i class="fas fa-wallet"></i> Student Fees & Bursary
+        </a>
+        <a href="{% url 'attendance:staff_payments_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'staff_payments_dashboard' %}active{% endif %}">
+            <i class="fas fa-credit-card"></i> Staff Payroll / Payments
+        </a>
+        
+        {% if user.role == 'ACCOUNTANT' or user.role == 'ADMIN' or user.is_staff %}
+            {% if user.role == 'ACCOUNTANT'  %}
+            <a href="{% url 'attendance:record_payment_attempt' %}" class="sidebar-link {% if request.resolver_match.url_name == 'record_payment_attempt' %}active{% endif %}">
+                <i class="fas fa-plus-square"></i> Record Student Payment
+            </a>
+            {% endif %}
+            <a href="{% url 'attendance:disburse_payment' %}" class="sidebar-link {% if request.resolver_match.url_name == 'disburse_payment' %}active{% endif %}">
+                <i class="fas fa-hand-holding-usd"></i> Disburse Staff Payment
+            </a>
+        {% endif %}
+
+    {# ========================================================================= #}
+    {# 8. CONTEXT: WARDEN & HOSTEL LODGINGS MODULE                              #}
+    {# ========================================================================= #}
+    {% elif 'warden' in request.path or 'lodgings' in request.path or request.resolver_match.url_name in 'warden_dashboard,view_lodgings,allocate_or_reallocate' %}
+        
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Warden / Lodging Operations</div>
+
+        {% if user.role == 'WARDEN'  %}
+            <a href="{% url 'attendance:warden_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'warden_dashboard' %}active{% endif %}">
+                <i class="fas fa-bed"></i> Warden Dashboard
+            </a>
+        {% endif %}
+
+        <a href="{% url 'attendance:view_lodgings' %}" class="sidebar-link {% if request.resolver_match.url_name == 'view_lodgings' %}active{% endif %}">
+            <i class="fas fa-hotel"></i> Lodgings & Hostels Directory
+        </a>
+
+    {# ========================================================================= #}
+    {# 9. CONTEXT: DISCIPLINARY BOARD MODULE                                    #}
+    {# ========================================================================= #}
+    {% elif 'disciplinary' in request.path or 'complaint' in request.path or request.resolver_match.url_name in 'disciplinary_dashboard,add_complaint,delete_complaint,edit_complaint' %}
+        
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Disciplinary Operations</div>
+
+        <a href="{% url 'attendance:disciplinary_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'disciplinary_dashboard' %}active{% endif %}">
+            <i class="fas fa-gavel"></i> Disciplinary Dashboard
+        </a>
+        <a href="{% url 'attendance:add_complaint' %}" class="sidebar-link {% if request.resolver_match.url_name == 'add_complaint' %}active{% endif %}">
+            <i class="fas fa-plus-circle"></i> File New Complaint
+        </a>
+
+    {# ========================================================================= #}
+    {# 10. CONTEXT: TIMETABLE & SCHEDULING MODULE                                #}
+    {# ========================================================================= #}
+    {% elif 'timetable' in request.path or request.resolver_match.url_name in 'manage_timetable,upload_timetable,export_timetable_pdf' %}
+        
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Timetable Operations</div>
+
+        <a href="{% url 'attendance:manage_timetable' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_timetable' %}active{% endif %}">
+            <i class="fas fa-calendar-alt"></i> Manage Timetables
+        </a>
+
+    {# ========================================================================= #}
+    {# 11. DEFAULT TOP-LEVEL DASHBOARD VIEW (Admin / High-Level Directories)     #}
+    {# ========================================================================= #}
+    {% else %}
+
+        {% if user.is_staff or user.role == 'ADMIN' %}
+            <span class="sidebar-divider"></span>
+            <div class="sidebar-heading">Main Administration</div>
+
+            <a href="{% url 'attendance:admin_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                <i class="fas fa-chart-pie"></i> Admin Dashboard
+            </a>
+
+            <div class="sidebar-heading">Directories</div>
+            <a href="{% url 'attendance:manage_students' %}" class="sidebar-link">
+                <i class="fas fa-user-graduate"></i> Students
+            </a>
+            <a href="{% url 'attendance:manage_teachers' %}" class="sidebar-link">
+                <i class="fas fa-chalkboard-teacher"></i> Teachers
+            </a>
+            <a href="{% url 'attendance:manage_departments' %}" class="sidebar-link">
+                <i class="fas fa-building"></i> Departments
+            </a>
+            <a href="{% url 'attendance:manage_courses' %}" class="sidebar-link">
+                <i class="fas fa-book"></i> Courses
+            </a>
+            <a href="{% url 'attendance:manage_streams' %}" class="sidebar-link">
+                <i class="fas fa-stream"></i> Streams
+            </a>
+
+            <a href="{% url 'attendance:analytics_dashboard' %}" class="sidebar-link">
+                <i class="fas fa-chart-line"></i> Global Analytics
+            </a>
+        {% endif %}
+
+    {% endif %}
+
+    {# --- ALWAYS VISIBLE: ACCOUNT CONTROL --- #}
+    <span class="sidebar-divider"></span>
+    <div class="sidebar-heading">Account</div>
+    <a href="{% url 'attendance:change_password' %}" class="sidebar-link {% if request.resolver_match.url_name == 'change_password' %}active{% endif %}">
+        <i class="fas fa-key"></i> Change Password
+    </a>
+    <a href="{% url 'attendance:logout' %}" class="sidebar-link" style="color:var(--danger);">
+        <i class="fas fa-sign-out-alt" style="color:var(--danger);"></i> Logout
+    </a>
+</aside>
+
+<script>
+    (function() {
+        const universalMenuBtn = document.getElementById('universalMenuBtn');
+        const appLayout = document.getElementById('appLayout');
+        if (!universalMenuBtn || !appLayout) return;
+
+        const savedState = localStorage.getItem('sidebar_collapsed');
+        if (savedState === 'true') {
+            appLayout.classList.add('sidebar-collapsed');
+        }
+
+        universalMenuBtn.addEventListener('click', function() {
+            if (window.innerWidth <= 768) return;
+            appLayout.classList.toggle('sidebar-collapsed');
+            const isCollapsed = appLayout.classList.contains('sidebar-collapsed');
+            localStorage.setItem('sidebar_collapsed', isCollapsed);
+        });
+    })();
+</script>
+{% endif %}

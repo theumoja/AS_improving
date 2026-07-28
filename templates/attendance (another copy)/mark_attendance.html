@@ -1,0 +1,203 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<style>
+    .status-selector {
+        padding: 0.3rem 0.8rem;
+        border-radius: 50px;
+        border: 1px solid var(--border);
+        font-weight: 600;
+        background: #f8fafc;
+        cursor: pointer;
+        width: auto;
+        font-size: 0.9rem;
+        transition: var(--transition);
+    }
+    .status-selector:focus {
+        border-color: var(--secondary);
+        box-shadow: 0 0 0 3px rgba(44,110,107,0.2);
+    }
+    .status-selector option[value="PRESENT"] { color: var(--success); }
+    .status-selector option[value="ABSENT"] { color: var(--danger); }
+    #geo-status {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.9rem 1.2rem;
+        border-radius: var(--radius-sm);
+        font-weight: 500;
+        transition: var(--transition);
+    }
+    #geo-status i { font-size: 1.2rem; }
+    .search-box {
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .search-box input {
+        flex: 1;
+        min-width: 200px;
+        padding: 0.6rem 1rem;
+        border-radius: 50px;
+        border: 1px solid var(--border);
+        background: #f8fafc;
+        transition: var(--transition);
+    }
+    .search-box input:focus {
+        border-color: var(--secondary);
+        box-shadow: 0 0 0 3px rgba(44,110,107,0.15);
+        background: #fff;
+    }
+    .btn-loading {
+        position: relative;
+        pointer-events: none;
+        opacity: 0.8;
+    }
+    .btn-loading::after {
+        content: '';
+        position: absolute;
+        width: 1.2rem;
+        height: 1.2rem;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top: 2px solid #fff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-left: 0.5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<div class="card">
+    <h2><i class="fas fa-clipboard-check"></i> Mark Class Attendance</h2>
+    <h3 style="color: var(--text-muted); margin-bottom: 1.5rem; font-weight: 400;">
+        Session: <span style="color: var(--text-main); font-weight: 600;">{{ entry.course_unit.name }} ({{ entry.class_name }})</span>
+    </h3>
+
+    <div id="geo-status" class="instruction-box" style="background: var(--warning-light); border-left-color: var(--warning); color: #92400e;">
+        <i class="fas fa-spinner fa-pulse"></i> Acquiring geolocation lock...
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="tableSearch" placeholder="🔍 Search by name or registration..." />
+        <span class="text-muted" style="font-size:0.85rem;">{{ students|length }} students</span>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="attendance-table">
+            <thead>
+                <tr>
+                    <th>Registration</th>
+                    <th>Full Name</th>
+                    <th style="width: 200px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in students %}
+                <tr data-reg="{{ s.reg_number }}" data-name="{{ s.name|lower }}">
+                    <td style="font-family: monospace; font-weight: 600;">{{ s.reg_number }}</td>
+                    <td>{{ s.name }}</td>
+                    <td>
+                        <select class="status-selector">
+                            <option value="PRESENT">✅ Present</option>
+                            <option value="ABSENT" selected>❌ Absent</option>
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <button id="submit-payload-btn" class="btn" style="width:100%; margin-top: 1.5rem;" disabled>
+        <i class="fas fa-save"></i> Commit Attendance Log
+    </button>
+</div>
+
+<script>
+let geoLatitude = null;
+let geoLongitude = null;
+const statusBox = document.getElementById('geo-status');
+const submitBtn = document.getElementById('submit-payload-btn');
+
+// Geolocation
+window.addEventListener('DOMContentLoaded', () => {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                geoLatitude = position.coords.latitude;
+                geoLongitude = position.coords.longitude;
+                statusBox.className = 'alert alert-success';
+                statusBox.innerHTML = `<i class="fas fa-check-circle"></i> Geospatial lock confirmed: [LAT: ${geoLatitude.toFixed(6)}, LNG: ${geoLongitude.toFixed(6)}]`;
+                submitBtn.removeAttribute('disabled');
+            },
+            (error) => {
+                statusBox.className = 'alert alert-danger';
+                statusBox.innerHTML = `<i class="fas fa-times-circle"></i> Geolocation error: ${error.message}. Access denied.`;
+            }
+        );
+    } else {
+        statusBox.className = 'alert alert-danger';
+        statusBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Geolocation not supported by this browser.`;
+    }
+});
+
+// Search filter
+document.getElementById('tableSearch').addEventListener('input', function() {
+    const filter = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#attendance-table tbody tr');
+    rows.forEach(row => {
+        const reg = row.getAttribute('data-reg').toLowerCase();
+        const name = row.getAttribute('data-name').toLowerCase();
+        const match = reg.includes(filter) || name.includes(filter);
+        row.style.display = match ? '' : 'none';
+    });
+});
+
+// Submit with loading state
+submitBtn.addEventListener('click', function() {
+    const records = {};
+    document.querySelectorAll('#attendance-table tbody tr').forEach(row => {
+        const reg = row.getAttribute('data-reg');
+        const status = row.querySelector('.status-selector').value;
+        records[reg] = status;
+    });
+
+    const payload = {
+        latitude: geoLatitude,
+        longitude: geoLongitude,
+        records: records
+    };
+
+    this.classList.add('btn-loading');
+    this.disabled = true;
+
+    fetch("{% url 'attendance:mark_attendance' entry.id %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            window.location.href = data.redirect_url;
+        } else {
+            alert("Error: " + data.message);
+            this.classList.remove('btn-loading');
+            this.disabled = false;
+        }
+    })
+    .catch(() => {
+        alert("Network error. Please try again.");
+        this.classList.remove('btn-loading');
+        this.disabled = false;
+    });
+});
+</script>
+{% endblock %}

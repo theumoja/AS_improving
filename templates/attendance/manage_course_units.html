@@ -1,0 +1,327 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    .btn-download-list {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: var(--radius-sm);
+        background-color: #ffffff;
+        color: #2563eb;
+        border: 1px solid #2563eb;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .btn-download-list:hover {
+        background-color: #eff6ff;
+        transform: translateY(-1px);
+    }
+    .filter-indicator {
+        display: none;
+        align-items: center;
+        gap: 0.5rem;
+        background: var(--warning-light);
+        color: #92400e;
+        border: 1px solid #fde68a;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-sm);
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    .filter-indicator i { color: var(--warning); }
+    .filter-indicator .clear-filter {
+        margin-left: auto;
+        color: #b45309;
+        text-decoration: underline;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .parent-course-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.65rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: #f1f5f9;
+        border: 1px solid var(--border);
+        color: var(--text-main);
+    }
+    .action-link {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-right: 0.75rem;
+        transition: var(--transition);
+    }
+    .action-link.edit { color: var(--accent); }
+    .action-link.delete { color: var(--danger); }
+    .action-link:hover { opacity: 0.7; }
+
+    /* Modal Base Components */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 500px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+</style>
+
+<div class="page-header-actions">
+    <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
+        <a href="{% url 'attendance:download_template' 'timetable' %}" class="btn-download-list">
+            <i class="fas fa-download"></i> Export Structural Units
+        </a>
+        <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search unit code, assignment title..." style="padding-left: 2.25rem;">
+        </div>
+    </div>
+
+    <div class="action-group">
+        <button class="btn btn-outline" onclick="location.href='{% url 'attendance:bulk_upload_courses' %}'">
+            <i class="fas fa-file-upload"></i> Upload CSV Matrix
+        </button>
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-layer-group"></i> Create Structural Unit
+        </button>
+    </div>
+</div>
+
+<div class="filter-indicator" id="activeFilterWindow">
+    <i class="fas fa-filter"></i>
+    <span>Isolating structural viewing matrices down to parent line framework: <strong id="filterCourseTargetCode"></strong></span>
+    <a href="{% url 'attendance:manage_course_units' %}" class="clear-filter">Clear Global Constraint</a>
+</div>
+
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width:160px;">Unit Identification</th>
+                <th>Course Unit Title</th>
+                <th>Assigned Parent Track Matrix</th>
+                <th style="text-align: right;">Operations Index</th>
+            </tr>
+        </thead>
+        <tbody id="courseUnitsTableBody">
+            {% for unit in course_units %}
+            <tr class="unit-row" data-parent-course="{{ unit.course.code }}">
+                <td><code style="font-size:0.95rem; font-weight:700; color:var(--text-main);">{{ unit.code }}</code></td>
+                <td style="font-weight:500;">{{ unit.name }}</td>
+                <td><span class="parent-course-badge"><i class="fas fa-graduation-cap" style="font-size:0.8rem; margin-right:0.35rem; color:#2563eb;"></i>{{ unit.course.code }}</span></td>
+                <td style="text-align: right;">
+                    <a href="{% url 'attendance:edit_course_unit' unit.pk %}" class="action-link edit">
+                        <i class="fas fa-edit"></i> Edit
+                    </a>
+                    <a href="{% url 'attendance:delete_course_unit' unit.pk %}" class="action-link delete" onclick="return confirm('Drop this structural module entry from system tracking arrays?');">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-layer-group" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No independent course module variants configured.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="noFilteredResultsRow" style="display:none;">
+                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search-minus" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No sub-units found assigned directly underneath this tracking index block.
+                </td>
+            </tr>
+            <tr id="searchEmptyRow" style="display:none;">
+                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching course units discovered for your filter criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="modal" id="singleAddModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>New Structural Course Unit</h3>
+            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="single">
+            <div class="form-group">
+                <label for="unit_code">Course Unit Code</label>
+                <input type="text" id="unit_code" name="course_unit_code" class="form-control" required placeholder="e.g. DCT213">
+            </div>
+            <div class="form-group">
+                <label for="unit_name">Module Unit Assignment Title</label>
+                <input type="text" id="unit_name" name="course_unit_name" class="form-control" required placeholder="e.g. Object-Oriented System Architectures">
+            </div>
+            <div class="form-group">
+                <label for="parent_course">Parent Track Program Reassignment</label>
+                <select id="parent_course" name="course_code" class="form-control" required>
+                    <option value="" disabled selected>Select Track Designation Line...</option>
+                    {% for course in active_courses_list %}
+                        <option value="{{ course.code }}">{{ course.code }} - {{ course.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex; gap:0.75rem; margin-top:2rem;">
+                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Configuration</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Modal Window Actions
+        const modal = document.getElementById('singleAddModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+
+        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
+        const closeModal = () => modal.classList.remove('active');
+        
+        if(closeBtn) closeBtn.addEventListener('click', closeModal);
+        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+
+        // Parse query strings instructions 
+        const searchParams = new URLSearchParams(window.location.search);
+        const targetCourseFilter = searchParams.get('filter_course');
+        const normalizedTarget = targetCourseFilter ? targetCourseFilter.trim().toUpperCase() : null;
+
+        if (normalizedTarget) {
+            const filterBox = document.getElementById('activeFilterWindow');
+            const codeLabel = document.getElementById('filterCourseTargetCode');
+            codeLabel.textContent = normalizedTarget;
+            filterBox.style.display = 'flex';
+            
+            const parentSelector = document.getElementById('parent_course');
+            if (parentSelector) {
+                for (let i = 0; i < parentSelector.options.length; i++) {
+                    if (parentSelector.options[i].value.toUpperCase() === normalizedTarget) {
+                        parentSelector.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Unified Frontend Search & URL Isolation Architecture Engine
+        const searchInput = document.getElementById('dashboardSearch');
+        const dataRows = document.querySelectorAll('.unit-row');
+        const urlFallbackRow = document.getElementById('noFilteredResultsRow');
+        const searchFallbackRow = document.getElementById('searchEmptyRow');
+
+        function processUnifiedFilters() {
+            const searchCriteria = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            let validUrlParamCount = 0;
+            let finalMatchingCount = 0;
+
+            dataRows.forEach(row => {
+                const rowParent = row.getAttribute('data-parent-course').trim().toUpperCase();
+                const fitsUrlConstraint = !normalizedTarget || (rowParent === normalizedTarget);
+                
+                if (fitsUrlConstraint) {
+                    validUrlParamCount++;
+                    const searchableText = row.textContent.toLowerCase();
+                    
+                    if (searchableText.includes(searchCriteria)) {
+                        row.style.display = '';
+                        finalMatchingCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Orchestrate empty fallback state visibility cleanly
+            if (normalizedTarget && validUrlParamCount === 0) {
+                if (urlFallbackRow) urlFallbackRow.style.display = '';
+                if (searchFallbackRow) searchFallbackRow.style.display = 'none';
+            } else {
+                if (urlFallbackRow) urlFallbackRow.style.display = 'none';
+                if (searchFallbackRow) {
+                    searchFallbackRow.style.display = (finalMatchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+                }
+            }
+        }
+
+        // Run initially to respect pre-existing URL rules
+        processUnifiedFilters();
+
+        if (searchInput) {
+            searchInput.addEventListener('input', processUnifiedFilters);
+        }
+    });
+</script>
+
+{% endblock %}

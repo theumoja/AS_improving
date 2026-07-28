@@ -1,0 +1,12 @@
+Teacher should
+    -not see even link of library management.
+    -see their own specific pay role and pay history.
+    -their specific course unit students lodgings
+    -their specific course unit students discpilnary board(and any student that specific teacher added to for displinary action)
+    
+
+student should.
+    -see their own fees , inovice payment and balce and payment history
+    -see their own library books taken
+    -see there own lodgings
+    -their own specific disciplinary issues

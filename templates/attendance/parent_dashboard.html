@@ -1,0 +1,186 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .header-title-group {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+    .header-title-group h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .header-icon-box {
+        width: 42px;
+        height: 42px;
+        border-radius: var(--radius-sm);
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    /* Children Profile Grid */
+    .children-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+    .child-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: var(--transition);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .child-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+    }
+    .child-header {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        margin-bottom: 1.25rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .child-avatar {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+    .child-info h5 {
+        margin: 0 0 0.2rem 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .child-info small {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .child-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .stat-box {
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 0.85rem;
+    }
+    .stat-box .label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 0.25rem;
+    }
+    .stat-box .value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header Toolbar -->
+<div class="page-header-actions">
+    <div class="header-title-group">
+        <div class="header-icon-box">
+            <i class="fas fa-child"></i>
+        </div>
+        <h2>My Children</h2>
+    </div>
+</div>
+
+<!-- Children Cards Container -->
+<div class="children-grid">
+    {% for child in children %}
+    <div class="child-card">
+        <div>
+            <div class="child-header">
+                <div class="child-avatar">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+                <div class="child-info">
+                    <h5>{{ child.student.name }}</h5>
+                    <small><i class="fas fa-id-card" style="margin-right: 0.25rem;"></i> {{ child.student.reg_number }}</small>
+                </div>
+            </div>
+
+            <div class="child-stats">
+                <div class="stat-box">
+                    <span class="label"><i class="fas fa-calendar-check" style="margin-right: 0.2rem;"></i> Attendance</span>
+                    <span class="value" style="color: #059669;">{{ child.attendance_rate }}%</span>
+                </div>
+                <div class="stat-box">
+                    <span class="label"><i class="fas fa-wallet" style="margin-right: 0.2rem;"></i> Fee Balance</span>
+                    <span class="value" style="color: #d97706;">UGX {{ child.fee_balance }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end;">
+            <a href="#" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); width: 100%; text-align: center;">
+                <i class="fas fa-external-link-alt" style="margin-right: 0.4rem;"></i> View Details
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div style="grid-column: 1 / -1;">
+        <div class="card" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            <i class="fas fa-child" style="font-size: 2.5rem; display: block; margin-bottom: 0.75rem;"></i>
+            <p style="margin: 0; font-weight: 500;">No children currently linked to your account.</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

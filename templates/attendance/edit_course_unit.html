@@ -1,0 +1,220 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .edit-container {
+        max-width: 650px;
+        margin: 0 auto;
+        padding: 1rem 0;
+    }
+    .page-header {
+        margin-bottom: 2rem;
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        font-family: var(--font);
+        font-size: 0.95rem;
+        transition: var(--transition);
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: var(--secondary);
+        box-shadow: 0 0 0 3px var(--primary-light);
+    }
+    
+    /* Searchable List Component */
+    .search-wrapper {
+        position: relative;
+        margin-bottom: 0.5rem;
+    }
+    .search-wrapper i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+    .search-input {
+        padding-left: 2.5rem;
+    }
+    .options-list-card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: #f8fafc;
+        padding: 0.5rem;
+        max-height: 240px;
+        overflow-y: auto;
+    }
+    .radio-option-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: var(--transition);
+        margin-bottom: 0.25rem;
+    }
+    .radio-option-wrapper:hover {
+        background: rgba(15, 59, 62, 0.05);
+    }
+    .radio-option-wrapper.selected {
+        background: var(--primary-light);
+        border-left: 3px solid var(--primary);
+    }
+    .radio-option-wrapper input[type="radio"] {
+        width: 1.1rem;
+        height: 1.1rem;
+        accent-color: var(--primary);
+        cursor: pointer;
+    }
+    .radio-option-wrapper label {
+        display: inline;
+        font-weight: 500;
+        color: var(--text-main);
+        cursor: pointer;
+        margin: 0;
+        flex: 1;
+    }
+    .radio-option-wrapper code {
+        background: rgba(15, 59, 62, 0.1);
+        color: var(--primary);
+        font-weight: 700;
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-right: 0.5rem;
+    }
+    .no-results {
+        text-align: center;
+        color: var(--text-muted);
+        padding: 2rem 1rem;
+        font-size: 0.9rem;
+        display: none;
+    }
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2.5rem;
+        border-top: 1px solid var(--border);
+        padding-top: 1.5rem;
+    }
+</style>
+
+<div class="edit-container">
+    <div class="page-header">
+        <h2><i class="fas fa-layer-group" style="color: var(--accent);"></i> Edit Course Unit</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">
+            Modifying architectural parameters for structural unit: <strong>{{ unit.name }}</strong>
+        </p>
+    </div>
+
+    <div class="card">
+        <form method="POST" action="">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="course_unit_code">Unit Code</label>
+                <input type="text" id="course_unit_code" name="course_unit_code" class="form-control" value="{{ unit.code }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="course_unit_name">Course Unit Title Description</label>
+                <input type="text" id="course_unit_name" name="course_unit_name" class="form-control" value="{{ unit.name }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Parent Program Reassignment</label>
+                
+                <!-- Real-Time Search Bar -->
+                <div class="search-wrapper">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="courseSearchInput" class="form-control search-input" placeholder="Type to filter courses instantly...">
+                </div>
+
+                <!-- Searchable Option Array Container -->
+                <div class="options-list-card" id="courseOptionsList">
+                    {% for course in active_courses_list %}
+                    <div class="radio-option-wrapper {% if course.code == unit.course.code %}selected{% endif %}" data-search-payload="{{ course.code }} {{ course.name }}">
+                        <input type="radio" 
+                               id="course_{{ course.code }}" 
+                               name="course_code" 
+                               value="{{ course.code }}"
+                               {% if course.code == unit.course.code %}checked{% endif %} required>
+                        <label for="course_{{ course.code }}">
+                            <code>{{ course.code }}</code> {{ course.name }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="no-results" id="noResultsMessage">
+                        <i class="fas fa-search-minus" style="font-size: 1.5rem; display:block; margin-bottom:0.5rem;"></i>
+                        No matching course pipelines discovered.
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'attendance:manage_course_units' %}" class="btn btn-outline" style="flex: 1; text-align: center; justify-content: center;">
+                    Cancel
+                </a>
+                <button type="submit" class="btn" style="flex: 2; justify-content: center; background: var(--accent);">
+                    <i class="fas fa-save"></i> Apply Matrix Updates
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('courseSearchInput');
+        const optionWrappers = document.querySelectorAll('.radio-option-wrapper');
+        const noResults = document.getElementById('noResultsMessage');
+
+        // Real-Time Search Filtering Logic
+        searchInput.addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase().trim();
+            let visibleCount = 0;
+
+            optionWrappers.forEach(wrapper => {
+                const searchPayload = wrapper.getAttribute('data-search-payload').toLowerCase();
+                if (searchPayload.includes(query)) {
+                    wrapper.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    wrapper.style.display = 'none';
+                }
+            });
+
+            noResults.style.display = (visibleCount === 0) ? 'block' : 'none';
+        });
+
+        // Toggle selected styling classes dynamically on click
+        optionWrappers.forEach(wrapper => {
+            wrapper.addEventListener('click', function() {
+                optionWrappers.forEach(w => w.classList.remove('selected'));
+                this.classList.add('selected');
+                this.querySelector('input[type="radio"]').checked = true;
+            });
+        });
+    });
+</script>
+
+{% endblock %}

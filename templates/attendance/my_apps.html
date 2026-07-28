@@ -1,0 +1,358 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+{% block sidebar %}
+{% endblock %}
+<style>
+    /* 2. Remove the 320px reserved sidebar space for this page only */
+    .app-layout {
+        padding-left: 0 !important;
+    }
+</style>
+    {# ----- NAVIGATION CARDS (role‑based) ----- #}
+    {% if user.is_authenticated %}
+        <div class="nav-cards">
+            {# --- ADMIN & STAFF --- #}
+            {% if user.role == 'ADMIN' or user.is_staff %}
+                <div class="nav-section-title">Administration</div>
+                <a href="{% url 'attendance:admin_dashboard' %}" class="nav-card {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-pie"></i>
+                    <span class="card-label">Admin Dashboard</span>
+                </a>
+                <a href="{% url 'attendance:manage_departments' %}" class="nav-card">
+                    <i class="fas fa-building"></i>
+                    <span class="card-label">Departments</span>
+                </a>
+                <a href="{% url 'attendance:manage_teachers' %}" class="nav-card">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                    <span class="card-label">Teachers</span>
+                </a>
+                <a href="{% url 'attendance:manage_students' %}" class="nav-card">
+                    <i class="fas fa-user-graduate"></i>
+                    <span class="card-label">Students</span>
+                </a>
+                <a href="{% url 'attendance:manage_courses' %}" class="nav-card">
+                    <i class="fas fa-book"></i>
+                    <span class="card-label">Courses</span>
+                </a>
+                <a href="{% url 'attendance:manage_streams' %}" class="nav-card">
+                    <i class="fas fa-stream"></i>
+                    <span class="card-label">Class Streams</span>
+                </a>
+                <a href="{% url 'attendance:analytics_dashboard' %}" class="nav-card">
+                    <i class="fas fa-chart-line"></i>
+                    <span class="card-label">Reports & Analytics</span>
+                </a>
+                <a href="{% url 'attendance:manage_timetable' %}" class="nav-card">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span class="card-label">Timetable</span>
+                </a>
+
+                <div class="nav-section-title">Academic Management</div>
+                <a href="{% url 'attendance:manage_exams' %}" class="nav-card">
+                    <i class="fas fa-pencil-alt"></i>
+                    <span class="card-label">Exams</span>
+                </a>
+                <a href="{% url 'attendance:exam_ranking' %}" class="nav-card">
+                    <i class="fas fa-trophy"></i>
+                    <span class="card-label">Exam Rankings</span>
+                </a>
+                <a href="{% url 'attendance:view_grades' %}" class="nav-card">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span class="card-label">Grade Scales</span>
+                </a>
+
+                <div class="nav-section-title">Inventory & Procurement</div>
+                <a href="{% url 'attendance:manage_inventory' %}" class="nav-card">
+                    <i class="fas fa-boxes"></i>
+                    <span class="card-label">Inventory</span>
+                </a>
+                <a href="{% url 'attendance:manage_procurement' %}" class="nav-card">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span class="card-label">Procurement</span>
+                </a>
+                <a href="{% url 'attendance:asset_tracking' %}" class="nav-card">
+                    <i class="fas fa-qrcode"></i>
+                    <span class="card-label">Asset Tracking</span>
+                </a>
+                <a href="{% url 'attendance:stock_report' %}" class="nav-card">
+                    <i class="fas fa-chart-line"></i>
+                    <span class="card-label">Stock Reports</span>
+                </a>
+
+                <div class="nav-section-title">Transport</div>
+                <a href="{% url 'attendance:manage_vehicles' %}" class="nav-card">
+                    <i class="fas fa-bus"></i>
+                    <span class="card-label">Vehicles & Routes</span>
+                </a>
+                <a href="{% url 'attendance:allocate_transport' %}" class="nav-card">
+                    <i class="fas fa-user-check"></i>
+                    <span class="card-label">Transport Allocation</span>
+                </a>
+                <a href="{% url 'attendance:trip_log' %}" class="nav-card">
+                    <i class="fas fa-map-pin"></i>
+                    <span class="card-label">Trip Logs</span>
+                </a>
+                <a href="{% url 'attendance:transport_dashboard' %}" class="nav-card">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span class="card-label">Transport Dashboard</span>
+                </a>
+
+                <div class="nav-section-title">Human Resources</div>
+                <a href="{% url 'attendance:hr_dashboard' %}" class="nav-card">
+                    <i class="fas fa-users"></i>
+                    <span class="card-label">HR Dashboard</span>
+                </a>
+                <a href="{% url 'attendance:manage_performance' %}" class="nav-card">
+                    <i class="fas fa-star"></i>
+                    <span class="card-label">Performance Evaluations</span>
+                </a>
+                <a href="{% url 'attendance:manage_qualifications' %}" class="nav-card">
+                    <i class="fas fa-certificate"></i>
+                    <span class="card-label">Staff Qualifications</span>
+                </a>
+                <!-- FIXED: Use apply_leave instead of non-existent manage_leave -->
+                <a href="{% url 'attendance:apply_leave' %}" class="nav-card">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span class="card-label">Leave Application</span>
+                </a>
+
+                <div class="nav-section-title">Registrar Services</div>
+                <a href="{% url 'attendance:registrar_dashboard' %}" class="nav-card">
+                    <i class="fas fa-user-graduate"></i>
+                    <span class="card-label">Registrar Dashboard</span>
+                </a>
+                <a href="{% url 'attendance:manage_admissions' %}" class="nav-card">
+                    <i class="fas fa-user-plus"></i>
+                    <span class="card-label">Admissions</span>
+                </a>
+                <a href="{% url 'attendance:manage_student_transfers' %}" class="nav-card">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span class="card-label">Student Transfers</span>
+                </a>
+                <a href="{% url 'attendance:link_parent_student' %}" class="nav-card">
+                    <i class="fas fa-link"></i>
+                    <span class="card-label">Link Parents</span>
+                </a>
+
+                <div class="nav-section-title">Online Learning (Admin)</div>
+                <a href="{% url 'attendance:manage_online_courses' %}" class="nav-card">
+                    <i class="fas fa-laptop"></i>
+                    <span class="card-label">Manage Online Courses</span>
+                </a>
+                <a href="{% url 'attendance:manage_online_exams' %}" class="nav-card">
+                    <i class="fas fa-video"></i>
+                    <span class="card-label">Online Exams</span>
+                </a>
+
+                <!-- Existing Admin cards -->
+                <a href="{% url 'attendance:librarian_dashboard' %}" class="nav-card">
+                    <i class="fas fa-chart-pie"></i>
+                    <span class="card-label">Librarian Dashboard</span>
+                </a>
+            {% endif %}
+
+            {# --- TEACHER --- #}
+            {% if user.role == 'TEACHER' %}
+                <div class="nav-section-title">Teacher Console</div>
+                <a href="{% url 'attendance:teacher_dashboard' %}" class="nav-card {% if request.resolver_match.url_name == 'teacher_dashboard' %}active{% endif %}">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                    <span class="card-label">Dashboard</span>
+                </a>
+                <a href="{% url 'attendance:library_reader_dashboard' %}" class="nav-card {% if request.resolver_match.url_name == 'library_reader_dashboard' %}active{% endif %}">
+                    <i class="fas fa-book"></i>
+                    <span class="card-label">My Library</span>
+                </a>
+                <!-- Teacher exam marking -->
+                <a href="{% url 'attendance:manage_exams' %}" class="nav-card">
+                    <i class="fas fa-pencil-alt"></i>
+                    <span class="card-label">Exams Overview</span>
+                </a>
+                <!-- Online teaching -->
+                <a href="{% url 'attendance:manage_online_courses' %}" class="nav-card">
+                    <i class="fas fa-laptop"></i>
+                    <span class="card-label">Online Courses</span>
+                </a>
+                <a href="{% url 'attendance:manage_online_exams' %}" class="nav-card">
+                    <i class="fas fa-video"></i>
+                    <span class="card-label">Online Exams</span>
+                </a>
+                <!-- HR: apply leave -->
+                <a href="{% url 'attendance:apply_leave' %}" class="nav-card">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span class="card-label">Apply Leave</span>
+                </a>
+                <!-- Staff Payments -->
+                <a href="{% url 'attendance:staff_payments_dashboard' %}" class="nav-card">
+                    <i class="fas fa-credit-card"></i>
+                    <span class="card-label">My Payments</span>
+                </a>
+            {% endif %}
+
+            {# --- STUDENT --- #}
+            {% if user.role == 'STUDENT' %}
+                <div class="nav-section-title">Student Portal</div>
+                <a href="{% url 'attendance:student_dashboard' %}" class="nav-card {% if request.resolver_match.url_name == 'student_dashboard' %}active{% endif %}">
+                    <i class="fas fa-user-graduate"></i>
+                    <span class="card-label">Dashboard</span>
+                </a>
+                <a href="{% url 'attendance:library_reader_dashboard' %}" class="nav-card {% if request.resolver_match.url_name == 'library_reader_dashboard' %}active{% endif %}">
+                    <i class="fas fa-book"></i>
+                    <span class="card-label">My Library</span>
+                </a>
+                <!-- Online Learning -->
+                <a href="{% url 'attendance:manage_online_courses' %}" class="nav-card">
+                    <i class="fas fa-laptop"></i>
+                    <span class="card-label">Online Courses</span>
+                </a>
+                <!-- Exams & Reports -->
+                <a href="{% url 'attendance:exam_ranking' %}" class="nav-card">
+                    <i class="fas fa-trophy"></i>
+                    <span class="card-label">Exam Rankings</span>
+                </a>
+                <!-- Generate Report Card (requires term) – we'll link to a generic student report; you might want to adjust -->
+                <a href="{% url 'attendance:generate_report_card' request.user.student_profile.reg_number 1 %}" class="nav-card">
+                    <i class="fas fa-file-pdf"></i>
+                    <span class="card-label">Report Card</span>
+                </a>
+                <!-- Fees -->
+                <a href="{% url 'attendance:fees_dashboard' %}" class="nav-card">
+                    <i class="fas fa-wallet"></i>
+                    <span class="card-label">My Fees</span>
+                </a>
+            {% endif %}
+
+            {# --- PARENT --- #}
+            {% if user.role == 'PARENT' %}
+                <div class="nav-section-title">Parent Portal</div>
+                <a href="{% url 'attendance:parent_dashboard' %}" class="nav-card {% if request.resolver_match.url_name == 'parent_dashboard' %}active{% endif %}">
+                    <i class="fas fa-child"></i>
+                    <span class="card-label">Dashboard</span>
+                </a>
+                <!-- Optionally add fee/attendance views here -->
+            {% endif %}
+
+            {# --- REGISTRAR --- #}
+            {% if user.role == 'REGISTRAR' %}
+                <div class="nav-section-title">Registrar Console</div>
+                <a href="{% url 'attendance:registrar_dashboard' %}" class="nav-card {% if request.resolver_match.url_name == 'registrar_dashboard' %}active{% endif %}">
+                    <i class="fas fa-user-graduate"></i>
+                    <span class="card-label">Dashboard</span>
+                </a>
+                <a href="{% url 'attendance:manage_admissions' %}" class="nav-card">
+                    <i class="fas fa-user-plus"></i>
+                    <span class="card-label">Admissions</span>
+                </a>
+                <a href="{% url 'attendance:manage_student_transfers' %}" class="nav-card">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span class="card-label">Student Transfers</span>
+                </a>
+                <a href="{% url 'attendance:link_parent_student' %}" class="nav-card">
+                    <i class="fas fa-link"></i>
+                    <span class="card-label">Link Parents</span>
+                </a>
+                <a href="{% url 'attendance:manage_exams' %}" class="nav-card">
+                    <i class="fas fa-pencil-alt"></i>
+                    <span class="card-label">Exams</span>
+                </a>
+                <a href="{% url 'attendance:exam_ranking' %}" class="nav-card">
+                    <i class="fas fa-trophy"></i>
+                    <span class="card-label">Rankings</span>
+                </a>
+                <a href="{% url 'attendance:generate_transcript' request.user.student_profile.reg_number 1 %}" class="nav-card">
+                    <i class="fas fa-file-pdf"></i>
+                    <span class="card-label">Transcripts</span>
+                </a>
+            {% endif %}
+
+            {# --- WARDEN --- #}
+            {% if user.role == 'WARDEN' %}
+                <div class="nav-section-title">Warden Console</div>
+                <a href="{% url 'attendance:warden_dashboard' %}" class="nav-card {% if request.resolver_match.url_name == 'warden_dashboard' %}active{% endif %}">
+                    <i class="fas fa-bed"></i>
+                    <span class="card-label">Dashboard</span>
+                </a>
+                <a href="{% url 'attendance:view_lodgings' %}" class="nav-card">
+                    <i class="fas fa-building"></i>
+                    <span class="card-label">Lodgings</span>
+                </a>
+                <a href="{% url 'attendance:disciplinary_dashboard' %}" class="nav-card">
+                    <i class="fas fa-gavel"></i>
+                    <span class="card-label">Disciplinary</span>
+                </a>
+                <a href="{% url 'attendance:staff_payments_dashboard' %}" class="nav-card">
+                    <i class="fas fa-credit-card"></i>
+                    <span class="card-label">My Payments</span>
+                </a>
+                <a href="{% url 'attendance:apply_leave' %}" class="nav-card">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span class="card-label">Apply Leave</span>
+                </a>
+            {% endif %}
+
+            {# --- LIBRARIAN --- #}
+            {% if user.role == 'LIBRARIAN' %}
+                <div class="nav-section-title">Librarian Console</div>
+                <a href="{% url 'attendance:librarian_dashboard' %}" class="nav-card {% if request.resolver_match.url_name == 'librarian_dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-pie"></i>
+                    <span class="card-label">Dashboard</span>
+                </a>
+                <a href="{% url 'attendance:manage_library' %}" class="nav-card {% if request.resolver_match.url_name == 'manage_library' %}active{% endif %}">
+                    <i class="fas fa-book-reader"></i>
+                    <span class="card-label">Library Management</span>
+                </a>
+                <a href="{% url 'attendance:upload_books' %}" class="nav-card">
+                    <i class="fas fa-upload"></i>
+                    <span class="card-label">Upload Books</span>
+                </a>
+                <a href="{% url 'attendance:staff_payments_dashboard' %}" class="nav-card">
+                    <i class="fas fa-credit-card"></i>
+                    <span class="card-label">My Payments</span>
+                </a>
+                <a href="{% url 'attendance:apply_leave' %}" class="nav-card">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span class="card-label">Apply Leave</span>
+                </a>
+            {% endif %}
+
+            {# --- ACCOUNTANT --- #}
+            {% if user.role == 'ACCOUNTANT' %}
+                <div class="nav-section-title">Accounting</div>
+                <a href="{% url 'attendance:accountant_dashboard' %}" class="nav-card {% if request.resolver_match.url_name == 'accountant_dashboard' %}active{% endif %}">
+                    <i class="fas fa-chart-pie"></i>
+                    <span class="card-label">Dashboard</span>
+                </a>
+                <a href="{% url 'attendance:fees_dashboard' %}" class="nav-card">
+                    <i class="fas fa-wallet"></i>
+                    <span class="card-label">Student Fees</span>
+                </a>
+                <a href="{% url 'attendance:staff_payments_dashboard' %}" class="nav-card">
+                    <i class="fas fa-credit-card"></i>
+                    <span class="card-label">Staff Payments</span>
+                </a>
+                <a href="{% url 'attendance:apply_leave' %}" class="nav-card">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span class="card-label">Apply Leave</span>
+                </a>
+            {% endif %}
+
+            {# --- CROSS-ROLE COMMON CARDS (appear for specific roles) --- #}
+            {# Disciplinary for ADMIN, WARDEN, TEACHER (already included) but we may add here if not covered #}
+            {# Finance for STUDENT, ACCOUNTANT, ADMIN (covered) #}
+
+            {# --- CHANGE PASSWORD & LOGOUT (visible to all) --- #}
+            <div class="nav-section-title">Account</div>
+            <a href="{% url 'attendance:change_password' %}" class="nav-card">
+                <i class="fas fa-key"></i>
+                <span class="card-label">Change Password</span>
+            </a>
+            <a href="{% url 'attendance:logout' %}" class="nav-card" style="border-color: var(--danger); color: var(--danger);">
+                <i class="fas fa-sign-out-alt" style="color: var(--danger);"></i>
+                <span class="card-label">Logout</span>
+            </a>
+        </div>
+    {% endif %}
+
+    {# --- Child templates can inject additional content here --- #}
+    {% block page_content %}{% endblock %}
+{% endblock %}

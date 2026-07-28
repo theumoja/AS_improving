@@ -1,0 +1,225 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .edit-container {
+        max-width: 650px;
+        margin: 0 auto;
+        padding: 1rem 0;
+    }
+    .page-header {
+        margin-bottom: 2rem;
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        font-family: var(--font);
+        font-size: 0.95rem;
+        transition: var(--transition);
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    
+    /* Searchable List Component */
+    .search-wrapper {
+        position: relative;
+        margin-bottom: 0.5rem;
+    }
+    .search-wrapper i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+    .search-input {
+        padding-left: 2.5rem;
+    }
+    .options-list-card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: #f8fafc;
+        padding: 0.5rem;
+        max-height: 240px;
+        overflow-y: auto;
+    }
+    .radio-option-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: var(--transition);
+        margin-bottom: 0.25rem;
+    }
+    .radio-option-wrapper:hover {
+        background: rgba(37, 99, 235, 0.05);
+    }
+    .radio-option-wrapper.selected {
+        background: #eff6ff;
+        border-left: 3px solid #2563eb;
+    }
+    .radio-option-wrapper input[type="radio"] {
+        width: 1.1rem;
+        height: 1.1rem;
+        accent-color: #2563eb;
+        cursor: pointer;
+    }
+    .radio-option-wrapper label {
+        display: inline;
+        font-weight: 500;
+        color: var(--text-main);
+        cursor: pointer;
+        margin: 0;
+        flex: 1;
+    }
+    .radio-option-wrapper code {
+        background: #dbeafe;
+        color: #1e40af;
+        font-weight: 700;
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-right: 0.5rem;
+    }
+    .no-results {
+        text-align: center;
+        color: var(--text-muted);
+        padding: 2rem 1rem;
+        font-size: 0.9rem;
+        display: none;
+    }
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2.5rem;
+        border-top: 1px solid var(--border);
+        padding-top: 1.5rem;
+    }
+</style>
+
+<div class="edit-container">
+    <div class="page-header">
+        <h2><i class="fas fa-user-edit" style="color: #2563eb;"></i> Edit Student Profile</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">
+            Modifying directory enrollment details for student <strong>{{ student.name }}</strong>
+        </p>
+    </div>
+
+    <div class="card">
+        <form method="POST" action="">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="name">Student Full Name</label>
+                <input type="text" id="name" name="name" class="form-control" value="{{ student.name }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="registration_number">Registration Number Identifier</label>
+                <input type="text" id="registration_number" name="registration_number" class="form-control" value="{{ student.reg_number }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" class="form-control" value="{{ student.user.email }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Assigned Program Pipeline Enrollment</label>
+                
+                <!-- Real-Time Search Bar -->
+                <div class="search-wrapper">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="studentCourseSearch" class="form-control search-input" placeholder="Search registered pipelines...">
+                </div>
+
+                <!-- Searchable Option Array Container -->
+                <div class="options-list-card" id="studentCourseList">
+                    {% for course in active_courses_list %}
+                    <div class="radio-option-wrapper {% if course.code == student.course.code %}selected{% endif %}" data-search-payload="{{ course.code }} {{ course.name }}">
+                        <input type="radio" 
+                               id="course_{{ course.code }}" 
+                               name="course" 
+                               value="{{ course.code }}"
+                               {% if course.code == student.course.code %}checked{% endif %} required>
+                        <label for="course_{{ course.code }}">
+                            <code>{{ course.code }}</code> {{ course.name }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="no-results" id="noResultsMessage">
+                        <i class="fas fa-search-minus" style="font-size: 1.5rem; display:block; margin-bottom:0.5rem;"></i>
+                        No matching course tracks located.
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'attendance:manage_students' %}" class="btn btn-outline" style="flex: 1; text-align: center; justify-content: center;">
+                    Cancel
+                </a>
+                <button type="submit" class="btn" style="flex: 2; justify-content: center; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    <i class="fas fa-save"></i> Save System Entries
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('studentCourseSearch');
+        const optionWrappers = document.querySelectorAll('.radio-option-wrapper');
+        const noResults = document.getElementById('noResultsMessage');
+
+        // Filter Logic Engine 
+        searchInput.addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase().trim();
+            let visibleCount = 0;
+
+            optionWrappers.forEach(wrapper => {
+                const searchPayload = wrapper.getAttribute('data-search-payload').toLowerCase();
+                if (searchPayload.includes(query)) {
+                    wrapper.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    wrapper.style.display = 'none';
+                }
+            });
+
+            noResults.style.display = (visibleCount === 0) ? 'block' : 'none';
+        });
+
+        // Click Controller Event Mapping
+        optionWrappers.forEach(wrapper => {
+            wrapper.addEventListener('click', function() {
+                optionWrappers.forEach(w => w.classList.remove('selected'));
+                this.classList.add('selected');
+                this.querySelector('input[type="radio"]').checked = true;
+            });
+        });
+    });
+</script>
+
+{% endblock %}

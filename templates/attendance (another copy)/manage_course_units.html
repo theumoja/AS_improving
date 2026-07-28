@@ -1,0 +1,56 @@
+{% extends 'attendance/base.html' %}
+{% block admin_content %}
+<h2><i class="fas fa-layer-group"></i> Manage Course Units</h2>
+
+<button class="btn btn-outline btn-sm" onclick="toggleSection('singleUnitForm')"><i class="fas fa-plus"></i> Add Unit</button>
+<button class="btn btn-outline btn-sm" onclick="toggleSection('bulkUnitForm')"><i class="fas fa-upload"></i> Bulk Upload</button>
+
+<div id="singleUnitForm" style="display:none; background:var(--surface); padding:1.5rem; border-radius:var(--radius-sm); border:1px solid var(--border); margin-bottom:1.5rem;">
+    <h4>Add Single Course Unit</h4>
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="single">
+        <div class="grid-2">
+            <div><label>Code</label><input type="text" name="code" required></div>
+            <div><label>Name</label><input type="text" name="name" required></div>
+            <div><label>Parent Course</label>
+                <select name="course_code" required>
+                    {% for c in courses %}
+                    <option value="{{ c.code }}">{{ c.code }} - {{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn"><i class="fas fa-save"></i> Add Unit</button>
+    </form>
+</div>
+
+<div id="bulkUnitForm" style="display:none; background:var(--surface); padding:1.5rem; border-radius:var(--radius-sm); border:1px solid var(--border); margin-bottom:1.5rem;">
+    <h4>Bulk Upload Course Units (CSV)</h4>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="bulk">
+        <div class="drop-zone" style="border:2px dashed var(--border); padding:2rem; text-align:center; cursor:pointer; background:#fafafa;">
+            <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:var(--secondary);"></i>
+            <p>Drop CSV here or click to browse</p>
+            <input type="file" name="csv_file" accept=".csv" required style="display:none;">
+        </div>
+        <button type="submit" class="btn"><i class="fas fa-upload"></i> Upload</button>
+    </form>
+</div>
+
+<div class="table-wrapper">
+    <table>
+        <thead><tr><th>Code</th><th>Name</th><th>Course</th></tr></thead>
+        <tbody>
+            {% for u in course_units %}
+            <tr><td>{{ u.code }}</td><td>{{ u.name }}</td><td>{{ u.course.code }}</td></tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted">No course units found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>function toggleSection(id) { const el=document.getElementById(id); el.style.display=el.style.display==='none'?'block':'none'; }</script>
+{% endblock %}

@@ -1,0 +1,233 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .filter-section {
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        margin-bottom: 1.5rem;
+    }
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    .btn-download-list {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: var(--radius-sm);
+        background-color: #ffffff;
+        color: #2563eb;
+        border: 1px solid #2563eb;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .btn-download-list:hover {
+        background-color: #eff6ff;
+        transform: translateY(-1px);
+    }
+    .action-link {
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: var(--transition);
+        text-decoration: none;
+    }
+    .form-group {
+        margin-bottom: 0;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+
+    /* Rank & Grade Badges */
+    .rank-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #f1f5f9;
+        color: #475569;
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
+    .rank-1 { background: #fef08a; color: #854d0e; border: 1px solid #fde047; }
+    .rank-2 { background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; }
+    .rank-3 { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
+
+    .grade-badge {
+        padding: 0.25rem 0.6rem;
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        font-size: 0.8rem;
+        display: inline-block;
+    }
+    .grade-A { background: #dcfce7; color: #166534; }
+    .grade-B { background: #e0f2fe; color: #075985; }
+    .grade-C { background: #fef9c3; color: #854d0e; }
+    .grade-D { background: #f1f5f9; color: #475569; }
+    .grade-F { background: #fee2e2; color: #991b1b; }
+</style>
+
+<!-- Header Toolbar & Search -->
+<div class="page-header-actions">
+    <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
+        <a href="{% url 'attendance:manage_exams' %}" class="btn-download-list">
+            <i class="fas fa-arrow-left"></i> Back to Exams
+        </a>
+        <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search student name, registration number..." style="padding-left: 2.25rem;">
+        </div>
+    </div>
+</div>
+
+<!-- Filter Selection Form -->
+<div class="filter-section">
+    <form method="GET" action="">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) auto; gap: 1rem; align-items: end;">
+            <div class="form-group">
+                <label for="exam_select"><i class="fas fa-calendar-alt"></i> Select Exam</label>
+                <select id="exam_select" name="exam" class="form-control">
+                    <option value="">-- All Exams --</option>
+                    {% for exam in exams %}
+                        <option value="{{ exam.id }}" {% if exam.id|stringformat:"s" == selected_exam %}selected{% endif %}>
+                            {{ exam.name }} ({{ exam.course_unit.code }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="stream_select"><i class="fas fa-users"></i> Select Stream</label>
+                <select id="stream_select" name="stream" class="form-control">
+                    <option value="">-- All Streams --</option>
+                    {% for stream in streams %}
+                        <option value="{{ stream.id }}" {% if stream.id|stringformat:"s" == selected_stream %}selected{% endif %}>
+                            {{ stream.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); width: 100%;">
+                    <i class="fas fa-filter"></i> Apply Filter
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Rankings Table Card -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width: 100px;">Rank</th>
+                <th>Student</th>
+                <th>Registration</th>
+                <th style="text-align: center;">Marks</th>
+                <th style="text-align: center;">Grade</th>
+            </tr>
+        </thead>
+        <tbody id="rankingsTableBody">
+            {% for entry in rankings %}
+            <tr class="ranking-row">
+                <td>
+                    <span class="rank-badge {% if entry.rank == 1 %}rank-1{% elif entry.rank == 2 %}rank-2{% elif entry.rank == 3 %}rank-3{% endif %}">
+                        {{ entry.rank }}
+                    </span>
+                </td>
+                <td style="font-weight: 600; color: var(--text-main);">{{ entry.student }}</td>
+                <td><code style="font-size:0.95rem; font-weight:700; color:var(--text-main);">{{ entry.reg_number }}</code></td>
+                <td style="text-align: center; font-weight: 700;">{{ entry.marks }}</td>
+                <td style="text-align: center;">
+                    <span class="grade-badge grade-{{ entry.grade }}">
+                        {{ entry.grade }}
+                    </span>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-trophy" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No rankings available to display. Please select an exam and stream to view rankings.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching student records discovered for your search criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Automated Frontend Search Matrix
+        const searchInput = document.getElementById('dashboardSearch');
+        const dataRows = document.querySelectorAll('.ranking-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const criteria = this.value.toLowerCase().trim();
+                let matchingCount = 0;
+
+                dataRows.forEach(row => {
+                    const searchableText = row.textContent.toLowerCase();
+                    if (searchableText.includes(criteria)) {
+                        row.style.display = '';
+                        matchingCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (emptyRow) {
+                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+                }
+            });
+        }
+    });
+</script>
+
+{% endblock %}

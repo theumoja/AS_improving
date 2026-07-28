@@ -1,0 +1,73 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<div class="card" style="max-width: 680px; margin: 0 auto;">
+    <h2><i class="fas fa-chalkboard-teacher"></i> Bulk Upload Teachers</h2>
+
+    <div class="instruction-box">
+        <h3 style="margin-top:0;"><i class="fas fa-info-circle"></i> CSV Column Requirements</h3>
+        <p style="margin-bottom: 0.75rem;">Your file must contain the following headers:</p>
+        <code style="background: rgba(0,0,0,0.05); padding: 0.3rem 0.6rem; border-radius: 4px;">teachers_name, email</code>
+        <ul style="margin-top: 0.8rem; padding-left: 1.2rem; color: var(--text-muted);">
+            <li><i class="fas fa-check-circle" style="color:var(--success);"></i> System automatically generates secure credentials.</li>
+            <li><i class="fas fa-check-circle" style="color:var(--success);"></i> Emails must be unique and valid.</li>
+        </ul>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" id="uploadForm">
+        {% csrf_token %}
+        <div style="margin-bottom: 1.5rem;">
+            <label for="csvFile"><i class="fas fa-file-csv"></i> Select CSV File</label>
+            <div class="drop-zone" style="border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 2rem; text-align: center; cursor: pointer; transition: var(--transition); background: #fafafa;">
+                <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--secondary);"></i>
+                <p style="margin: 0.5rem 0; font-weight: 500;">Drag & drop your CSV here, or click to browse</p>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Accepted: .csv</p>
+                <input type="file" name="csv_file" id="csvFile" accept=".csv" required style="display: none;">
+            </div>
+        </div>
+        <button type="submit" class="btn" style="width:100%; border-radius:50px;">
+            <i class="fas fa-upload"></i> Import Teachers
+        </button>
+    </form>
+    <div style="margin-top: 1rem;">
+        <a href="{% url 'attendance:download_template' 'teachers' %}" class="btn btn-outline" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+            <i class="fas fa-download"></i> Download Empty CSV Template
+        </a>
+    </div>
+</div>
+
+<script>
+// Same drag-drop logic as previous upload pages
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.querySelector('.drop-zone');
+    const fileInput = document.getElementById('csvFile');
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'var(--secondary)';
+        dropZone.style.background = 'var(--primary-light)';
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = 'var(--border)';
+        dropZone.style.background = '#fafafa';
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'var(--border)';
+        dropZone.style.background = '#fafafa';
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            const file = e.dataTransfer.files[0];
+            dropZone.querySelector('p').textContent = `Selected: ${file.name}`;
+        }
+    });
+    fileInput.addEventListener('change', function() {
+        if (this.files.length) {
+            dropZone.querySelector('p').textContent = `Selected: ${this.files[0].name}`;
+        }
+    });
+});
+</script>
+{% endblock %}

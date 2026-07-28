@@ -1,0 +1,288 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<style>
+    .tab-nav { display: flex; gap: 0.5rem; border-bottom: 2px solid #e2e8f0; margin-bottom: 1.5rem; }
+    .tab-btn { background: none; border: none; padding: 0.7rem 1.5rem; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.2s; font-size: 0.9rem; }
+    .tab-btn.active { color: #2c6e6b; border-bottom-color: #2c6e6b; background: #f1f5f9; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+    .card { background: #fff; border-radius: 16px; padding: 1.75rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); margin-bottom: 1.5rem; }
+    .card-header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 0.75rem; }
+    .card-title { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 0.6rem; }
+    .card-title i { color: #2c6e6b; width: 1.8rem; text-align: center; }
+
+    .table-responsive { overflow-x: auto; border-radius: 12px; border: 1px solid #f1f5f9; }
+    .table { width: 100%; border-collapse: collapse; font-size: 0.9rem; background: #fff; }
+    .table thead { background: #f8fafc; border-bottom: 2px solid #e2e8f0; }
+    .table th { font-weight: 700; color: #1e293b; padding: 0.9rem 1rem; text-align: left; white-space: nowrap; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    .table td { padding: 0.8rem 1rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    .table tbody tr:hover { background: #fafbfc; }
+
+    .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.75rem; font-weight: 600; }
+    .badge-warning { background: #fef3c7; color: #d97706; }
+    .badge-success { background: #dcfce7; color: #15803d; }
+    .badge-danger { background: #fee2e2; color: #dc2626; }
+    .badge-info { background: #e0f2fe; color: #0369a1; }
+    .badge-reserve { background: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
+
+    .btn-apply { background-color: #2c6e6b; color: white; border: none; padding: 0.4rem 0.9rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 0.85rem; }
+    .btn-apply:hover { background-color: #1e4d4a; }
+
+    .search-bar { padding: 0.6rem 1.2rem 0.6rem 2.5rem; border-radius: 50px; border: 1px solid #e2e8f0; background: #f8fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 1rem center; background-size: 1rem; width: 100%; max-width: 320px; transition: 0.2s; font-size: 0.9rem; }
+    .search-bar:focus { outline: none; border-color: #2c6e6b; background-color: #fff; box-shadow: 0 0 0 3px rgba(44, 110, 107, 0.15); }
+
+    .purpose-input { font-size: 0.8rem; padding: 0.35rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; width: 180px; margin-right: 0.4rem; }
+</style>
+
+<h2><i class="fas fa-book-reader"></i> My Library Dashboard</h2>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+{% endif %}
+
+<div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('borrowed-tab')">
+        <i class="fas fa-book"></i> My Borrowed Books
+    </button>
+    <button class="tab-btn" onclick="switchTab('catalog-tab')">
+        <i class="fas fa-search"></i> General Books Catalog
+    </button>
+    <button class="tab-btn" onclick="switchTab('reserve-tab')">
+        <i class="fas fa-lock"></i> Reserve Collection
+    </button>
+    <button class="tab-btn" onclick="switchTab('applications-tab')">
+        <i class="fas fa-paper-plane"></i> My Reserve Applications
+    </button>
+</div>
+
+<!-- TAB 1: BORROWED BOOKS -->
+<div id="borrowed-tab" class="tab-pane active">
+    <div class="card">
+        <div class="card-header-flex">
+            <div class="card-title"><i class="fas fa-history"></i> My Borrowing History</div>
+            <input type="text" id="searchBorrowed" class="search-bar" placeholder="Search history..." onkeyup="filterTable('searchBorrowed', 'borrowedTable')">
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Book Title</th>
+                        <th>Issue Date</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="borrowedTable">
+                    {% for record in borrowed_records %}
+                    <tr>
+                        <td><strong>{{ record.book.title }}</strong></td>
+                        <td>{{ record.issue_date|date:"M d, Y" }}</td>
+                        <td>{{ record.due_date|date:"M d, Y" }}</td>
+                        <td>
+                            {% if record.status == 'ISSUED' %}
+                                <span class="badge badge-warning">Issued</span>
+                            {% else %}
+                                <span class="badge badge-success">Returned</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr class="no-records"><td colspan="4" class="text-center">No borrowing history found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- TAB 2: GENERAL CATALOG -->
+<div id="catalog-tab" class="tab-pane">
+    <div class="card">
+        <div class="card-header-flex">
+            <div class="card-title"><i class="fas fa-warehouse"></i> Available Books</div>
+            <input type="text" id="searchCatalog" class="search-bar" placeholder="Search catalog..." onkeyup="filterTable('searchCatalog', 'catalogTable')">
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>ISBN</th>
+                        <th style="text-align:center;">Available Copies</th>
+                    </tr>
+                </thead>
+                <tbody id="catalogTable">
+                    {% for book in general_books %}
+                    <tr>
+                        <td><strong>{{ book.title }}</strong></td>
+                        <td>{{ book.author|default:"—" }}</td>
+                        <td><code>{{ book.isbn|default:"—" }}</code></td>
+                        <td style="text-align:center;">
+                            {% if book.available_copies < 1 %}
+                                <span class="badge badge-danger">Out of Stock</span>
+                            {% else %}
+                                <span class="badge badge-success">{{ book.available_copies }} Available</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- TAB 3: RESERVE COLLECTION -->
+<div id="reserve-tab" class="tab-pane">
+    <div class="card">
+        <div class="card-header-flex">
+            <div class="card-title"><i class="fas fa-user-shield"></i> Reserve Books (Restricted Section)</div>
+            <input type="text" id="searchReserve" class="search-bar" placeholder="Search reserve collection..." onkeyup="filterTable('searchReserve', 'reserveTable')">
+        </div>
+        <blockquote style="margin-bottom:1rem; color:#64748b; font-size:0.9rem;">
+            <strong>Notice:</strong> Reserve books cannot be checked out via standard checkout. Submit an access application below. Once approved by the librarian, visit the library desk to collect your copy.
+        </blockquote>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Stock Status</th>
+                        <th style="text-align:center;">Your Request Status / Action</th>
+                    </tr>
+                </thead>
+                <tbody id="reserveTable">
+                    {% for book in reserve_books %}
+                    <tr>
+                        <td><strong>{{ book.title }}</strong></td>
+                        <td>{{ book.author|default:"—" }}</td>
+                        <td>
+                            {% if book.available_copies < 1 %}
+                                <span class="badge badge-danger">Out of Stock</span>
+                            {% else %}
+                                <span class="badge badge-reserve"><i class="fas fa-lock"></i> Reserve Item ({{ book.available_copies }} left)</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:center;">
+                            {% if book.user_request %}
+                                {% if book.user_request.status == 'PENDING' %}
+                                    <span class="badge badge-warning" title="Request submitted on {{ book.user_request.request_date|date:'M d, Y' }}">
+                                        <i class="fas fa-hourglass-half"></i> Request Pending
+                                    </span>
+                                {% elif book.user_request.status == 'APPROVED' %}
+                                    <span class="badge badge-success" title="Visit library counter for pickup">
+                                        <i class="fas fa-check-circle"></i> Approved — Ready for Pickup
+                                    </span>
+                                {% elif book.user_request.status == 'FULFILLED' %}
+                                    <span class="badge badge-success">
+                                        <i class="fas fa-check-double"></i> Fulfilled / Book Issued
+                                    </span>
+                                {% elif book.user_request.status == 'REJECTED' or book.user_request.status == 'DECLINED' %}
+                                    <span class="badge badge-danger">
+                                        <i class="fas fa-times-circle"></i> Application Declined
+                                    </span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ book.user_request.get_status_display|default:book.user_request.status }}</span>
+                                {% endif %}
+                        
+                            {% elif book.available_copies > 0 %}
+                                <form action="{% url 'attendance:apply_reserve_book' book.id %}" method="POST" style="display:inline-flex; align-items:center;">
+                                    {% csrf_token %}
+                                    <input type="text" name="purpose_notes" class="purpose-input" placeholder="Reason (optional)">
+                                    <button type="submit" class="btn-apply">
+                                        <i class="fas fa-file-signature"></i> Apply
+                                    </button>
+                                </form>
+                        
+                            {% else %}
+                                <button class="btn-apply" disabled style="opacity:0.5; cursor:not-allowed;">Unavailable</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr class="no-records"><td colspan="4" class="text-center">No reserve books currently cataloged.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- TAB 4: MY RESERVE APPLICATIONS -->
+<div id="applications-tab" class="tab-pane">
+    <div class="card">
+        <div class="card-header-flex">
+            <div class="card-title"><i class="fas fa-tasks"></i> My Reserve Applications</div>
+            <input type="text" id="searchApplications" class="search-bar" placeholder="Search applications..." onkeyup="filterTable('searchApplications', 'applicationsTable')">
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Book Requested</th>
+                        <th>Application Date</th>
+                        <th>Purpose / Notes</th>
+                        <th>Status & Next Steps</th>
+                    </tr>
+                </thead>
+                <tbody id="applicationsTable">
+                    {% for req in my_reserve_requests %}
+                    <tr>
+                        <td><strong>{{ req.book.title }}</strong></td>
+                        <td>{{ req.request_date|date:"M d, Y - H:i" }}</td>
+                        <td>{{ req.purpose_notes|default:"—" }}</td>
+                        <td>
+                            {% if req.status == 'PENDING' %}
+                                <span class="badge badge-warning"><i class="fas fa-hourglass-half"></i> Pending Review</span>
+                            {% elif req.status == 'APPROVED' %}
+                                <span class="badge badge-success"><i class="fas fa-check-circle"></i> Approved — Visit Library Desk for Pickup</span>
+                            {% elif req.status == 'FULFILLED' or req.status == 'COMPLETED' %}
+                                <span class="badge badge-success"><i class="fas fa-check-double"></i> Fulfilled / Book Issued</span>
+                            {% elif req.status == 'REJECTED' or req.status == 'DECLINED' %}
+                                <span class="badge badge-danger"><i class="fas fa-times-circle"></i> Request Declined</span>
+                            {% else %}
+                                <span class="badge badge-secondary">{{ req.get_status_display|default:req.status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr class="no-records"><td colspan="4" class="text-center">You have no active reserve requests.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+
+    function filterTable(inputId, tbodyId) {
+        const input = document.getElementById(inputId);
+        const filter = input.value.toLowerCase().trim();
+        const tbody = document.getElementById(tbodyId);
+        const rows = tbody.getElementsByTagName('tr');
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (row.classList.contains('no-records')) continue;
+            const rowText = row.textContent.toLowerCase();
+            row.style.display = rowText.indexOf(filter) > -1 ? '' : 'none';
+        }
+    }
+</script>
+{% endblock %}

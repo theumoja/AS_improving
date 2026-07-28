@@ -1,0 +1,30 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<div class="card" style="max-width: 680px; margin: 0 auto;">
+    <h2><i class="fas fa-chalkboard-teacher"></i> Bulk Upload Teachers</h2>
+
+    <div class="instruction-box">
+        <h3 style="margin-top:0;"><i class="fas fa-info-circle"></i> CSV Column Requirements</h3>
+        <p style="margin-bottom: 0.75rem;">Your file must contain the following headers:</p>
+        <code style="background: rgba(0,0,0,0.05); padding: 0.3rem 0.6rem; border-radius: 4px;">teachers_name, email</code>
+        <ul style="margin-top: 0.8rem; padding-left: 1.2rem; color: var(--text-muted);">
+            <li><i class="fas fa-check-circle" style="color:var(--success);"></i> System automatically generates secure credentials.</li>
+            <li><i class="fas fa-check-circle" style="color:var(--success);"></i> Emails must be unique and valid.</li>
+        </ul>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div style="margin-bottom: 1.5rem;">
+            <label for="csvFile"><i class="fas fa-file-csv"></i> Select CSV File</label>
+            <input type="file" name="csv_file" id="csvFile" accept=".csv" required>
+        </div>
+        <button type="submit" class="btn" style="width:100%;">
+            <i class="fas fa-upload"></i> Import Teachers
+        </button>
+    </form>
+</div>
+{% endblock %}

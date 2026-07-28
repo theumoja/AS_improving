@@ -1,0 +1,336 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    .btn-download-list {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: var(--radius-sm);
+        background-color: #ffffff;
+        color: #2563eb;
+        border: 1px solid #2563eb;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .btn-download-list:hover {
+        background-color: #eff6ff;
+        transform: translateY(-1px);
+    }
+    .unit-navigation-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.3rem 0.8rem;
+        border-radius: var(--radius-sm);
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        font-weight: 600;
+        font-size: 0.85rem;
+        border: 1px solid rgba(37, 99, 235, 0.15);
+        transition: var(--transition);
+        text-decoration: none;
+    }
+    .unit-navigation-link:hover {
+        background: #2563eb;
+        color: #fff;
+        transform: translateY(-1px);
+    }
+    .action-link {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-right: 0.75rem;
+        transition: var(--transition);
+        text-decoration: none;
+    }
+    .action-link.edit { color: var(--accent); }
+    .action-link.delete { color: var(--danger); }
+    .action-link:hover { opacity: 0.7; }
+
+    /* Modal Context Interface Components */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 550px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header & Action Toolbar -->
+<div class="page-header-actions">
+    <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
+        <a href="{% url 'attendance:download_template' 'exams' %}" class="btn-download-list">
+            <i class="fas fa-download"></i> Export Exam Metrics
+        </a>
+        <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search exam title, course code, term..." style="padding-left: 2.25rem;">
+        </div>
+    </div>
+
+    <div class="action-group">
+        <button class="btn btn-outline" onclick="location.href='{% url 'attendance:bulk_upload_courses' %}'">
+            <i class="fas fa-file-upload"></i> Bulk Exam Ingestion
+        </button>
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-plus-circle"></i> Create New Exam
+        </button>
+    </div>
+</div>
+
+<!-- Main Table Container -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width:200px;">Exam Title</th>
+                <th>Course Unit</th>
+                <th>Term</th>
+                <th>Schedule</th>
+                <th>Total Marks</th>
+                <th>Status</th>
+                <th>Marks Action</th>
+                <th style="text-align: right;">Execution Parameters</th>
+            </tr>
+        </thead>
+        <tbody id="examsTableBody">
+            {% for exam in exams %}  
+            <tr class="exam-row">
+                <td style="font-weight: 600; color: var(--text-main);">{{ exam.name }}</td>
+                <td>
+                    <code style="font-size:0.95rem; font-weight:700; color:var(--text-main);">{{ exam.course_unit.code }}</code>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">{{ exam.course_unit.name }}</div>
+                </td>
+                <td style="color: var(--text-muted);">{{ exam.term }}</td>
+                <td>
+                    <div>{{ exam.exam_date|date:"d M Y" }}</div>
+                    {% if exam.start_time %}
+                        <small style="color: var(--text-muted);">{{ exam.start_time|time:"H:i" }} - {{ exam.end_time|time:"H:i" }}</small>
+                    {% endif %}
+                </td>
+                <td style="font-weight: 600;">{{ exam.total_marks }}</td>
+                <td>
+                    {% if exam.is_published %}
+                        <span style="color: #059669; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-check-circle"></i> Published</span>
+                    {% else %}
+                        <span style="color: #6b7280; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-pen"></i> Draft</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'attendance:manage_marks' exam.id %}" class="unit-navigation-link">
+                        <i class="fas fa-pen-alt"></i> Enter Marks
+                    </a>
+                </td>
+                <td style="text-align: right;">
+                    <a href="{% url 'attendance:edit_exam' exam.id %}" class="action-link edit">
+                        <i class="fas fa-edit"></i> Edit
+                    </a>
+                    <form method="POST" action="{% url 'attendance:delete_exam' exam.id %}" style="display: inline;" onsubmit="return confirm('Drop this examination record?');">
+                        {% csrf_token %}
+                        <button type="submit" class="action-link delete" style="background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;">
+                            <i class="fas fa-trash-alt"></i> Delete
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-file-signature" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No examination records registered.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching examination records discovered for your filter criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Creator Interface -->
+<div class="modal" id="singleAddModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Structural Exam Creator</h3>
+            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_exam">
+            
+            <div class="form-group">
+                <label for="exam_name">Exam Title Description</label>
+                <input type="text" id="exam_name" name="name" class="form-control" required placeholder="e.g. End of Semester Examination">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="course_unit">Course Unit</label>
+                    <select id="course_unit" name="course_unit" class="form-control" required>
+                        <option value="">-- Select Unit --</option>
+                        {% for cu in course_units %}
+                            <option value="{{ cu.id }}">{{ cu.code }} - {{ cu.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="term">Assigned Term</label>
+                    <select id="term" name="term" class="form-control" required>
+                        <option value="">-- Select Term --</option>
+                        {% for term in terms %}
+                            <option value="{{ term.id }}">{{ term }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="exam_date">Exam Date</label>
+                    <input type="date" id="exam_date" name="exam_date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="total_marks">Total Marks</label>
+                    <input type="number" id="total_marks" name="total_marks" class="form-control" value="100" min="1" required>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="start_time">Start Time</label>
+                    <input type="time" id="start_time" name="start_time" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="end_time">End Time</label>
+                    <input type="time" id="end_time" name="end_time" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                <input type="checkbox" id="is_published" name="is_published" style="width: 1rem; height: 1rem; cursor: pointer;">
+                <label for="is_published" style="margin-bottom: 0; cursor: pointer;">Publish Immediately</label>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Confirm & Build</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('singleAddModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+
+        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
+        const closeModal = () => modal.classList.remove('active');
+        
+        if(closeBtn) closeBtn.addEventListener('click', closeModal);
+        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+
+        // Automated Frontend Search Matrix
+        const searchInput = document.getElementById('dashboardSearch');
+        const dataRows = document.querySelectorAll('.exam-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const criteria = this.value.toLowerCase().trim();
+                let matchingCount = 0;
+
+                dataRows.forEach(row => {
+                    const searchableText = row.textContent.toLowerCase();
+                    if (searchableText.includes(criteria)) {
+                        row.style.display = '';
+                        matchingCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (emptyRow) {
+                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+                }
+            });
+        }
+    });
+</script>
+
+{% endblock %}

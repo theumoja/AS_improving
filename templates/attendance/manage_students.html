@@ -1,0 +1,286 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    .btn-download-list {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: var(--radius-sm);
+        background-color: #ffffff;
+        color: #2563eb;
+        border: 1px solid #2563eb;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .btn-download-list:hover {
+        background-color: #eff6ff;
+        transform: translateY(-1px);
+    }
+    .course-tag {
+        display: inline-flex;
+        padding: 0.2rem 0.6rem;
+        background: #eff6ff;
+        color: #2563eb;
+        border: 1px solid #bfdbfe;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+    .stream-tag {
+        display: inline-flex;
+        padding: 0.2rem 0.6rem;
+        background: #f0fdf4;
+        color: #16a34a;
+        border: 1px solid #bbf7d0;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+    .action-link {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-right: 0.75rem;
+        transition: var(--transition);
+    }
+    .action-link.edit { color: var(--accent); }
+    .action-link.delete { color: var(--danger); }
+    .action-link:hover { opacity: 0.7; }
+
+    /* Modal Architecture */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 500px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+</style>
+
+<div class="page-header-actions">
+    <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
+        <a href="{% url 'attendance:export_credentials' 'students' %}" class="btn-download-list">
+            <i class="fas fa-download"></i> Export Student Directory
+        </a>
+        <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search registration, name, course..." style="padding-left: 2.25rem;">
+        </div>
+    </div>
+
+    <div class="action-group">
+        <button class="btn btn-outline" onclick="location.href='{% url 'attendance:bulk_upload_students' %}'">
+            <i class="fas fa-file-upload"></i> Upload CSV Matrix
+        </button>
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-user-plus"></i> Enlist New Student
+        </button>
+    </div>
+</div>
+
+{% if messages %}
+<div style="margin-bottom: 1.5rem;">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Registration Identifiers</th>
+                <th>Student Full Name</th>
+                <th>Assigned Course Pathway</th>
+                <th>Allocated Stream</th>
+                <th>System Account Reference</th>
+                <th style="text-align: right;">Operations Matrix</th>
+            </tr>
+        </thead>
+        <tbody id="studentTableBody">
+            {% for student in students %}
+            <tr class="student-row">
+                <td><strong style="color:var(--text-main);">{{ student.reg_number }}</strong></td>
+                <td>{{ student.name }}</td>
+                <td><span class="course-tag">{{ student.course.code }}</span></td>
+                <td><span class="stream-tag">{{ student.stream.name|default:"Unassigned" }}</span></td>
+                <td><span style="font-size:0.85rem; color:var(--text-muted);">{{ student.user.email }}</span></td>
+                <td style="text-align: right;">
+                    <a href="{% url 'attendance:edit_student' student.pk %}" class="action-link edit">
+                        <i class="fas fa-edit"></i> Edit
+                    </a>
+                    <a href="{% url 'attendance:delete_student' student.pk %}" class="action-link delete" onclick="return confirm('Drop this student record entirely?');">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-users-slash" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No student registrations discovered inside this workspace.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching student listings discovered for your filter criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="modal" id="singleAddModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Single Account Provisioner</h3>
+            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="single">
+            <div class="form-group">
+                <label for="reg_number">Registration Number Reference</label>
+                <input type="text" id="reg_number" name="reg_number" class="form-control" required placeholder="e.g. 2026/BTC/042">
+            </div>
+            <div class="form-group">
+                <label for="student_name">Full System Structural Name</label>
+                <input type="text" id="student_name" name="name" class="form-control" required placeholder="e.g. Laban Omenyo">
+            </div>
+            <div class="form-group">
+                <label for="student_email">User Delivery Email</label>
+                <input type="email" id="student_email" name="email" class="form-control" required placeholder="studentname@gmail.com">
+            </div>
+            <div class="form-group">
+                <label for="student_course">Track Course Allocation</label>
+                <select id="student_course" name="course" class="form-control" required>
+                    <option value="" disabled selected>Select Target Course Code...</option>
+                    {% for course in active_courses_list %}
+                        <option value="{{ course.code }}">{{ course.code }} - {{ course.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="student_stream">Specific Academic Stream</label>
+                <select id="student_stream" name="stream" class="form-control" required>
+                    <option value="" disabled selected>Select Stream Assignment...</option>
+                    {% for stream in active_streams_list %}
+                        <option value="{{ stream.id }}">{{ stream.name }} ({{ stream.course.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex; gap:0.75rem; margin-top:2rem;">
+                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Register Student</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Modal Logic Layout
+        const modal = document.getElementById('singleAddModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+
+        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
+        const closeModal = () => modal.classList.remove('active');
+        
+        if(closeBtn) closeBtn.addEventListener('click', closeModal);
+        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+
+        // Automated Frontend Search Matrix
+        const searchInput = document.getElementById('dashboardSearch');
+        const dataRows = document.querySelectorAll('.student-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const criteria = this.value.toLowerCase().trim();
+                let matchingCount = 0;
+
+                dataRows.forEach(row => {
+                    const searchableText = row.textContent.toLowerCase();
+                    if (searchableText.includes(criteria)) {
+                        row.style.display = '';
+                        matchingCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (emptyRow) {
+                    // Only show JS empty error state if rows exist but zero match the query
+                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+                }
+            });
+        }
+    });
+</script>
+
+{% endblock %}

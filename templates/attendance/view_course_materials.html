@@ -1,0 +1,44 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}{% include "attendance/sidebar.html" %}{% endblock %}
+
+<div class="container mt-4">
+    <h2><i class="fas fa-book-open" style="color: var(--accent);"></i> {{ course.name }}</h2>
+    <div class="row">
+        <div class="col-md-8">
+            <h4>Lessons</h4>
+            <ul class="list-group">
+                {% for lesson in lessons %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <div><strong>{{ lesson.title }}</strong> <span class="text-muted">{{ lesson.content }}</span></div>
+                    {% if lesson.video_url %}<a href="{{ lesson.video_url }}" target="_blank" class="btn btn-sm btn-outline-primary">Watch</a>{% endif %}
+                </li>
+                {% empty %}
+                <li class="list-group-item">No lessons yet.</li>
+                {% endfor %}
+            </ul>
+            <h4 class="mt-4">Assignments</h4>
+            <ul class="list-group">
+                {% for ass in assignments %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <div><strong>{{ ass.title }}</strong> - Due: {{ ass.due_date|date:"Y-m-d H:i" }}</div>
+                    <a href="{% url 'attendance:submit_assignment' ass.id %}" class="btn btn-sm btn-primary">Submit</a>
+                </li>
+                {% empty %}
+                <li class="list-group-item">No assignments.</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="col-md-4">
+            <h4>Notes</h4>
+            <ul class="list-group">
+                {% for note in notes %}
+                <li class="list-group-item"><strong>{{ note.title }}</strong> - <a href="{{ note.file.url }}" download>Download</a></li>
+                {% empty %}
+                <li class="list-group-item">No notes.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

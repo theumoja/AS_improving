@@ -1,0 +1,178 @@
+{% extends 'attendance/base.html' %}
+{% load custom_filters %}
+
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .header-title-group {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+    .header-title-group h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .header-icon-box {
+        width: 42px;
+        height: 42px;
+        border-radius: var(--radius-sm);
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header Toolbar -->
+<div class="page-header-actions">
+    <div class="header-title-group">
+        <div class="header-icon-box">
+            <i class="fas fa-chart-bar"></i>
+        </div>
+        <div>
+            <h2>Enter Marks - {{ exam.name }}</h2>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem;">
+                Course Unit: <strong style="color: var(--text-main);">{{ exam.course_unit.code }}</strong> | Total Marks: <strong style="color: var(--text-main);">{{ exam.total_marks }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <div style="position: relative; min-width: 260px;">
+        <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+        <input type="text" id="dashboardSearch" class="form-control" placeholder="Search student, reg no..." style="padding-left: 2.25rem;">
+    </div>
+</div>
+
+<!-- Main Form & Table Container -->
+<form method="POST">
+    {% csrf_token %}
+    <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 1.5rem;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Registration</th>
+                    <th>Student Name</th>
+                    <th>Stream</th>
+                    <th>Marks (out of {{ exam.total_marks }})</th>
+                    <th>Grade</th>
+                </tr>
+            </thead>
+            <tbody id="marksTableBody">
+                {% for student in students %}
+                {% with entry=marks_entries|get_item:student.reg_number %}
+                <tr class="student-row">
+                    <td style="color: var(--text-muted); font-size: 0.875rem;">{{ forloop.counter }}</td>
+                    <td style="font-family: monospace; font-weight: 600;">{{ student.reg_number }}</td>
+                    <td style="font-weight: 600; color: var(--text-main);">
+                        <i class="fas fa-user-graduate" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ student.name }}
+                    </td>
+                    <td><span style="font-size: 0.85rem; color: var(--text-muted);">{{ student.stream.name }}</span></td>
+                    <td>
+                        <input type="number" name="marks_{{ student.reg_number }}"
+                               value="{% if entry %}{{ entry.marks_obtained }}{% endif %}"
+                               min="0" max="{{ exam.total_marks }}" step="0.5" class="form-control" style="width: 110px; padding: 0.35rem 0.5rem; font-weight: 600;">
+                    </td>
+                    <td>
+                        {% if entry and entry.grade %}
+                            <span style="font-weight: 700; color: #2563eb;">{{ entry.grade.name }}</span>
+                        {% else %}
+                            <span style="color: var(--text-muted);">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <i class="fas fa-users-slash" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                        No students enrolled for this course unit.
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr id="searchEmptyRow" style="display: none;">
+                    <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                        No matching students discovered for your search criteria.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff;">
+            <i class="fas fa-save" style="margin-right: 0.35rem;"></i> Save Marks
+        </button>
+        <a href="{% url 'attendance:manage_exams' %}" class="btn btn-outline" style="background: #fff; color: var(--text-main);">
+            <i class="fas fa-arrow-left" style="margin-right: 0.35rem;"></i> Back to Exams
+        </a>
+    </div>
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('dashboardSearch');
+        const dataRows = document.querySelectorAll('.student-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const criteria = this.value.toLowerCase().trim();
+                let matchingCount = 0;
+
+                dataRows.forEach(row => {
+                    const searchableText = row.textContent.toLowerCase();
+                    if (searchableText.includes(criteria)) {
+                        row.style.display = '';
+                        matchingCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                if (emptyRow) {
+                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

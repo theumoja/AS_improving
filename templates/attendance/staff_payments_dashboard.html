@@ -1,0 +1,925 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    /* ----- Animated gradient for profile card ----- */
+    @keyframes shimmer {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* ----- Profile Card (Glass + Gradient) ----- */
+    .profile-card {
+        background: linear-gradient(135deg, #0a2a4a, #1a3a6e, #0f3a5a);
+        background-size: 300% 300%;
+        animation: shimmer 6s ease infinite;
+        border-radius: 24px;
+        padding: 2rem 2rem 1.5rem 2rem;
+        color: #fff;
+        margin-bottom: 2rem;
+        box-shadow: 0 15px 40px -10px rgba(10, 42, 74, 0.4);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .profile-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .profile-card::after {
+        content: '';
+        position: absolute;
+        bottom: -40%;
+        left: -20%;
+        width: 350px;
+        height: 350px;
+        background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .profile-top {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1.5rem;
+        position: relative;
+        z-index: 1;
+    }
+    .profile-avatar {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.12);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.8rem;
+        color: #bfdbfe;
+        border: 3px solid rgba(255,255,255,0.25);
+        flex-shrink: 0;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        transition: transform 0.3s;
+    }
+    .profile-avatar:hover {
+        transform: scale(1.05);
+    }
+    .profile-info {
+        flex: 1;
+    }
+    .profile-info h2 {
+        color: #fff;
+        margin: 0 0 0.2rem 0;
+        font-size: 1.9rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .profile-info .role-badge {
+        color: #bfdbfe;
+        font-weight: 500;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .profile-info .email {
+        color: #93b4e0;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .profile-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-top: 0.4rem;
+    }
+    .profile-tags .tag {
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(4px);
+        padding: 0.2rem 1.2rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border: 1px solid rgba(255,255,255,0.08);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: 0.2s;
+    }
+    .profile-tags .tag:hover {
+        background: rgba(255,255,255,0.2);
+        transform: translateY(-1px);
+    }
+    .profile-tags .tag i {
+        opacity: 0.8;
+        font-size: 0.7rem;
+    }
+    .profile-stats-summary {
+        display: flex;
+        gap: 1.2rem;
+        margin-left: auto;
+        flex-wrap: wrap;
+        position: relative;
+        z-index: 1;
+    }
+    .profile-stats-summary .stat-badge {
+        text-align: center;
+        background: rgba(255,255,255,0.08);
+        padding: 0.4rem 1rem;
+        border-radius: 16px;
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.06);
+        min-width: 80px;
+        transition: 0.2s;
+    }
+    .profile-stats-summary .stat-badge:hover {
+        background: rgba(255,255,255,0.15);
+        transform: translateY(-2px);
+    }
+    .profile-stats-summary .stat-badge .number {
+        font-size: 1.6rem;
+        font-weight: 700;
+        display: block;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
+    }
+    .profile-stats-summary .stat-badge .label {
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        opacity: 0.7;
+        letter-spacing: 0.04em;
+        font-weight: 500;
+    }
+    .profile-stats-summary .stat-badge.payments .number {
+        color: #60a5fa;
+    }
+    .profile-stats-summary .stat-badge.amount .number {
+        color: #34d399;
+    }
+    .profile-stats-summary .stat-badge.latest .number {
+        color: #fbbf24;
+        font-size: 1.2rem;
+    }
+
+    /* ----- Stats Grid (cards) ----- */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: #fff;
+        border-radius: 18px;
+        padding: 1.25rem 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+        border: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        cursor: default;
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.5), transparent);
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+    }
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+        border-color: #e2e8f0;
+    }
+    .stat-card:hover::after {
+        opacity: 1;
+    }
+    .stat-card .icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        flex-shrink: 0;
+        transition: transform 0.3s;
+    }
+    .stat-card:hover .icon {
+        transform: scale(1.05) rotate(-3deg);
+    }
+    .stat-card .icon.blue { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #2563eb; }
+    .stat-card .icon.green { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #16a34a; }
+    .stat-card .icon.orange { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #d97706; }
+    .stat-card .icon.purple { background: linear-gradient(135deg, #f3e8ff, #e9d5ff); color: #7c3aed; }
+    .stat-card .info h4 {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: #64748b;
+        margin: 0;
+        letter-spacing: 0.05em;
+    }
+    .stat-card .info .number {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* ----- Grid: table + form ----- */
+    .payroll-finance-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        align-items: start;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    @media (min-width: 1024px) {
+        .payroll-finance-grid.has-payroll-sidebar {
+            grid-template-columns: minmax(0, 3fr) minmax(320px, 1fr);
+        }
+    }
+
+    /* ----- Table (glass) ----- */
+    .ledger-card {
+        background: rgba(255,255,255,0.85);
+        backdrop-filter: blur(6px);
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.3);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.04);
+        overflow: hidden;
+        transition: all 0.3s;
+    }
+    .ledger-card:hover {
+        border-color: rgba(255,255,255,0.6);
+        box-shadow: 0 12px 35px rgba(0,0,0,0.08);
+    }
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        display: block;
+        -webkit-overflow-scrolling: touch;
+        background: linear-gradient(to right, transparent 90%, rgba(0,0,0,0.02)) no-repeat;
+        background-attachment: local, scroll;
+    }
+    .table-responsive::-webkit-scrollbar { height: 6px; }
+    .table-responsive::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+    .table-responsive::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .table-responsive::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .modern-table {
+        width: 100%;
+        min-width: 850px;
+        border-collapse: separate;
+        border-spacing: 0;
+        table-layout: auto;
+    }
+    .modern-table th {
+        background: #f8fafc;
+        color: #475569;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 1rem 1.25rem;
+        border-bottom: 2px solid #e2e8f0;
+        white-space: nowrap;
+    }
+    .modern-table td {
+        padding: 1.1rem 1.25rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        color: #0f172a;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        transition: background 0.15s;
+    }
+    .modern-table td:last-child {
+        white-space: normal;
+        max-width: 220px;
+    }
+    .modern-table tr:last-child td { border-bottom: none; }
+    .modern-table tr:hover td { background: #f8fafc; }
+
+    /* ----- Badges & pills ----- */
+    .reference-badge {
+        font-family: 'Courier New', Courier, monospace;
+        background: #f1f5f9;
+        color: #334155;
+        padding: 0.35rem 0.6rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        border: 1px solid #e2e8f0;
+        display: inline-block;
+        white-space: nowrap;
+    }
+    .staff-profile-cell .staff-name {
+        font-weight: 600;
+        color: #0f172a;
+        display: block;
+        white-space: nowrap;
+    }
+    .staff-profile-cell .staff-role {
+        font-size: 0.7rem;
+        color: #64748b;
+        background: #f1f5f9;
+        padding: 0.1rem 0.4rem;
+        border-radius: 4px;
+        display: inline-block;
+        margin-top: 0.2rem;
+        white-space: nowrap;
+    }
+    .currency-amount {
+        font-weight: 700;
+        color: #0f172a;
+        font-feature-settings: "tnum";
+        white-space: nowrap;
+    }
+    .method-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 0.25rem 0.65rem;
+        border-radius: 50px;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    .method-bank { background-color: #e0f2fe; color: #0369a1; }
+    .method-momo { background-color: #fef3c7; color: #b45309; }
+    .method-cash { background-color: #d1fae5; color: #065f46; }
+
+    .description-text {
+        max-width: 220px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #64748b;
+        font-size: 0.85rem;
+        display: block;
+    }
+    .description-text:hover {
+        white-space: normal;
+        max-width: none;
+        background: #fff;
+        position: relative;
+        z-index: 10;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+    }
+
+    /* ----- Empty state ----- */
+    .empty-ledger-state {
+        padding: 3rem 1.5rem;
+        text-align: center;
+    }
+    .empty-ledger-state i {
+        font-size: 3rem;
+        color: #94a3b8;
+        margin-bottom: 0.75rem;
+        opacity: 0.5;
+    }
+    .empty-ledger-state p {
+        font-weight: 500;
+        color: #64748b;
+        font-size: 0.95rem;
+    }
+
+    /* ----- Search bar (glass) ----- */
+    .search-wrapper {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        background: rgba(255,255,255,0.5);
+        backdrop-filter: blur(4px);
+    }
+    .search-wrapper i {
+        color: #94a3b8;
+        font-size: 0.95rem;
+    }
+    .search-wrapper input {
+        flex: 1;
+        min-width: 180px;
+        padding: 0.6rem 1rem;
+        border-radius: 50px;
+        border: 1.5px solid #e2e8f0;
+        font-size: 0.9rem;
+        background: #ffffff;
+        transition: all 0.2s;
+        box-sizing: border-box;
+    }
+    .search-wrapper input:focus {
+        outline: none;
+        border-color: #2c6e6b;
+        box-shadow: 0 0 0 3px rgba(44,110,107,0.12);
+    }
+    #resultCount {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        white-space: nowrap;
+    }
+
+    /* ----- Form Sidebar (glass) ----- */
+    .payroll-sidebar {
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .form-sidebar-card {
+        background: rgba(255,255,255,0.85);
+        backdrop-filter: blur(6px);
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.3);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.04);
+        padding: 1.75rem;
+        position: sticky;
+        top: calc(var(--nav-height) + 1.5rem);
+        box-sizing: border-box;
+        transition: all 0.3s;
+    }
+    .form-sidebar-card:hover {
+        border-color: rgba(255,255,255,0.6);
+        box-shadow: 0 12px 35px rgba(0,0,0,0.08);
+    }
+    @media (max-width: 1023px) {
+        .form-sidebar-card {
+            position: static;
+        }
+    }
+    .form-sidebar-card .card-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #f1f5f9;
+        padding-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .form-sidebar-card .card-title i {
+        color: #2c6e6b;
+    }
+    .form-block {
+        margin-bottom: 1.25rem;
+    }
+    .form-block label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #1e293b;
+        letter-spacing: 0.04em;
+        margin-bottom: 0.4rem;
+    }
+    .form-field-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .form-field-wrapper i {
+        position: absolute;
+        left: 1rem;
+        color: #94a3b8;
+        font-size: 0.9rem;
+        pointer-events: none;
+    }
+    .form-input-element {
+        width: 100%;
+        padding: 0.7rem 1rem 0.7rem 2.5rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 12px;
+        background-color: #ffffff;
+        color: #0f172a;
+        font-family: var(--font);
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.2s;
+        box-sizing: border-box;
+    }
+    input.form-input-element[list] { background: #fff; }
+    select.form-input-element {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 1.25rem;
+        padding-right: 2.5rem;
+    }
+    textarea.form-input-element {
+        padding-left: 1rem;
+        min-height: 80px;
+        resize: vertical;
+    }
+    .form-input-element:focus {
+        outline: none;
+        border-color: #2c6e6b;
+        box-shadow: 0 0 0 3px rgba(44,110,107,0.12);
+        background-color: #ffffff;
+    }
+    .currency-prefix {
+        position: absolute;
+        left: 1rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #64748b;
+        user-select: none;
+    }
+    .has-currency input {
+        padding-left: 3.25rem;
+    }
+    .btn-payroll-submit {
+        width: 100%;
+        background: linear-gradient(135deg, #2c6e6b, #1e4f4d);
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 0.95rem;
+        padding: 0.85rem 1.5rem;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        box-shadow: 0 4px 12px rgba(44,110,107,0.2);
+        transition: all 0.2s;
+        box-sizing: border-box;
+    }
+    .btn-payroll-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(44,110,107,0.3);
+        filter: brightness(1.05);
+    }
+    .form-footer-link {
+        margin-top: 1rem;
+        text-align: center;
+        font-size: 0.85rem;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 0.75rem;
+    }
+    .form-footer-link a {
+        color: #2c6e6b;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .form-footer-link a:hover {
+        text-decoration: underline;
+    }
+
+    /* ----- Responsive ----- */
+    @media (max-width: 768px) {
+        .profile-top {
+            flex-direction: column;
+            align-items: stretch;
+            text-align: center;
+        }
+        .profile-stats-summary {
+            margin-left: 0;
+            justify-content: center;
+        }
+        .profile-avatar {
+            margin: 0 auto;
+        }
+        .profile-info h2 {
+            font-size: 1.4rem;
+        }
+        .stats-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+        .form-sidebar-card {
+            padding: 1.25rem;
+        }
+        .modern-table th,
+        .modern-table td {
+            padding: 0.75rem 0.75rem;
+            font-size: 0.85rem;
+        }
+        .search-wrapper {
+            padding: 0.75rem;
+        }
+        .search-wrapper input {
+            min-width: 120px;
+            font-size: 0.85rem;
+        }
+        .description-text {
+            max-width: 100px;
+        }
+        .reference-badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.4rem;
+        }
+    }
+    @media (max-width: 480px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        .profile-stats-summary .stat-badge {
+            min-width: 60px;
+            padding: 0.3rem 0.8rem;
+        }
+        .profile-stats-summary .stat-badge .number {
+            font-size: 1.2rem;
+        }
+        .profile-stats-summary .stat-badge.latest .number {
+            font-size: 1rem;
+        }
+    }
+</style>
+
+<!-- ====== PROFILE CARD ====== -->
+<div class="profile-card">
+    <div class="profile-top">
+        <div class="profile-avatar">
+            <i class="fas fa-user-tie"></i>
+        </div>
+        <div class="profile-info">
+            <h2>{{ user.get_full_name|default:user.username }}</h2>
+            <span class="role-badge"><i class="fas fa-user-tag"></i> {{ user.get_role_display }}</span>
+            <span class="email"><i class="fas fa-envelope"></i> {{ user.email|default:"No email provided" }}</span>
+            <div class="profile-tags">
+                <span class="tag"><i class="fas fa-wallet"></i> Payroll Access</span>
+                <span class="tag"><i class="fas fa-file-invoice"></i> {{ payments|length }} Transaction{{ payments|pluralize }}</span>
+            </div>
+        </div>
+        <div class="profile-stats-summary">
+            <div class="stat-badge payments">
+                <span class="number" data-target="{{ payments|length }}">0</span>
+                <span class="label">Payments</span>
+            </div>
+            <div class="stat-badge amount">
+                <span class="number" data-target="{% if total_amount %}{{ total_amount|floatformat:0 }}{% else %}0{% endif %}">0</span>
+                <span class="label">Total Disbursed</span>
+            </div>
+            {% if latest_payment %}
+            <div class="stat-badge latest">
+                <span class="number">{{ latest_payment.payment_date|date:"d M Y" }}</span>
+                <span class="label">Latest</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ====== STATS GRID ====== -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="icon blue"><i class="fas fa-file-invoice"></i></div>
+        <div class="info">
+            <h4>Total Payments</h4>
+            <div class="number" data-target="{{ payments|length }}">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon green"><i class="fas fa-coins"></i></div>
+        <div class="info">
+            <h4>Total Amount</h4>
+            <div class="number" data-target="{% if total_amount %}{{ total_amount|floatformat:0 }}{% else %}0{% endif %}">0</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon orange"><i class="fas fa-calendar-alt"></i></div>
+        <div class="info">
+            <h4>Latest Payment</h4>
+            <div class="number" style="font-size:1.1rem;">{{ latest_payment.payment_date|date:"M d, Y"|default:"—" }}</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="icon purple"><i class="fas fa-credit-card"></i></div>
+        <div class="info">
+            <h4>Payment Methods</h4>
+            <div class="number" style="font-size:1.1rem;">
+                {% for method in payment_methods %}
+                    <span style="font-size:0.7rem; background:#f1f5f9; padding:0.1rem 0.4rem; border-radius:4px; margin:0.1rem;">{{ method|cut:"_"|title }}</span>
+                {% empty %}—{% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ====== MAIN GRID: TABLE + FORM ====== -->
+<div class="payroll-finance-grid {% if is_management %}has-payroll-sidebar{% endif %}">
+
+    <!-- ====== TABLE ====== -->
+    <div class="payroll-main-ledger">
+        <div class="ledger-card">
+            <div class="search-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="staffSearch" placeholder="Filter by staff, reference, amount, method..." autocomplete="off">
+                <span id="resultCount"></span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="modern-table" id="payrollTable">
+                    <thead>
+                        <tr>
+                            <th>Reference</th>
+                            {% if is_management %}<th>Staff</th>{% endif %}
+                            <th>Amount</th>
+                            <th>Date</th>
+                            <th>Method</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr>
+                            <td><span class="reference-badge">{{ payment.reference_number }}</span></td>
+                            {% if is_management %}
+                            <td>
+                                <div class="staff-profile-cell">
+                                    <span class="staff-name">{{ payment.staff.username }}</span>
+                                    <span class="staff-role">{{ payment.staff.role }}</span>
+                                </div>
+                            </td>
+                            {% endif %}
+                            <td><span class="currency-amount">UGX {{ payment.amount|floatformat:0 }}</span></td>
+                            <td><span style="font-weight:500; color:#475569;">{{ payment.payment_date|date:"M d, Y" }}</span></td>
+                            <td>
+                                {% if payment.payment_method == 'BANK_TRANSFER' %}
+                                    <span class="method-pill method-bank"><i class="fas fa-university"></i> Bank</span>
+                                {% elif payment.payment_method == 'MOBILE_MONEY' %}
+                                    <span class="method-pill method-momo"><i class="fas fa-mobile-alt"></i> MoMo</span>
+                                {% else %}
+                                    <span class="method-pill method-cash"><i class="fas fa-money-bill-wave"></i> Cash</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="description-text" title="{{ payment.description }}">
+                                    {% if payment.description %}{{ payment.description }}{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="{% if is_management %}6{% else %}5{% endif %}">
+                                <div class="empty-ledger-state">
+                                    <i class="fas fa-folder-open"></i>
+                                    <p>No payment records found.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== FORM SIDEBAR (management only) ====== -->
+    {% if is_management %}
+    <div class="payroll-sidebar">
+        <div class="form-sidebar-card">
+            <h3 class="card-title"><i class="fas fa-paper-plane"></i> Disburse Payment</h3>
+            <form method="POST" action="">
+                {% csrf_token %}
+
+                <div class="form-block">
+                    <label for="staff_search">Recipient Staff</label>
+                    <div class="form-field-wrapper">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="staff_search" name="staff_id" list="staff-list" class="form-input-element" placeholder="Start typing name..." required autocomplete="off">
+                        <datalist id="staff-list">
+                            {% for staff in all_staff %}
+                                <option value="{{ staff.id }}">{{ staff.username }} [{{ staff.role }}]</option>
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                </div>
+
+                <div class="form-block">
+                    <label for="id_amount">Amount (UGX)</label>
+                    <div class="form-field-wrapper has-currency">
+                        <span class="currency-prefix">UGX</span>
+                        <input id="id_amount" type="number" name="amount" step="0.01" min="0" placeholder="0.00" class="form-input-element" required>
+                    </div>
+                </div>
+
+                <div class="form-block">
+                    <label for="id_reference_number">Reference / Voucher</label>
+                    <div class="form-field-wrapper">
+                        <i class="fas fa-receipt"></i>
+                        <input id="id_reference_number" type="text" name="reference_number" placeholder="e.g. TXN-98231B" class="form-input-element" required>
+                    </div>
+                </div>
+
+                <div class="form-block">
+                    <label for="id_description">Description</label>
+                    <div class="form-field-wrapper">
+                        <textarea id="id_description" name="description" placeholder="e.g., June Basic Salary" class="form-input-element"></textarea>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-payroll-submit">
+                    <i class="fas fa-check-circle"></i> Commit Disbursal
+                </button>
+            </form>
+            <div class="form-footer-link">
+                <a href="{% url 'attendance:disburse_payment' %}">Open full‑page form →</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // ----- Animated counters -----
+        const counters = document.querySelectorAll('.number[data-target]');
+        const animateCounter = (el) => {
+            const target = parseFloat(el.dataset.target);
+            const duration = 1000;
+            const startTime = performance.now();
+            const update = (currentTime) => {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                const current = eased * target;
+                if (el.textContent.includes('%')) {
+                    el.textContent = Math.round(current) + '%';
+                } else if (target >= 1000) {
+                    el.textContent = Math.round(current).toLocaleString();
+                } else {
+                    el.textContent = Math.round(current);
+                }
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                } else {
+                    if (el.textContent.includes('%')) {
+                        el.textContent = target + '%';
+                    } else if (target >= 1000) {
+                        el.textContent = target.toLocaleString();
+                    } else {
+                        el.textContent = target;
+                    }
+                }
+            };
+            requestAnimationFrame(update);
+        };
+        setTimeout(() => {
+            counters.forEach(c => {
+                // Reset to 0
+                if (c.textContent.includes('%')) c.textContent = '0%';
+                else if (c.textContent === '—') return; // skip
+                else c.textContent = '0';
+                animateCounter(c);
+            });
+        }, 300);
+
+        // ----- Search filter -----
+        const searchInput = document.getElementById('staffSearch');
+        const table = document.getElementById('payrollTable');
+        const rows = table ? table.querySelectorAll('tbody tr') : [];
+        const resultCount = document.getElementById('resultCount');
+
+        function filterTable() {
+            const filter = searchInput.value.toLowerCase().trim();
+            let visible = 0;
+            rows.forEach(row => {
+                if (row.querySelector('td[colspan]')) return;
+                const text = row.textContent.toLowerCase();
+                const match = text.includes(filter);
+                row.style.display = match ? '' : 'none';
+                if (match) visible++;
+            });
+            if (resultCount) {
+                resultCount.textContent = visible > 0 ? `(${visible} visible)` : '';
+            }
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('keyup', filterTable);
+            filterTable();
+        }
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,266 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+{% if messages %}
+    <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+            <div style="padding: 1rem; border-radius: var(--radius-sm); font-weight: 500; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 10px;
+                {% if message.tags == 'success' %} background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0;
+                {% else %} background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; {% endif %}">
+                <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <a href="{% url 'attendance:manage_timetable' %}" style="text-decoration: none; font-size: 0.9rem; color: #2b3e85; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 0.5rem;">
+            <i class="fas fa-arrow-left"></i> Back to Stream Directory
+        </a>
+        <h2><i class="fas fa-calendar-alt"></i> Matrix Editor: <span style="color: #2b3e85;">{{ stream.name }}</span></h2>
+        <p style="color: var(--text-muted); margin: 0; font-size: 0.95rem;">Modifying or adding records preserves the entire configuration layout specifically for this class block context.</p>
+    </div>
+    <div>
+        <button type="button" id="addTimeRowBtn" class="btn" style="background: #2b3e85; border-radius: var(--radius-sm);">
+            <i class="fas fa-plus"></i> Append New Time Interval Row
+        </button>
+    </div>
+</div>
+
+<form method="POST" id="matrixForm">
+    {% csrf_token %}
+    
+    <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #cbd5e1;">
+        <table style="width: 100%; border-collapse: collapse; min-width: 1200px; font-size: 0.85rem;" id="matrixTable">
+            <thead>
+                <tr style="background: #2b3e85; color: white; text-align: center;">
+                    <th style="padding: 0.75rem; width: 160px; border-right: 1px solid #cbd5e1;">Time Range</th>
+                    {% for day_code, day_name in days %}
+                        <th style="padding: 0.75rem; border-right: 1px solid #cbd5e1;">{{ day_name }}</th>
+                    {% endfor %}
+                    <th style="padding: 0.75rem; width: 50px;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="matrixBody">
+                {% for row in matrix_rows %}
+                <tr class="matrix-row" style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1;">
+                    
+                    <td style="padding: 0.5rem; background: #e2e8f0; text-align: center; border-right: 1px solid #cbd5e1;">
+                        <input type="hidden" name="row_index" value="{{ row.index }}">
+                        <input type="time" name="start_time_{{ row.index }}" value="{{ row.start }}" class="matrix-time-input" required>
+                        <div style="margin: 0.25rem 0; font-weight: bold; color: #475569;">to</div>
+                        <input type="time" name="end_time_{{ row.index }}" value="{{ row.end }}" class="matrix-time-input" required>
+                    </td>
+
+                    {% for slot in row.slots %}
+                    <td style="padding: 0.4rem; background: #f8fafc; border-right: 1px solid #cbd5e1; vertical-align: top;">
+                        <div class="cell-stack">
+                            <select name="cu_{{ row.index }}_{{ slot.day_code }}" 
+                                    class="matrix-select cu-select" 
+                                    data-selected-teacher="{% if slot.entry.teacher %}{{ slot.entry.teacher.id }}{% endif %}"
+                                    title="Course Unit">
+                                <option value="">-- Select Course --</option>
+                                {% for cu in course_units %}
+                                    <option value="{{ cu.code }}" {% if slot.entry.course_unit.code == cu.code %}selected{% endif %}>{{ cu.code }} - {{ cu.name }}</option>
+                                {% endfor %}
+                            </select>
+                            
+                            <select name="teacher_{{ row.index }}_{{ slot.day_code }}" class="matrix-select teacher-select" title="Lecturer">
+                                <option value="">-- Choose Course First --</option>
+                            </select>
+                        </div>
+                    </td>
+                    {% endfor %}
+                    
+                    <td style="text-align: center; background: #f1f5f9;">
+                        <button type="button" class="delete-row-btn" onclick="removeRow(this)">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="matrix-row" style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1;">
+                    <td style="padding: 0.5rem; background: #e2e8f0; text-align: center; border-right: 1px solid #cbd5e1;">
+                        <input type="hidden" name="row_index" value="0">
+                        <input type="time" name="start_time_0" value="08:00" class="matrix-time-input" required>
+                        <div style="margin: 0.25rem 0; font-weight: bold; color: #475569;">to</div>
+                        <input type="time" name="end_time_0" value="10:00" class="matrix-time-input" required>
+                    </td>
+                    {% for day_code, _ in days %}
+                    <td style="padding: 0.4rem; background: #f8fafc; border-right: 1px solid #cbd5e1; vertical-align: top;">
+                        <div class="cell-stack">
+                            <select name="cu_0_{{ day_code }}" class="matrix-select cu-select">
+                                <option value="">-- Select Course --</option>
+                                {% for cu in course_units %}<option value="{{ cu.code }}">{{ cu.code }} - {{ cu.name }}</option>{% endfor %}
+                            </select>
+                            <select name="teacher_0_{{ day_code }}" class="matrix-select teacher-select">
+                                <option value="">-- Choose Course First --</option>
+                            </select>
+                        </div>
+                    </td>
+                    {% endfor %}
+                    <td style="text-align: center; background: #f1f5f9;">
+                        <button type="button" class="delete-row-btn" onclick="removeRow(this)"><i class="fas fa-trash-alt"></i></button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div style="margin-top: 1.5rem; text-align: right;">
+        <button type="submit" class="btn" style="background: #22c55e; border-radius: var(--radius-sm); padding: 0.75rem 2.5rem; font-size: 1rem;">
+            <i class="fas fa-save"></i> Save {{ stream.name }} Configuration
+        </button>
+    </div>
+</form>
+
+<table style="display: none;">
+    <tbody id="rowTemplate">
+        <tr class="matrix-row" style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1;">
+            <td style="padding: 0.5rem; background: #e2e8f0; text-align: center; border-right: 1px solid #cbd5e1;">
+                <input type="hidden" name="row_index" value="__INDEX__">
+                <input type="time" name="start_time___INDEX__" class="matrix-time-input" required>
+                <div style="margin: 0.25rem 0; font-weight: bold; color: #475569;">to</div>
+                <input type="time" name="end_time___INDEX__" class="matrix-time-input" required>
+            </td>
+            {% for day_code, _ in days %}
+            <td style="padding: 0.4rem; background: #f8fafc; border-right: 1px solid #cbd5e1; vertical-align: top;">
+                <div class="cell-stack">
+                    <select name="cu___INDEX___{{ day_code }}" class="matrix-select cu-select">
+                        <option value="">-- Select Course --</option>
+                        {% for cu in course_units %}<option value="{{ cu.code }}">{{ cu.code }} - {{ cu.name }}</option>{% endfor %}
+                    </select>
+                    <select name="teacher___INDEX___{{ day_code }}" class="matrix-select teacher-select">
+                        <option value="">-- Choose Course First --</option>
+                    </select>
+                </div>
+            </td>
+            {% endfor %}
+            <td style="text-align: center; background: #f1f5f9;">
+                <button type="button" class="delete-row-btn" onclick="removeRow(this)"><i class="fas fa-trash-alt"></i></button>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<style>
+    .cell-stack { display: flex; flex-direction: column; gap: 4px; }
+    .matrix-select { width: 100%; padding: 4px; font-size: 0.78rem; border: 1px solid var(--border); border-radius: 3px; background: #fff; }
+    .matrix-time-input { width: 110px; padding: 4px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 3px; text-align: center; background: #ffffff; cursor: pointer; }
+    .matrix-time-input:focus { border-color: #2b3e85; outline: none; }
+    .delete-row-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1rem; padding: 0.5rem; }
+    .delete-row-btn:hover { color: #b91c1c; }
+</style>
+
+<script>
+const cuLecturerMap = {{ cu_lecturer_map_json|safe }};
+
+document.addEventListener('DOMContentLoaded', function() {
+    const addBtn = document.getElementById('addTimeRowBtn');
+    const tbody = document.getElementById('matrixBody');
+    const templateHTML = document.getElementById('rowTemplate').innerHTML;
+
+    function handleCuChange(cuSelect, targetTeacherId = null) {
+        const cellStack = cuSelect.closest('.cell-stack');
+        const teacherSelect = cellStack.querySelector('.teacher-select');
+        const cuCode = cuSelect.value;
+        
+        teacherSelect.innerHTML = '';
+        
+        if (!cuCode || !cuLecturerMap[cuCode] || cuLecturerMap[cuCode].length === 0) {
+            let opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = '-- No Lecturer Found --';
+            teacherSelect.appendChild(opt);
+            return;
+        }
+        
+        const assignedList = cuLecturerMap[cuCode];
+        
+        if (assignedList.length === 1) {
+            let opt = document.createElement('option');
+            opt.value = assignedList[0].id;
+            opt.textContent = assignedList[0].name;
+            teacherSelect.appendChild(opt);
+            teacherSelect.value = assignedList[0].id;
+        } else {
+            let defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = '-- Select Lecturer --';
+            teacherSelect.appendChild(defaultOpt);
+            
+            assignedList.forEach(t => {
+                let opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name;
+                if (targetTeacherId && t.id == targetTeacherId) {
+                    opt.selected = true;
+                }
+                teacherSelect.appendChild(opt);
+            });
+            
+            if (targetTeacherId) {
+                teacherSelect.value = targetTeacherId;
+            }
+        }
+    }
+
+    document.querySelectorAll('.cu-select').forEach(select => {
+        const savedTeacherId = select.getAttribute('data-selected-teacher');
+        handleCuChange(select, savedTeacherId);
+    });
+
+    document.getElementById('matrixTable').addEventListener('change', function(e) {
+        if (e.target && e.target.classList.contains('cu-select')) {
+            handleCuChange(e.target);
+        }
+    });
+
+    let uniqueIndexCounter = document.querySelectorAll('.matrix-row').length + 100;
+    addBtn.addEventListener('click', function() {
+        uniqueIndexCounter++;
+        let newRowHTML = templateHTML.replace(/__INDEX__/g, uniqueIndexCounter);
+        let tempDiv = document.createElement('tbody');
+        tempDiv.innerHTML = newRowHTML;
+        
+        const newlyCreatedRow = tempDiv.firstElementChild;
+        tbody.appendChild(newlyCreatedRow);
+        
+        newlyCreatedRow.querySelectorAll('.cu-select').forEach(select => {
+            handleCuChange(select);
+        });
+    });
+
+    document.getElementById('matrixForm').addEventListener('submit', function(e) {
+        const rows = document.querySelectorAll('.matrix-row');
+        for (let row of rows) {
+            const indexInput = row.querySelector('input[name="row_index"]');
+            if(!indexInput) continue;
+            const idx = indexInput.value;
+            
+            const startVal = row.querySelector(`input[name="start_time_${idx}"]`).value;
+            const endVal = row.querySelector(`input[name="end_time_${idx}"]`).value;
+            
+            if (startVal && endVal && startVal >= endVal) {
+                alert(`Chronological Conflict: End time (${endVal}) must fall after start time (${startVal}).`);
+                e.preventDefault();
+                return false;
+            }
+        }
+    });
+});
+
+function removeRow(button) {
+    const row = button.closest('.matrix-row');
+    if (confirm('Permanently wipe this specific row from your current configuration layout?')) {
+        row.remove();
+    }
+}
+</script>
+{% endblock %}

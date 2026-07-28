@@ -1,0 +1,138 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+<style>
+    .status-selector {
+        padding: 0.3rem 0.8rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        font-weight: 600;
+        background: #f8fafc;
+        cursor: pointer;
+        width: auto;
+        font-size: 0.9rem;
+    }
+    .status-selector option[value="PRESENT"] { color: var(--success); }
+    .status-selector option[value="ABSENT"] { color: var(--danger); }
+    #geo-status {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.9rem 1.2rem;
+        border-radius: var(--radius-sm);
+        font-weight: 500;
+        transition: var(--transition);
+    }
+    #geo-status i { font-size: 1.2rem; }
+</style>
+
+<div class="card">
+    <h2><i class="fas fa-clipboard-check"></i> Mark Class Attendance</h2>
+    <h3 style="color: var(--text-muted); margin-bottom: 1.5rem; font-weight: 400;">
+        Session: <span style="color: var(--text-main); font-weight: 600;">{{ entry.course_unit.name }} ({{ entry.class_name }})</span>
+    </h3>
+
+    <div id="geo-status" class="instruction-box" style="background: var(--warning-light); border-left-color: var(--warning); color: #92400e;">
+        <i class="fas fa-spinner fa-pulse"></i> Acquiring geolocation lock...
+    </div>
+
+    <div style="overflow-x: auto; margin-top: 1.5rem;">
+        <table id="attendance-table">
+            <thead>
+                <tr>
+                    <th>Registration</th>
+                    <th>Full Name</th>
+                    <th style="width: 200px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in students %}
+                <tr data-reg="{{ s.reg_number }}">
+                    <td style="font-family: monospace; font-weight: 600;">{{ s.reg_number }}</td>
+                    <td>{{ s.name }}</td>
+                    <td>
+                        <select class="status-selector">
+                            <option value="PRESENT">✅ Present</option>
+                            <option value="ABSENT" selected>❌ Absent</option>
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <button id="submit-payload-btn" class="btn" style="width:100%; margin-top: 1.5rem;" disabled>
+        <i class="fas fa-save"></i> Commit Attendance Log
+    </button>
+</div>
+
+<script>
+let geoLatitude = null;
+let geoLongitude = null;
+const statusBox = document.getElementById('geo-status');
+const submitBtn = document.getElementById('submit-payload-btn');
+
+window.addEventListener('DOMContentLoaded', () => {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                geoLatitude = position.coords.latitude;
+                geoLongitude = position.coords.longitude;
+                statusBox.style.background = "var(--success-light)";
+                statusBox.style.borderLeftColor = "var(--success)";
+                statusBox.style.color = "var(--primary-dark)";
+                statusBox.innerHTML = `<i class="fas fa-check-circle" style="color:var(--success);"></i> Geospatial lock confirmed: [LAT: ${geoLatitude.toFixed(6)}, LNG: ${geoLongitude.toFixed(6)}]`;
+                submitBtn.removeAttribute('disabled');
+            },
+            (error) => {
+                statusBox.style.background = "var(--danger-light)";
+                statusBox.style.borderLeftColor = "var(--danger)";
+                statusBox.style.color = "var(--danger)";
+                statusBox.innerHTML = `<i class="fas fa-times-circle"></i> Geolocation error: ${error.message}. Access denied.`;
+            }
+        );
+    } else {
+        statusBox.style.background = "var(--danger-light)";
+        statusBox.style.borderLeftColor = "var(--danger)";
+        statusBox.style.color = "var(--danger)";
+        statusBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Geolocation not supported by this browser.`;
+    }
+});
+
+submitBtn.addEventListener('click', () => {
+    const records = {};
+    document.querySelectorAll('#attendance-table tbody tr').forEach(row => {
+        const reg = row.getAttribute('data-reg');
+        const status = row.querySelector('.status-selector').value;
+        records[reg] = status;
+    });
+
+    const payload = {
+        latitude: geoLatitude,
+        longitude: geoLongitude,
+        records: records
+    };
+
+    fetch("{% url 'attendance:mark_attendance' entry.id %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            window.location.href = data.redirect_url;
+        } else {
+            alert("Error: " + data.message);
+        }
+    })
+    .catch(() => alert("Network error. Please try again."));
+});
+</script>
+{% endblock %}
