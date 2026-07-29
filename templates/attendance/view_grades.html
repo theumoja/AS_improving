@@ -58,7 +58,7 @@
     .action-link {
         font-size: 0.9rem;
         font-weight: 600;
-        margin-right: 0.75rem;
+        margin-left: 0.75rem;
         transition: var(--transition);
         text-decoration: none;
         background: none;
@@ -66,10 +66,10 @@
         cursor: pointer;
     }
     .action-link.edit { color: var(--accent); }
-    .action-link.delete { color: var(--danger); }
+    .action-link.delete { color: #dc2626; }
     .action-link:hover { opacity: 0.7; }
 
-    /* Modal Context Interface Components */
+    /* Modal Components */
     .modal {
         display: none;
         position: fixed;
@@ -165,6 +165,9 @@
                 <td style="text-align: right;">
                     <button type="button" class="action-link edit" onclick="openEditModal('{{ scale.id }}', '{{ scale.name|escapejs }}', '{{ scale.min_score }}', '{{ scale.max_score }}', '{{ scale.grade_point }}', '{{ scale.remark|escapejs }}')">
                         <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button type="button" class="action-link delete" onclick="openDeleteModal('{{ scale.id }}', '{{ scale.name|escapejs }}')">
+                        <i class="fas fa-trash-alt"></i> Delete
                     </button>
                 </td>
             </tr>
@@ -276,9 +279,32 @@
     </div>
 </div>
 
+<!-- Delete Scale Modal -->
+<div class="modal" id="deleteScaleModal">
+    <div class="modal-card" style="max-width:450px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="color:#dc2626;"><i class="fas fa-exclamation-triangle"></i> Delete Grade Scale</h3>
+            <button type="button" class="closeDeleteModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color: var(--text-main); margin-bottom: 1.5rem;">
+            Are you sure you want to delete the grade scale <strong id="delete_scale_name"></strong>? This action cannot be undone.
+        </p>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" id="delete_scale_id" name="scale_id" value="">
+
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline cancelDeleteModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: #fff;">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Create Modal logic
+        // Add Modal logic
         const addModal = document.getElementById('singleAddModal');
         const openBtn = document.getElementById('openModalBtn');
         const closeAddBtns = document.querySelectorAll('.closeModalBtn, .cancelModalBtn');
@@ -293,12 +319,19 @@
         const closeEditModal = () => editModal.classList.remove('active');
         closeEditBtns.forEach(btn => btn.addEventListener('click', closeEditModal));
 
+        // Delete Modal logic
+        const deleteModal = document.getElementById('deleteScaleModal');
+        const closeDeleteBtns = document.querySelectorAll('.closeDeleteModalBtn, .cancelDeleteModalBtn');
+        const closeDeleteModal = () => deleteModal.classList.remove('active');
+        closeDeleteBtns.forEach(btn => btn.addEventListener('click', closeDeleteModal));
+
         window.addEventListener('click', (e) => { 
             if(e.target === addModal) closeAddModal(); 
             if(e.target === editModal) closeEditModal();
+            if(e.target === deleteModal) closeDeleteModal();
         });
 
-        // Automated Frontend Search Matrix
+        // Search Filter
         const searchInput = document.getElementById('dashboardSearch');
         const dataRows = document.querySelectorAll('.scale-row');
         const emptyRow = document.getElementById('searchEmptyRow');
@@ -334,6 +367,13 @@
         document.getElementById('edit_remark').value = remark;
         
         document.getElementById('editScaleModal').classList.add('active');
+    }
+
+    function openDeleteModal(id, name) {
+        document.getElementById('delete_scale_id').value = id;
+        document.getElementById('delete_scale_name').innerText = name;
+        
+        document.getElementById('deleteScaleModal').classList.add('active');
     }
 </script>
 

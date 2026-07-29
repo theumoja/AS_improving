@@ -2550,42 +2550,228 @@ from .models import (
     CourseUnit, AcademicTerm, Stream
 )
 from .forms import ExamForm, GradeScaleForm, MarksEntryForm  # define these forms as needed
+from datetime import datetime
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db import transaction
+from django.utils import timezone
+
+from attendance.models import User, AcademicTerm, CourseUnit, Exam, Course
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db import transaction
+from django.utils import timezone
+
+from .models import User, AcademicTerm, CourseUnit, Exam, Course
+
 
 @login_required
+@transaction.atomic
 def manage_exams(request):
-    """List, create, edit, delete exams (Admin/Registrar)."""
-    if request.user.role not in [User.IS_ADMIN, User.IS_REGISTRAR]:
+    """
+    Manages exam creation and displays the exam timetable schedule,
+    hierarchically organized by Course (Program) -> Course Unit -> Exams.
+    Supports filtering by selected term or defaulting to active term.
+    """
+    if request.user.role not in [User.IS_ADMIN, User.IS_REGISTRAR, User.IS_TEACHER]:
         return HttpResponse("Unauthorized", status=403)
 
-    if request.method == 'POST':
-        exam_id = request.POST.get('exam_id')
-        if exam_id:
-            exam = get_object_or_404(Exam, id=exam_id)
-            form = ExamForm(request.POST, instance=exam)
-        else:
-            form = ExamForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Exam saved successfully.")
-            return redirect('attendance:manage_exams')
-        else:
-            messages.error(request, "Please correct the errors below.")
-    else:
-        form = ExamForm()
+    # 1. Fetch active term and terms list
+    active_term = AcademicTerm.objects.filter(is_current=True).first()
+    all_terms = AcademicTerm.objects.all().order_by('-start_date')
 
-    exams = Exam.objects.select_related('course_unit', 'term').all().order_by('-exam_date')
-    grade_scales = GradeScale.objects.all()
-    course_units = CourseUnit.objects.all()
-    terms = AcademicTerm.objects.all()
+    # Determine which term to display (GET param or default to active term)
+    selected_term_id = request.GET.get('term')
+    if selected_term_id:
+        selected_term = AcademicTerm.objects.filter(id=selected_term_id).first()
+    else:
+        selected_term = active_term
+
+    # 2. Handle POST Request to Create a New Exam
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        course_unit_code = request.POST.get('course_unit', '').strip()
+        exam_date = request.POST.get('exam_date', '').strip()
+        start_time = request.POST.get('start_time', '').strip()
+        end_time = request.POST.get('end_time', '').strip()
+        total_marks = request.POST.get('total_marks', 100)
+        is_published = request.POST.get('is_published') == 'on'
+
+        target_term = selected_term or active_term
+
+        if not target_term:
+            messages.error(request, "Failed to schedule exam: No valid Academic Term is selected or active.")
+            return redirect('attendance:manage_exams')
+
+        if name and course_unit_code and exam_date and start_time and end_time:
+            try:
+                course_unit = CourseUnit.objects.get(code=course_unit_code)
+                
+                Exam.objects.create(
+                    name=name,
+                    course_unit=course_unit,
+                    term=target_term,
+                    exam_date=exam_date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    total_marks=total_marks,
+                    is_published=is_published
+                )
+                messages.success(request, f"Exam '{name}' scheduled successfully for '{target_term}'.")
+            except CourseUnit.DoesNotExist:
+                messages.error(request, "The selected course unit does not exist.")
+            except Exception as e:
+                messages.error(request, f"An error occurred: {str(e)}")
+        else:
+            messages.error(request, "Please fill in all required timetable details.")
+
+        return redirect(f"{request.path}?term={target_term.id}" if target_term else request.path)
+
+    # 3. Retrieve Exams for Selected Term
+    exams = Exam.objects.select_related(
+        'course_unit',
+        'course_unit__course',
+        'term'
+    )
+    if selected_term:
+        exams = exams.filter(term=selected_term)
+
+    exams = exams.order_by('course_unit__course__name', 'course_unit__code', 'exam_date', 'start_time')
+
+    now = timezone.now()
+    current_date = now.date()
+    current_time = now.time()
+
+    # 4. Group Exams: Course -> Course Unit -> Exams with status
+    grouped_data = {}
+    for exam in exams:
+        if exam.exam_date < current_date or (exam.exam_date == current_date and current_time > exam.end_time):
+            status = 'DONE'
+        elif exam.exam_date == current_date and exam.start_time <= current_time <= exam.end_time:
+            status = 'IN_PROGRESS'
+        else:
+            status = 'UPCOMING'
+
+        course = exam.course_unit.course
+        unit = exam.course_unit
+
+        if course not in grouped_data:
+            grouped_data[course] = {}
+        if unit not in grouped_data[course]:
+            grouped_data[course][unit] = []
+
+        grouped_data[course][unit].append({
+            'exam': exam,
+            'status': status
+        })
+
+    # Format into a clean structured list for Django template iteration
+    courses_with_exams = []
+    for course, units_dict in grouped_data.items():
+        units_list = []
+        for unit, exam_list in units_dict.items():
+            units_list.append({
+                'unit': unit,
+                'exams': exam_list
+            })
+        courses_with_exams.append({
+            'course': course,
+            'units': units_list
+        })
+
+    course_units = CourseUnit.objects.select_related('course').all()
+    courses = Course.objects.all()
 
     return render(request, 'attendance/manage_exams.html', {
-        'exams': exams,
-        'grade_scales': grade_scales,
-        'form': form,
+        'courses_with_exams': courses_with_exams,
+        'active_term': active_term,
+        'selected_term': selected_term,
+        'terms': all_terms,
+        'courses': courses,
         'course_units': course_units,
-        'terms': terms,
     })
 
+@login_required
+@transaction.atomic
+def edit_exam(request, exam_id):  # Fixed parameter name from pk to exam_id
+    """
+    Edits existing exam entries while maintaining active term assignments and updated timetable slots.
+    """
+    if request.user.role not in [User.IS_ADMIN, User.IS_REGISTRAR, User.IS_TEACHER]:
+        return HttpResponse("Unauthorized", status=403)
+
+    exam = get_object_or_404(Exam, pk=exam_id)
+    active_term = AcademicTerm.objects.filter(is_current=True).first()
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        course_unit_code = request.POST.get('course_unit', '').strip()
+        exam_date = request.POST.get('exam_date', '').strip()
+        start_time = request.POST.get('start_time', '').strip()
+        end_time = request.POST.get('end_time', '').strip()
+        total_marks = request.POST.get('total_marks', 100)
+        is_published = request.POST.get('is_published') == 'on'
+
+        if name and course_unit_code and exam_date and start_time and end_time:
+            try:
+                course_unit = CourseUnit.objects.get(code=course_unit_code)
+                
+                exam.name = name
+                exam.course_unit = course_unit
+                if active_term:
+                    exam.term = active_term
+                exam.exam_date = exam_date
+                exam.start_time = start_time
+                exam.end_time = end_time
+                exam.total_marks = total_marks
+                exam.is_published = is_published
+                exam.save()
+
+                messages.success(request, f"Timetable entry for exam '{exam.name}' updated successfully.")
+                return redirect('attendance:manage_exams')
+            except CourseUnit.DoesNotExist:
+                messages.error(request, "Selected course unit does not exist.")
+            except Exception as e:
+                messages.error(request, f"Error updating exam timetable: {str(e)}")
+        else:
+            messages.error(request, "Please ensure all required fields are filled.")
+
+    course_units = CourseUnit.objects.select_related('course').all()
+    return render(request, 'attendance/edit_exam.html', {
+        'exam': exam,
+        'active_term': active_term,
+        'course_units': course_units,
+    })
+
+
+@login_required
+@transaction.atomic
+def delete_exam(request, exam_id):  # Fixed parameter name from pk to exam_id
+    """
+    Deletes an exam entry from the timetable.
+    """
+    if request.user.role not in [User.IS_ADMIN, User.IS_REGISTRAR, User.IS_TEACHER]:
+        return HttpResponse("Unauthorized", status=403)
+
+    exam = get_object_or_404(Exam, pk=exam_id)
+    exam_name = exam.name
+    exam.delete()
+    
+    messages.success(request, f"Exam '{exam_name}' removed from the exam timetable.")
+    return redirect('attendance:manage_exams')
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import User, GradeScale, MarksEntry
+from .forms import GradeScaleForm  # or wherever GradeScaleForm is defined
 
 @login_required
 def view_grades(request):
@@ -2594,7 +2780,19 @@ def view_grades(request):
         return HttpResponse("Unauthorized", status=403)
 
     scales = GradeScale.objects.all()
+
     if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # Handle deletion
+        if action == 'delete':
+            scale_id = request.POST.get('scale_id')
+            scale = get_object_or_404(GradeScale, id=scale_id)
+            scale_name = scale.name
+            scale.delete()
+            messages.success(request, f"Grade scale '{scale_name}' deleted successfully.")
+            return redirect('attendance:view_grades')
+
         # Handle grade scale creation/update
         scale_id = request.POST.get('scale_id')
         if scale_id:
@@ -2602,16 +2800,16 @@ def view_grades(request):
             form = GradeScaleForm(request.POST, instance=scale)
         else:
             form = GradeScaleForm(request.POST)
+
         if form.is_valid():
             form.save()
-            messages.success(request, "Grade scale updated.")
+            messages.success(request, "Grade scale saved successfully.")
             return redirect('attendance:view_grades')
     else:
         form = GradeScaleForm()
 
     # Auto-grade existing marks if needed
     if request.GET.get('auto_grade'):
-        # Loop through ungraded marks and assign grade based on scale
         marks = MarksEntry.objects.filter(grade__isnull=True)
         for mark in marks:
             grade = GradeScale.objects.filter(
@@ -2628,7 +2826,6 @@ def view_grades(request):
         'scales': scales,
         'form': form,
     })
-
 
 @login_required
 @transaction.atomic
@@ -2672,37 +2869,73 @@ def generate_transcript(request, student_id, term_id):
         return redirect('attendance:registrar_dashboard')
 
 
+from django.shortcuts import render
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Q, Avg, Sum
+from .models import User, Exam, Stream, CourseUnit, StudentProfile
+
 @login_required
 def exam_ranking(request):
-    """View class/course rankings (Teacher/Admin)."""
+    """
+    View class/course rankings (Teacher/Admin/Registrar).
+    Defaults to overall ranking across all exams, ordered by top performance 
+    (Number of A's, B's, Average Marks, Total Marks).
+    """
     if request.user.role not in [User.IS_ADMIN, User.IS_TEACHER, User.IS_REGISTRAR]:
         return HttpResponse("Unauthorized", status=403)
 
     # Get filter parameters
-    exam_id = request.GET.get('exam')
-    stream_id = request.GET.get('stream')
-    course_unit_id = request.GET.get('course_unit')
+    exam_id = request.GET.get('exam', '').strip()
+    stream_id = request.GET.get('stream', '').strip()
+    course_unit_id = request.GET.get('course_unit', '').strip()
 
-    exams = Exam.objects.all()
+    exams = Exam.objects.select_related('course_unit').all()
     streams = Stream.objects.all()
     course_units = CourseUnit.objects.all()
 
-    rankings = []
+    # Query students who have exam marks
+    students_qs = StudentProfile.objects.filter(marks__isnull=False)
+
+    # Apply optional filter conditions to the marks queryset
+    if stream_id:
+        students_qs = students_qs.filter(stream_id=stream_id)
+    if course_unit_id:
+        students_qs = students_qs.filter(marks__exam__course_unit_id=course_unit_id)
     if exam_id:
-        exam = get_object_or_404(Exam, id=exam_id)
-        marks_qs = MarksEntry.objects.filter(exam=exam).select_related('student')
-        if stream_id:
-            marks_qs = marks_qs.filter(student__stream_id=stream_id)
-        # Order by marks descending
-        marks_qs = marks_qs.order_by('-marks_obtained')
-        for idx, mark in enumerate(marks_qs, start=1):
-            rankings.append({
-                'rank': idx,
-                'student': mark.student.name,
-                'reg_number': mark.student.reg_number,
-                'marks': mark.marks_obtained,
-                'grade': mark.grade.name if mark.grade else '-',
-            })
+        students_qs = students_qs.filter(marks__exam_id=exam_id)
+
+    # Perform conditional aggregation to calculate grade counts and score statistics
+    students_qs = students_qs.annotate(
+        total_exams=Count('marks', distinct=True),
+        total_marks=Sum('marks__marks_obtained'),
+        avg_marks=Avg('marks__marks_obtained'),
+        count_a=Count('marks', filter=Q(marks__grade__name__iexact='A')),
+        count_b=Count('marks', filter=Q(marks__grade__name__iexact='B')),
+        count_c=Count('marks', filter=Q(marks__grade__name__iexact='C')),
+        count_d=Count('marks', filter=Q(marks__grade__name__iexact='D')),
+        count_f=Count('marks', filter=Q(marks__grade__name__iexact='F')),
+    ).distinct()
+
+    # Default performance sorting: Top A's -> Top B's -> Higher Average -> Higher Total Marks
+    students_qs = students_qs.order_by('-count_a', '-count_b', '-avg_marks', '-total_marks')
+
+    rankings = []
+    for idx, student in enumerate(students_qs, start=1):
+        rankings.append({
+            'rank': idx,
+            'student': student.name,
+            'reg_number': student.reg_number,
+            'stream': student.stream.name if student.stream else '-',
+            'total_exams': student.total_exams,
+            'avg_marks': round(student.avg_marks or 0, 1),
+            'total_marks': round(student.total_marks or 0, 1),
+            'count_a': student.count_a,
+            'count_b': student.count_b,
+            'count_c': student.count_c,
+            'count_d': student.count_d,
+            'count_f': student.count_f,
+        })
 
     context = {
         'exams': exams,
@@ -2711,13 +2944,18 @@ def exam_ranking(request):
         'rankings': rankings,
         'selected_exam': exam_id,
         'selected_stream': stream_id,
+        'selected_course_unit': course_unit_id,
     }
     return render(request, 'attendance/exam_ranking.html', context)
-
-
 # ==================== INVENTORY MODULE ====================
 
 from .models import InventoryItem, Supplier, Asset, Procurement, StockMovement
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import User, InventoryItem, Supplier, Asset
 
 @login_required
 def manage_inventory(request):
@@ -2728,45 +2966,128 @@ def manage_inventory(request):
     items = InventoryItem.objects.select_related('supplier').all()
     suppliers = Supplier.objects.all()
     assets = Asset.objects.select_related('item', 'assigned_to').all()
+    users = User.objects.filter(is_active=True)
 
     if request.method == 'POST':
         action = request.POST.get('action')
+
+        # --- INVENTORY ITEM ACTIONS ---
         if action == 'add_item':
-            name = request.POST.get('name')
-            category = request.POST.get('category')
-            quantity = request.POST.get('quantity')
-            unit_price = request.POST.get('unit_price')
             supplier_id = request.POST.get('supplier')
-            location = request.POST.get('location')
-            reorder_level = request.POST.get('reorder_level')
-            supplier = Supplier.objects.get(id=supplier_id) if supplier_id else None
+            supplier = Supplier.objects.filter(id=supplier_id).first() if supplier_id else None
             InventoryItem.objects.create(
-                name=name, category=category, quantity=quantity,
-                unit_price=unit_price, supplier=supplier,
-                location=location, reorder_level=reorder_level
+                name=request.POST.get('name'),
+                category=request.POST.get('category'),
+                quantity=request.POST.get('quantity') or 0,
+                unit_price=request.POST.get('unit_price') or None,
+                supplier=supplier,
+                location=request.POST.get('location'),
+                reorder_level=request.POST.get('reorder_level') or None
             )
-            messages.success(request, "Item added.")
+            messages.success(request, "Inventory item created successfully.")
+
+        elif action == 'edit_item':
+            item_id = request.POST.get('item_id')
+            item = get_object_or_404(InventoryItem, id=item_id)
+            supplier_id = request.POST.get('supplier')
+            item.name = request.POST.get('name')
+            item.category = request.POST.get('category')
+            item.quantity = request.POST.get('quantity') or 0
+            item.unit_price = request.POST.get('unit_price') or None
+            item.supplier = Supplier.objects.filter(id=supplier_id).first() if supplier_id else None
+            item.location = request.POST.get('location')
+            item.reorder_level = request.POST.get('reorder_level') or None
+            item.save()
+            messages.success(request, f"Item '{item.name}' updated successfully.")
+
+        elif action == 'delete_item':
+            item_id = request.POST.get('item_id')
+            item = get_object_or_404(InventoryItem, id=item_id)
+            item_name = item.name
+            item.delete()
+            messages.success(request, f"Item '{item_name}' deleted successfully.")
+
+        # --- SUPPLIER ACTIONS ---
         elif action == 'add_supplier':
-            name = request.POST.get('name')
-            contact = request.POST.get('contact_person')
-            phone = request.POST.get('phone')
-            email = request.POST.get('email')
-            address = request.POST.get('address')
-            Supplier.objects.create(name=name, contact_person=contact, phone=phone, email=email, address=address)
-            messages.success(request, "Supplier added.")
-        # Add asset assignment, etc.
+            Supplier.objects.create(
+                name=request.POST.get('name'),
+                contact_person=request.POST.get('contact_person'),
+                phone=request.POST.get('phone'),
+                email=request.POST.get('email'),
+                address=request.POST.get('address')
+            )
+            messages.success(request, "Supplier added successfully.")
+
+        elif action == 'edit_supplier':
+            sup_id = request.POST.get('supplier_id')
+            supplier = get_object_or_404(Supplier, id=sup_id)
+            supplier.name = request.POST.get('name')
+            supplier.contact_person = request.POST.get('contact_person')
+            supplier.phone = request.POST.get('phone')
+            supplier.email = request.POST.get('email')
+            supplier.address = request.POST.get('address')
+            supplier.save()
+            messages.success(request, f"Supplier '{supplier.name}' updated successfully.")
+
+        elif action == 'delete_supplier':
+            sup_id = request.POST.get('supplier_id')
+            supplier = get_object_or_404(Supplier, id=sup_id)
+            sup_name = supplier.name
+            supplier.delete()
+            messages.success(request, f"Supplier '{sup_name}' deleted successfully.")
+
+        # --- ASSET ACTIONS ---
+        elif action == 'add_asset':
+            item_id = request.POST.get('item')
+            assigned_to_id = request.POST.get('assigned_to')
+            item = get_object_or_404(InventoryItem, id=item_id)
+            assigned_to = User.objects.filter(id=assigned_to_id).first() if assigned_to_id else None
+            Asset.objects.create(
+                asset_tag=request.POST.get('asset_tag'),
+                item=item,
+                serial_number=request.POST.get('serial_number'),
+                assigned_to=assigned_to,
+                status=request.POST.get('status', 'AVAILABLE')
+            )
+            messages.success(request, "Asset registered successfully.")
+
+        elif action == 'edit_asset':
+            asset_id = request.POST.get('asset_id')
+            asset = get_object_or_404(Asset, id=asset_id)
+            item_id = request.POST.get('item')
+            assigned_to_id = request.POST.get('assigned_to')
+            asset.item = get_object_or_404(InventoryItem, id=item_id)
+            asset.assigned_to = User.objects.filter(id=assigned_to_id).first() if assigned_to_id else None
+            asset.asset_tag = request.POST.get('asset_tag')
+            asset.serial_number = request.POST.get('serial_number')
+            asset.status = request.POST.get('status', 'AVAILABLE')
+            asset.save()
+            messages.success(request, f"Asset '{asset.asset_tag}' updated successfully.")
+
+        elif action == 'delete_asset':
+            asset_id = request.POST.get('asset_id')
+            asset = get_object_or_404(Asset, id=asset_id)
+            tag = asset.asset_tag
+            asset.delete()
+            messages.success(request, f"Asset '{tag}' deleted successfully.")
+
         return redirect('attendance:manage_inventory')
 
     return render(request, 'attendance/manage_inventory.html', {
         'items': items,
         'suppliers': suppliers,
         'assets': assets,
+        'users': users,
     })
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.http import HttpResponse
 
 @login_required
 def manage_procurement(request):
-    """Create/approve procurement requests."""
+    """Create, approve, edit, and delete procurement requests."""
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
 
@@ -2776,27 +3097,64 @@ def manage_procurement(request):
 
     if request.method == 'POST':
         action = request.POST.get('action')
+        
         if action == 'create':
             item_id = request.POST.get('item')
             quantity = request.POST.get('quantity')
             unit_cost = request.POST.get('unit_cost')
             supplier_id = request.POST.get('supplier')
-            expected_delivery = request.POST.get('expected_delivery')
-            item = InventoryItem.objects.get(id=item_id)
+            expected_delivery = request.POST.get('expected_delivery') or None
+            
+            item = get_object_or_404(InventoryItem, id=item_id)
             supplier = Supplier.objects.get(id=supplier_id) if supplier_id else None
+            
             Procurement.objects.create(
-                item=item, quantity=quantity, unit_cost=unit_cost,
-                supplier=supplier, expected_delivery=expected_delivery,
+                item=item,
+                quantity=quantity,
+                unit_cost=unit_cost,
+                supplier=supplier,
+                expected_delivery=expected_delivery,
                 status='REQUESTED'
             )
-            messages.success(request, "Procurement request created.")
+            messages.success(request, "Procurement request created successfully.")
+
         elif action == 'approve':
             proc_id = request.POST.get('proc_id')
             proc = get_object_or_404(Procurement, id=proc_id)
             proc.status = 'APPROVED'
             proc.approved_by = request.user
             proc.save()
-            messages.success(request, "Procurement approved.")
+            messages.success(request, "Procurement request approved.")
+
+        elif action == 'edit':
+            proc_id = request.POST.get('proc_id')
+            proc = get_object_or_404(Procurement, id=proc_id)
+            
+            item_id = request.POST.get('item')
+            supplier_id = request.POST.get('supplier')
+            
+            proc.item = get_object_or_404(InventoryItem, id=item_id)
+            proc.quantity = request.POST.get('quantity')
+            proc.unit_cost = request.POST.get('unit_cost')
+            proc.supplier = Supplier.objects.get(id=supplier_id) if supplier_id else None
+            
+            expected_delivery = request.POST.get('expected_delivery')
+            if expected_delivery:
+                proc.expected_delivery = expected_delivery
+                
+            status = request.POST.get('status')
+            if status:
+                proc.status = status
+                
+            proc.save()
+            messages.success(request, "Procurement request updated successfully.")
+
+        elif action == 'delete':
+            proc_id = request.POST.get('proc_id')
+            proc = get_object_or_404(Procurement, id=proc_id)
+            proc.delete()
+            messages.success(request, "Procurement request deleted successfully.")
+
         return redirect('attendance:manage_procurement')
 
     return render(request, 'attendance/manage_procurement.html', {
@@ -2805,27 +3163,39 @@ def manage_procurement(request):
         'suppliers': suppliers,
     })
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.http import HttpResponse
 
 @login_required
 def asset_tracking(request):
-    """Assign assets to staff, view asset status."""
+    """Assign assets to staff, update status, or delete assets."""
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
 
+    if request.method == 'POST':
+        action = request.POST.get('action', 'update')
+        asset_id = request.POST.get('asset_id')
+        asset = get_object_or_404(Asset, id=asset_id)
+
+        if action == 'delete':
+            asset_name = str(asset)
+            asset.delete()
+            messages.success(request, f"Asset '{asset_name}' deleted successfully.")
+        else:
+            user_id = request.POST.get('assigned_to')
+            status = request.POST.get('status')
+            
+            asset.assigned_to = User.objects.get(id=user_id) if user_id else None
+            asset.status = status
+            asset.save()
+            messages.success(request, "Asset updated successfully.")
+
+        return redirect('attendance:asset_tracking')
+
     assets = Asset.objects.select_related('item', 'assigned_to').all()
     staff_users = User.objects.exclude(role=User.IS_STUDENT)
-
-    if request.method == 'POST':
-        asset_id = request.POST.get('asset_id')
-        user_id = request.POST.get('assigned_to')
-        status = request.POST.get('status')
-        asset = get_object_or_404(Asset, id=asset_id)
-        if user_id:
-            asset.assigned_to = User.objects.get(id=user_id)
-        asset.status = status
-        asset.save()
-        messages.success(request, "Asset updated.")
-        return redirect('attendance:asset_tracking')
 
     return render(request, 'attendance/asset_tracking.html', {
         'assets': assets,
@@ -2833,17 +3203,41 @@ def asset_tracking(request):
     })
 
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.http import HttpResponse
+
 @login_required
 def stock_report(request):
-    """Generate stock movement reports."""
+    """Generate stock movement reports with Edit and Delete capabilities."""
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        movement_id = request.POST.get('movement_id')
+        movement = get_object_or_404(StockMovement, id=movement_id)
+
+        if action == 'edit':
+            movement.movement_type = request.POST.get('movement_type')
+            movement.quantity = request.POST.get('quantity')
+            movement.reference = request.POST.get('reference', '')
+            movement.remarks = request.POST.get('remarks', '')
+            movement.save()
+            messages.success(request, "Stock movement updated successfully.")
+
+        elif action == 'delete':
+            movement.delete()
+            messages.success(request, "Stock movement record deleted successfully.")
+
+        return redirect(request.META.get('HTTP_REFERER', 'attendance:stock_report'))
 
     item_id = request.GET.get('item')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
 
-    movements = StockMovement.objects.select_related('item').all()
+    movements = StockMovement.objects.select_related('item').all().order_by('-date')
     if item_id:
         movements = movements.filter(item_id=item_id)
     if start_date and end_date:
@@ -2861,58 +3255,115 @@ def stock_report(request):
 
 # ==================== TRANSPORT MODULE ====================
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.http import HttpResponse
 from .models import Vehicle, Route, TransportAllocation, TripLog
 
 @login_required
 def manage_vehicles(request):
-    """CRUD for vehicles, routes."""
+    """CRUD for vehicles and routes with live frontend search & filtering."""
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
 
-    vehicles = Vehicle.objects.all()
-    routes = Route.objects.select_related('vehicle').all()
-
     if request.method == 'POST':
         action = request.POST.get('action')
+
+        # --- VEHICLE ACTIONS ---
         if action == 'add_vehicle':
-            reg = request.POST.get('registration_number')
-            model = request.POST.get('model')
-            capacity = request.POST.get('capacity')
-            driver = request.POST.get('driver_name')
-            contact = request.POST.get('driver_contact')
-            status = request.POST.get('status')
             Vehicle.objects.create(
-                registration_number=reg, model=model, capacity=capacity,
-                driver_name=driver, driver_contact=contact, status=status
+                registration_number=request.POST.get('registration_number'),
+                model=request.POST.get('model'),
+                capacity=request.POST.get('capacity'),
+                driver_name=request.POST.get('driver_name'),
+                driver_contact=request.POST.get('driver_contact'),
+                status=request.POST.get('status')
             )
-            messages.success(request, "Vehicle added.")
+            messages.success(request, "Vehicle added successfully.")
+
+        elif action == 'edit_vehicle':
+            vehicle_id = request.POST.get('vehicle_id')
+            vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+            vehicle.registration_number = request.POST.get('registration_number')
+            vehicle.model = request.POST.get('model')
+            vehicle.capacity = request.POST.get('capacity')
+            vehicle.driver_name = request.POST.get('driver_name')
+            vehicle.driver_contact = request.POST.get('driver_contact')
+            vehicle.status = request.POST.get('status')
+            vehicle.save()
+            messages.success(request, f"Vehicle '{vehicle.registration_number}' updated successfully.")
+
+        elif action == 'delete_vehicle':
+            vehicle_id = request.POST.get('vehicle_id')
+            vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+            reg_num = vehicle.registration_number
+            vehicle.delete()
+            messages.success(request, f"Vehicle '{reg_num}' deleted successfully.")
+
+        # --- ROUTE ACTIONS ---
         elif action == 'add_route':
-            name = request.POST.get('name')
             vehicle_id = request.POST.get('vehicle')
-            start = request.POST.get('start_location')
-            end = request.POST.get('end_location')
-            dep_time = request.POST.get('departure_time')
-            arr_time = request.POST.get('arrival_time')
-            days = request.POST.get('days_of_week')
-            vehicle = Vehicle.objects.get(id=vehicle_id) if vehicle_id else None
+            vehicle = Vehicle.objects.filter(id=vehicle_id).first() if vehicle_id else None
             Route.objects.create(
-                name=name, vehicle=vehicle, start_location=start,
-                end_location=end, departure_time=dep_time,
-                arrival_time=arr_time, days_of_week=days
+                name=request.POST.get('name'),
+                vehicle=vehicle,
+                start_location=request.POST.get('start_location'),
+                end_location=request.POST.get('end_location'),
+                departure_time=request.POST.get('departure_time'),
+                arrival_time=request.POST.get('arrival_time'),
+                days_of_week=request.POST.get('days_of_week')
             )
-            messages.success(request, "Route added.")
+            messages.success(request, "Route added successfully.")
+
+        elif action == 'edit_route':
+            route_id = request.POST.get('route_id')
+            route = get_object_or_404(Route, id=route_id)
+            vehicle_id = request.POST.get('vehicle')
+            route.vehicle = Vehicle.objects.filter(id=vehicle_id).first() if vehicle_id else None
+            route.name = request.POST.get('name')
+            route.start_location = request.POST.get('start_location')
+            route.end_location = request.POST.get('end_location')
+            route.departure_time = request.POST.get('departure_time')
+            route.arrival_time = request.POST.get('arrival_time')
+            route.days_of_week = request.POST.get('days_of_week')
+            route.save()
+            messages.success(request, f"Route '{route.name}' updated successfully.")
+
+        elif action == 'delete_route':
+            route_id = request.POST.get('route_id')
+            route = get_object_or_404(Route, id=route_id)
+            r_name = route.name
+            route.delete()
+            messages.success(request, f"Route '{r_name}' deleted successfully.")
+
         return redirect('attendance:manage_vehicles')
+
+    vehicles = Vehicle.objects.all()
+    routes = Route.objects.select_related('vehicle').all()
 
     return render(request, 'attendance/manage_vehicles.html', {
         'vehicles': vehicles,
         'routes': routes,
     })
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.contrib import messages
+from .models import AcademicTerm, Route, StudentProfile, TransportAllocation, User
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.contrib import messages
+from .models import AcademicTerm, Route, StudentProfile, TransportAllocation, User
 
 @login_required
 @transaction.atomic
 def allocate_transport(request):
-    """Assign students to routes per term."""
+    """Assign students to routes per term with filtering support."""
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
 
@@ -2924,10 +3375,11 @@ def allocate_transport(request):
         student_id = request.POST.get('student_id')
         route_id = request.POST.get('route_id')
         term_id = request.POST.get('term_id')
+        
         student = get_object_or_404(StudentProfile, reg_number=student_id)
         route = get_object_or_404(Route, id=route_id)
         term = get_object_or_404(AcademicTerm, id=term_id)
-        # Check if already allocated
+        
         allocation, created = TransportAllocation.objects.get_or_create(
             student=student, term=term,
             defaults={'route': route, 'is_active': True}
@@ -2942,50 +3394,157 @@ def allocate_transport(request):
 
     allocations = TransportAllocation.objects.select_related('student', 'route', 'term').all()
 
+    route_filter = request.GET.get('route', '')
+    term_filter = request.GET.get('term', '')
+    status_filter = request.GET.get('status', '')
+    student_filter = request.GET.get('student', '')
+
+    if route_filter:
+        allocations = allocations.filter(route_id=route_filter)
+    if term_filter:
+        allocations = allocations.filter(term_id=term_filter)
+    if status_filter:
+        if status_filter == 'active':
+            allocations = allocations.filter(is_active=True)
+        elif status_filter == 'inactive':
+            allocations = allocations.filter(is_active=False)
+    if student_filter:
+        allocations = allocations.filter(student__reg_number=student_filter)
+
     return render(request, 'attendance/allocate_transport.html', {
         'allocations': allocations,
         'terms': terms,
         'routes': routes,
         'students': students,
+        'selected_route': route_filter,
+        'selected_term': term_filter,
+        'selected_status': status_filter,
+        'selected_student': student_filter,
     })
 
 
 @login_required
-def trip_log(request):
-    """Log trips and view history."""
+@transaction.atomic
+def edit_transport_allocation(request, pk):
+    """Edit an existing transport allocation."""
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
 
+    allocation = get_object_or_404(TransportAllocation, pk=pk)
+
+    if request.method == 'POST':
+        route_id = request.POST.get('route_id')
+        term_id = request.POST.get('term_id')
+        is_active = request.POST.get('is_active') == 'true'
+
+        allocation.route = get_object_or_404(Route, id=route_id)
+        allocation.term = get_object_or_404(AcademicTerm, id=term_id)
+        allocation.is_active = is_active
+        allocation.save()
+
+        messages.success(request, "Transport allocation updated successfully.")
+    
+    return redirect('attendance:allocate_transport')
+
+
+@login_required
+@transaction.atomic
+def delete_transport_allocation(request, pk):
+    """Delete a transport allocation."""
+    if request.user.role != User.IS_ADMIN:
+        return HttpResponse("Unauthorized", status=403)
+
+    allocation = get_object_or_404(TransportAllocation, pk=pk)
+
+    if request.method == 'POST':
+        allocation.delete()
+        messages.success(request, "Transport allocation removed successfully.")
+
+    return redirect('attendance:allocate_transport')
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.contrib import messages
+from .models import TripLog, Vehicle, Route, User
+
+@login_required
+@transaction.atomic
+def trip_log(request):
+    """Log trips, update/delete existing logs, and view history."""
+    if request.user.role != User.IS_ADMIN:
+        return HttpResponse("Unauthorized", status=403)
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'create')
+        trip_id = request.POST.get('trip_id')
+
+        # --- DELETE ACTION ---
+        if action == 'delete':
+            trip = get_object_or_404(TripLog, id=trip_id)
+            trip.delete()
+            messages.success(request, "Trip log deleted successfully.")
+            return redirect('attendance:trip_log')
+
+        # --- CREATE OR EDIT ACTION ---
+        elif action in ['create', 'edit']:
+            vehicle_id = request.POST.get('vehicle')
+            route_id = request.POST.get('route')
+            dep_time = request.POST.get('departure_time')
+            arr_time = request.POST.get('arrival_time') or None
+            driver = request.POST.get('driver_name')
+            mileage_start = request.POST.get('mileage_start') or None
+            mileage_end = request.POST.get('mileage_end') or None
+            remarks = request.POST.get('remarks')
+
+            vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+            route = get_object_or_404(Route, id=route_id)
+
+            if action == 'edit':
+                trip = get_object_or_404(TripLog, id=trip_id)
+                trip.vehicle = vehicle
+                trip.route = route
+                trip.departure_time = dep_time
+                trip.arrival_time = arr_time
+                trip.driver_name = driver
+                trip.mileage_start = mileage_start
+                trip.mileage_end = mileage_end
+                trip.remarks = remarks
+                trip.save()
+                messages.success(request, "Trip log updated successfully.")
+            else:
+                TripLog.objects.create(
+                    vehicle=vehicle,
+                    route=route,
+                    departure_time=dep_time,
+                    arrival_time=arr_time,
+                    driver_name=driver,
+                    mileage_start=mileage_start,
+                    mileage_end=mileage_end,
+                    remarks=remarks
+                )
+                messages.success(request, "Trip logged successfully.")
+
+            return redirect('attendance:trip_log')
+
+    # GET Request: Data retrieval
     trips = TripLog.objects.select_related('vehicle', 'route').all().order_by('-departure_time')
     vehicles = Vehicle.objects.all()
     routes = Route.objects.all()
 
-    if request.method == 'POST':
-        vehicle_id = request.POST.get('vehicle')
-        route_id = request.POST.get('route')
-        dep_time = request.POST.get('departure_time')
-        arr_time = request.POST.get('arrival_time')
-        driver = request.POST.get('driver_name')
-        mileage_start = request.POST.get('mileage_start')
-        mileage_end = request.POST.get('mileage_end')
-        remarks = request.POST.get('remarks')
-        vehicle = Vehicle.objects.get(id=vehicle_id)
-        route = Route.objects.get(id=route_id)
-        TripLog.objects.create(
-            vehicle=vehicle, route=route, departure_time=dep_time,
-            arrival_time=arr_time, driver_name=driver,
-            mileage_start=mileage_start, mileage_end=mileage_end,
-            remarks=remarks
-        )
-        messages.success(request, "Trip logged.")
-        return redirect('attendance:trip_log')
+    # Get unique list of drivers for filter dropdown
+    drivers = TripLog.objects.exclude(driver_name__isnull=True)\
+                             .exclude(driver_name__exact='')\
+                             .values_list('driver_name', flat=True)\
+                             .distinct()
 
     return render(request, 'attendance/trip_log.html', {
         'trips': trips,
         'vehicles': vehicles,
         'routes': routes,
+        'drivers': drivers,
     })
-
 
 # ==================== HUMAN RESOURCE MODULE (Admin) ====================
 
@@ -3164,50 +3723,3 @@ def manage_student_transfers(request):
     })
 
 
-@login_required
-@transaction.atomic
-def edit_exam(request, exam_id):
-    if request.user.role != User.IS_ADMIN:
-        return HttpResponse("Unauthorized", status=403)
-
-    exam = get_object_or_404(Exam, id=exam_id)
-
-    if request.method == 'POST':
-        exam.name = request.POST.get('name', '').strip()
-        
-        course_unit_id = request.POST.get('course_unit')
-        term_id = request.POST.get('term')
-        
-        if course_unit_id:
-            exam.course_unit = get_object_or_404(CourseUnit, id=course_unit_id)
-        if term_id:
-            exam.term = get_object_or_404(AcademicTerm, id=term_id)
-
-        exam.exam_date = request.POST.get('exam_date')
-        exam.total_marks = request.POST.get('total_marks', 100)
-        exam.start_time = request.POST.get('start_time') or None
-        exam.end_time = request.POST.get('end_time') or None
-        exam.is_published = request.POST.get('is_published') == 'on'
-        
-        exam.save()
-        messages.success(request, f"Exam '{exam.name}' updated successfully.")
-        return redirect('attendance:manage_exams')
-
-    context = {
-        'exam': exam,
-        'course_units': CourseUnit.objects.all(),
-        'terms': AcademicTerm.objects.all(),  # Uses AcademicTerm model
-    }
-    return render(request, 'attendance/edit_exam.html', context)
-
-@login_required
-@transaction.atomic
-def delete_exam(request, exam_id):
-    if request.user.role != User.IS_ADMIN:
-        return HttpResponse("Unauthorized", status=403)
-
-    exam = get_object_or_404(Exam, id=exam_id)
-    exam_name = exam.name
-    exam.delete()
-    messages.success(request, f"Exam '{exam_name}' removed successfully.")
-    return redirect('attendance:manage_exams')

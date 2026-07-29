@@ -24,11 +24,6 @@
         border: 1px solid var(--border);
         margin-bottom: 1.5rem;
     }
-    .action-group {
-        display: flex;
-        gap: 0.75rem;
-        align-items: center;
-    }
     .btn-download-list {
         display: inline-flex;
         align-items: center;
@@ -41,18 +36,10 @@
         font-weight: 600;
         font-size: 0.9rem;
         transition: var(--transition);
-        cursor: pointer;
         text-decoration: none;
     }
     .btn-download-list:hover {
         background-color: #eff6ff;
-        transform: translateY(-1px);
-    }
-    .action-link {
-        font-size: 0.9rem;
-        font-weight: 600;
-        transition: var(--transition);
-        text-decoration: none;
     }
     .form-group {
         margin-bottom: 0;
@@ -69,10 +56,9 @@
         padding: 0.65rem 0.75rem;
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
-        font-family: var(--font);
     }
 
-    /* Rank & Grade Badges */
+    /* Rank Badges */
     .rank-badge {
         display: inline-flex;
         align-items: center;
@@ -89,21 +75,24 @@
     .rank-2 { background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; }
     .rank-3 { background: #ffedd5; color: #9a3412; border: 1px solid #fed7aa; }
 
-    .grade-badge {
-        padding: 0.25rem 0.6rem;
-        border-radius: var(--radius-sm);
-        font-weight: 600;
-        font-size: 0.8rem;
+    /* Grade Count Badges */
+    .grade-count {
         display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        min-width: 24px;
+        text-align: center;
     }
-    .grade-A { background: #dcfce7; color: #166534; }
-    .grade-B { background: #e0f2fe; color: #075985; }
-    .grade-C { background: #fef9c3; color: #854d0e; }
-    .grade-D { background: #f1f5f9; color: #475569; }
-    .grade-F { background: #fee2e2; color: #991b1b; }
+    .badge-a { background: #dcfce7; color: #166534; }
+    .badge-b { background: #e0f2fe; color: #075985; }
+    .badge-c { background: #fef9c3; color: #854d0e; }
+    .badge-d { background: #f1f5f9; color: #475569; }
+    .badge-f { background: #fee2e2; color: #991b1b; }
 </style>
 
-<!-- Header Toolbar & Search -->
+<!-- Header Toolbar & Live Search -->
 <div class="page-header-actions">
     <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
         <a href="{% url 'attendance:manage_exams' %}" class="btn-download-list">
@@ -111,17 +100,19 @@
         </a>
         <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
             <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search student name, registration number..." style="padding-left: 2.25rem;">
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search student name, reg number..." style="padding-left: 2.25rem;">
         </div>
     </div>
 </div>
 
-<!-- Filter Selection Form -->
+<!-- Filter Selection Bar -->
 <div class="filter-section">
     <form method="GET" action="">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) auto; gap: 1rem; align-items: end;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) auto; gap: 1rem; align-items: end;">
+            
+            <!-- Exam Filter -->
             <div class="form-group">
-                <label for="exam_select"><i class="fas fa-calendar-alt"></i> Select Exam</label>
+                <label for="exam_select"><i class="fas fa-file-alt"></i> Select Exam</label>
                 <select id="exam_select" name="exam" class="form-control">
                     <option value="">-- All Exams --</option>
                     {% for exam in exams %}
@@ -132,8 +123,22 @@
                 </select>
             </div>
 
+            <!-- Course Unit Filter -->
             <div class="form-group">
-                <label for="stream_select"><i class="fas fa-users"></i> Select Stream</label>
+                <label for="course_unit_select"><i class="fas fa-book"></i> Course Unit</label>
+                <select id="course_unit_select" name="course_unit" class="form-control">
+                    <option value="">-- All Units --</option>
+                    {% for cu in course_units %}
+                        <option value="{{ cu.code }}" {% if cu.code == selected_course_unit %}selected{% endif %}>
+                            {{ cu.code }} - {{ cu.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Stream Filter -->
+            <div class="form-group">
+                <label for="stream_select"><i class="fas fa-users"></i> Stream</label>
                 <select id="stream_select" name="stream" class="form-control">
                     <option value="">-- All Streams --</option>
                     {% for stream in streams %}
@@ -153,45 +158,53 @@
     </form>
 </div>
 
-<!-- Rankings Table Card -->
+<!-- Rankings Table -->
 <div class="card" style="padding:0; overflow:hidden;">
     <table class="table">
         <thead>
             <tr>
-                <th style="width: 100px;">Rank</th>
+                <th style="width: 70px; text-align: center;">Rank</th>
                 <th>Student</th>
                 <th>Registration</th>
-                <th style="text-align: center;">Marks</th>
-                <th style="text-align: center;">Grade</th>
+                <th>Stream</th>
+                <th style="text-align: center;">Exams Sat</th>
+                <th style="text-align: center;">A's</th>
+                <th style="text-align: center;">B's</th>
+                <th style="text-align: center;">C's</th>
+                <th style="text-align: center;">D's</th>
+                <th style="text-align: center;">F's</th>
+                <th style="text-align: center;">Avg Mark</th>
             </tr>
         </thead>
         <tbody id="rankingsTableBody">
             {% for entry in rankings %}
             <tr class="ranking-row">
-                <td>
+                <td style="text-align: center;">
                     <span class="rank-badge {% if entry.rank == 1 %}rank-1{% elif entry.rank == 2 %}rank-2{% elif entry.rank == 3 %}rank-3{% endif %}">
                         {{ entry.rank }}
                     </span>
                 </td>
                 <td style="font-weight: 600; color: var(--text-main);">{{ entry.student }}</td>
-                <td><code style="font-size:0.95rem; font-weight:700; color:var(--text-main);">{{ entry.reg_number }}</code></td>
-                <td style="text-align: center; font-weight: 700;">{{ entry.marks }}</td>
-                <td style="text-align: center;">
-                    <span class="grade-badge grade-{{ entry.grade }}">
-                        {{ entry.grade }}
-                    </span>
-                </td>
+                <td><code style="font-size:0.9rem; font-weight:700; color:var(--text-main);">{{ entry.reg_number }}</code></td>
+                <td>{{ entry.stream }}</td>
+                <td style="text-align: center; font-weight: 600;">{{ entry.total_exams }}</td>
+                <td style="text-align: center;"><span class="grade-count badge-a">{{ entry.count_a }}</span></td>
+                <td style="text-align: center;"><span class="grade-count badge-b">{{ entry.count_b }}</span></td>
+                <td style="text-align: center;"><span class="grade-count badge-c">{{ entry.count_c }}</span></td>
+                <td style="text-align: center;"><span class="grade-count badge-d">{{ entry.count_d }}</span></td>
+                <td style="text-align: center;"><span class="grade-count badge-f">{{ entry.count_f }}</span></td>
+                <td style="text-align: center; font-weight: 700; color: #2563eb;">{{ entry.avg_marks }}%</td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="11" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-trophy" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
-                    No rankings available to display. Please select an exam and stream to view rankings.
+                    No student exam marks recorded for the selected filter combination.
                 </td>
             </tr>
             {% endfor %}
             <tr id="searchEmptyRow" style="display: none;">
-                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="11" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No matching student records discovered for your search criteria.
                 </td>
@@ -202,7 +215,6 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Automated Frontend Search Matrix
         const searchInput = document.getElementById('dashboardSearch');
         const dataRows = document.querySelectorAll('.ranking-row');
         const emptyRow = document.getElementById('searchEmptyRow');

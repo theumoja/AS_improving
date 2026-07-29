@@ -2403,35 +2403,100 @@ def custom_bad_request(request, exception=None):
 from .models import Exam, MarksEntry, GradeScale, Transcript, StudentProfile, AcademicTerm
 from .forms import MarksEntryForm
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db import transaction
+
+from .models import Exam, MarksEntry, GradeScale, StudentProfile, User
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db import transaction
+
+from .models import Exam, MarksEntry, GradeScale, StudentProfile, User
+
+
+def calculate_grade(marks_obtained, total_marks):
+    """Calculates percentage score and assigns the matching GradeScale object."""
+    if not total_marks or total_marks <= 0:
+        return None
+    
+    percentage = (float(marks_obtained) / float(total_marks)) * 100.0
+    
+    return GradeScale.objects.filter(
+        min_score__lte=percentage,
+        max_score__gte=percentage
+    ).first()
+
+
 @login_required
 def manage_marks(request, exam_id):
-    """Enter/update marks for students per exam (Teacher)."""
+    """Main view to render the list of marks, modal forms, and handle bulk saves."""
     if request.user.role not in [User.IS_TEACHER, User.IS_ADMIN]:
         return HttpResponse("Unauthorized", status=403)
 
     exam = get_object_or_404(Exam, id=exam_id)
-    # Check if teacher is allowed to mark this exam (must teach the course unit)
+
+    # Authorization check for Teachers
     if request.user.role == User.IS_TEACHER:
-        teacher = request.user.teacher_profile
-        if not teacher.courses.filter(units=exam.course_unit).exists():
+        teacher = getattr(request.user, 'teacher_profile', None)
+        if not teacher or not teacher.courses.filter(units=exam.course_unit).exists():
             return HttpResponse("You are not assigned to this course unit.", status=403)
 
-    students = StudentProfile.objects.filter(stream__course__units=exam.course_unit).distinct()
-    marks_entries = {m.student_id: m for m in MarksEntry.objects.filter(exam=exam)}
+    # Fetch enrolled students
+    students = StudentProfile.objects.filter(course__units=exam.course_unit).distinct()
+    
+    # Map existing marks entries by student reg_number
+    marks_entries = {
+        m.student.reg_number: m 
+        for m in MarksEntry.objects.filter(exam=exam).select_related('grade', 'entered_by', 'student')
+    }
 
+    # Bulk Save POST request
     if request.method == 'POST':
-        for student in students:
-            marks = request.POST.get(f'marks_{student.reg_number}')
-            if marks is not None:
-                # Update or create mark
-                mark_obj, created = MarksEntry.objects.get_or_create(
-                    student=student, exam=exam,
-                    defaults={'marks_obtained': marks, 'entered_by': request.user}
-                )
-                if not created:
-                    mark_obj.marks_obtained = marks
-                    mark_obj.save()
-        messages.success(request, "Marks saved.")
+        saved_count = 0
+        cleared_count = 0
+
+        with transaction.atomic():
+            for student in students:
+                marks_raw = request.POST.get(f'marks_{student.reg_number}', '').strip()
+
+                if marks_raw != '':
+                    try:
+                        marks_val = float(marks_raw)
+                        if 0 <= marks_val <= exam.total_marks:
+                            assigned_grade = calculate_grade(marks_val, exam.total_marks)
+
+                            mark_obj, created = MarksEntry.objects.get_or_create(
+                                student=student,
+                                exam=exam,
+                                defaults={
+                                    'marks_obtained': marks_val,
+                                    'grade': assigned_grade,
+                                    'entered_by': request.user
+                                }
+                            )
+
+                            if not created:
+                                mark_obj.marks_obtained = marks_val
+                                mark_obj.grade = assigned_grade
+                                mark_obj.entered_by = request.user
+                                mark_obj.save()
+
+                            saved_count += 1
+                        else:
+                            messages.warning(request, f"Marks for {student.name} skipped: out of range (0-{exam.total_marks}).")
+                    except ValueError:
+                        continue
+                else:
+                    if student.reg_number in marks_entries:
+                        marks_entries[student.reg_number].delete()
+                        cleared_count += 1
+
+        messages.success(request, f"Marks updated successfully ({saved_count} saved/updated, {cleared_count} cleared).")
         return redirect('attendance:manage_marks', exam_id=exam.id)
 
     context = {
@@ -2441,6 +2506,68 @@ def manage_marks(request, exam_id):
     }
     return render(request, 'attendance/manage_marks.html', context)
 
+
+@login_required
+@transaction.atomic
+def save_single_mark(request, exam_id):
+    """Saves or updates a single student's mark from the Add/Edit popup modal."""
+    if request.user.role not in [User.IS_TEACHER, User.IS_ADMIN]:
+        return HttpResponse("Unauthorized", status=403)
+
+    if request.method == 'POST':
+        exam = get_object_or_404(Exam, id=exam_id)
+        reg_number = request.POST.get('student_reg_number')
+        marks_raw = request.POST.get('marks_obtained', '').strip()
+        remarks = request.POST.get('remarks', '').strip()
+
+        student = get_object_or_404(StudentProfile, reg_number=reg_number)
+
+        try:
+            marks_val = float(marks_raw)
+            if 0 <= marks_val <= exam.total_marks:
+                assigned_grade = calculate_grade(marks_val, exam.total_marks)
+
+                mark_obj, created = MarksEntry.objects.get_or_create(
+                    student=student,
+                    exam=exam,
+                    defaults={
+                        'marks_obtained': marks_val,
+                        'grade': assigned_grade,
+                        'remarks': remarks,
+                        'entered_by': request.user
+                    }
+                )
+
+                if not created:
+                    mark_obj.marks_obtained = marks_val
+                    mark_obj.grade = assigned_grade
+                    mark_obj.remarks = remarks
+                    mark_obj.entered_by = request.user
+                    mark_obj.save()
+
+                messages.success(request, f"Mark saved successfully for {student.name}.")
+            else:
+                messages.error(request, f"Invalid score! Must be between 0 and {exam.total_marks}.")
+        except ValueError:
+            messages.error(request, "Please enter a valid numeric mark.")
+
+    return redirect('attendance:manage_marks', exam_id=exam_id)
+
+
+@login_required
+@transaction.atomic
+def delete_mark(request, mark_id):
+    """Deletes an individual student's mark entry."""
+    if request.user.role not in [User.IS_TEACHER, User.IS_ADMIN]:
+        return HttpResponse("Unauthorized", status=403)
+
+    mark_entry = get_object_or_404(MarksEntry, id=mark_id)
+    exam_id = mark_entry.exam.id
+    student_name = mark_entry.student.name
+
+    mark_entry.delete()
+    messages.success(request, f"Marks entry for student '{student_name}' deleted.")
+    return redirect('attendance:manage_marks', exam_id=exam_id)
 
 @login_required
 def generate_report_card(request, student_id, term_id):
@@ -2487,28 +2614,134 @@ def generate_report_card(request, student_id, term_id):
 
 
 # ==================== TRANSPORT MODULE (Dashboard for Transport Officer) ====================
+# ==================== TRANSPORT MODULE (Dashboard View) ====================
+import json
+from django.shortcuts import render
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Sum, F, Q, ExpressionWrapper, FloatField
+from django.core.serializers.json import DjangoJSONEncoder
+from .models import Vehicle, Route, TransportAllocation, TripLog, StudentProfile, User
 
 @login_required
 def transport_dashboard(request):
-    """Overview for transport officer (if role added)."""
-    # For now, assume admin or a new role 'TRANSPORT'
-    if request.user.role not in [User.IS_ADMIN]:
+    """
+    Comprehensive Transport Analytics Dashboard.
+    Provides Fleet KPI Metrics, Demand Analytics, Operational Risks/Losses, and Chart.js payloads.
+    """
+    if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
 
+    # --- 1. CORE FLEET & ALLOCATION METRICS ---
     total_vehicles = Vehicle.objects.count()
     active_vehicles = Vehicle.objects.filter(status='ACTIVE').count()
+    maintenance_vehicles = Vehicle.objects.filter(status='MAINTENANCE').count()
+    inactive_vehicles = Vehicle.objects.filter(status='INACTIVE').count()
+
     total_routes = Route.objects.count()
-    total_allocations = TransportAllocation.objects.filter(is_active=True).count()
+    active_allocations = TransportAllocation.objects.filter(is_active=True).count()
+    
+    total_students = StudentProfile.objects.count()
+    unallocated_students = max(0, total_students - active_allocations)
+
+    total_trips = TripLog.objects.count()
+    completed_trips = TripLog.objects.filter(arrival_time__isnull=False).count()
+    ongoing_trips = TripLog.objects.filter(arrival_time__isnull=True).count()
+
+    # Calculate total cumulative distance across all trips (km)
+    distance_expr = ExpressionWrapper(
+        F('mileage_end') - F('mileage_start'), 
+        output_field=FloatField()
+    )
+    total_distance_km = TripLog.objects.filter(
+        mileage_end__isnull=False, 
+        mileage_start__isnull=False,
+        mileage_end__gte=F('mileage_start')
+    ).aggregate(total_km=Sum(distance_expr))['total_km'] or 0.0
+
+    # Total Seat Capacity & Fleet Capacity Utilization Rate (%)
+    total_fleet_capacity = Vehicle.objects.filter(status='ACTIVE').aggregate(cap=Sum('capacity'))['cap'] or 0
+    capacity_utilization = round((active_allocations / total_fleet_capacity * 100), 1) if total_fleet_capacity > 0 else 0.0
+
+    # --- 2. TOP WINS (High Demand & Asset Efficiency) ---
+    # Top 5 routes by active student allocations (Route Demand)
+    top_routes = Route.objects.annotate(
+        active_students=Count('allocations', filter=Q(allocations__is_active=True))
+    ).order_by('-active_students')[:5]
+
+    # Top 5 vehicles with highest trip activity
+    top_vehicles = Vehicle.objects.annotate(
+        trip_count=Count('trips')
+    ).order_by('-trip_count')[:5]
+
+    # --- 3. TOP LOSSES & OPERATIONAL RISKS ---
+    # Underutilized routes (Routes with low active allocations wasting operational capacity)
+    underutilized_routes = Route.objects.annotate(
+        active_students=Count('allocations', filter=Q(allocations__is_active=True))
+    ).order_by('active_students')[:5]
+
+    # High Mileage Exposure (Vehicles incurring highest wear-and-tear / fuel burn)
+    high_mileage_vehicles = Vehicle.objects.annotate(
+        accumulated_km=Sum(
+            ExpressionWrapper(F('trips__mileage_end') - F('trips__mileage_start'), output_field=FloatField()),
+            filter=Q(trips__mileage_end__isnull=False, trips__mileage_start__isnull=False)
+        )
+    ).exclude(accumulated_km__isnull=True).order_by('-accumulated_km')[:5]
+
+    # Grounded / Maintenance Vehicles Risk
+    maintenance_list = Vehicle.objects.filter(status='MAINTENANCE')
+
+    # --- 4. RECENT ACTIVITY ---
+    recent_trips = TripLog.objects.select_related('vehicle', 'route').order_by('-departure_time')[:7]
+
+    # --- 5. CHART DATA ENCODING (Chart.js Payloads) ---
+    # Chart 1: Fleet Status Distribution
+    fleet_status_labels = ['Active', 'Maintenance', 'Inactive']
+    fleet_status_data = [active_vehicles, maintenance_vehicles, inactive_vehicles]
+
+    # Chart 2: Top Route Student Allocations
+    route_labels = [r.name for r in top_routes]
+    route_data = [r.active_students for r in top_routes]
+
+    # Chart 3: Vehicle Wear & Mileage Exposure
+    mileage_labels = [v.registration_number for v in high_mileage_vehicles]
+    mileage_data = [round(v.accumulated_km or 0, 1) for v in high_mileage_vehicles]
 
     context = {
+        # Core Metrics
         'total_vehicles': total_vehicles,
         'active_vehicles': active_vehicles,
+        'maintenance_vehicles': maintenance_vehicles,
+        'inactive_vehicles': inactive_vehicles,
         'total_routes': total_routes,
-        'total_allocations': total_allocations,
+        'active_allocations': active_allocations,
+        'total_students': total_students,
+        'unallocated_students': unallocated_students,
+        'total_trips': total_trips,
+        'completed_trips': completed_trips,
+        'ongoing_trips': ongoing_trips,
+        'total_distance_km': round(total_distance_km, 1),
+        'total_fleet_capacity': total_fleet_capacity,
+        'capacity_utilization': capacity_utilization,
+
+        # Analytics Lists
+        'top_routes': top_routes,
+        'top_vehicles': top_vehicles,
+        'underutilized_routes': underutilized_routes,
+        'high_mileage_vehicles': high_mileage_vehicles,
+        'maintenance_list': maintenance_list,
+        'recent_trips': recent_trips,
+
+        # Chart JSON Payloads
+        'fleet_status_labels_json': json.dumps(fleet_status_labels, cls=DjangoJSONEncoder),
+        'fleet_status_data_json': json.dumps(fleet_status_data, cls=DjangoJSONEncoder),
+        'route_labels_json': json.dumps(route_labels, cls=DjangoJSONEncoder),
+        'route_data_json': json.dumps(route_data, cls=DjangoJSONEncoder),
+        'mileage_labels_json': json.dumps(mileage_labels, cls=DjangoJSONEncoder),
+        'mileage_data_json': json.dumps(mileage_data, cls=DjangoJSONEncoder),
     }
+
     return render(request, 'attendance/transport_dashboard.html', context)
-
-
 # ==================== HUMAN RESOURCE MODULE (Staff) ====================
 
 @login_required

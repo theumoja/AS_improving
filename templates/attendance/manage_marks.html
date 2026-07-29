@@ -47,6 +47,129 @@
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         font-family: var(--font);
+        font-size: 0.9rem;
+    }
+    .grade-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.6rem;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+    }
+
+    /* Action Icon Buttons */
+    .action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text-main);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        font-size: 0.85rem;
+    }
+    .action-btn:hover {
+        background: #f1f5f9;
+        color: #2563eb;
+    }
+    .action-btn.delete-btn:hover {
+        background: #fee2e2;
+        color: #dc2626;
+        border-color: #fca5a5;
+    }
+
+    /* Modal Styling */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(15, 23, 42, 0.5);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    .modal-overlay.active {
+        display: flex;
+    }
+    .modal-card {
+        background: #ffffff;
+        width: 100%;
+        max-width: 520px;
+        border-radius: 12px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+        overflow: hidden;
+        animation: modalSlide 0.25s ease-out;
+    }
+    @keyframes modalSlide {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8fafc;
+    }
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 700;
+    }
+    .modal-close-btn {
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        color: var(--text-muted);
+        cursor: pointer;
+    }
+    .modal-body {
+        padding: 1.5rem;
+    }
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border);
+        background: #f8fafc;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    .detail-item {
+        background: #f8fafc;
+        padding: 0.85rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+    .detail-item label {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+    .detail-item span {
+        font-weight: 600;
+        color: var(--text-main);
+        font-size: 0.95rem;
     }
 </style>
 
@@ -67,32 +190,41 @@
             <i class="fas fa-chart-bar"></i>
         </div>
         <div>
-            <h2>Enter Marks - {{ exam.name }}</h2>
+            <h2>Manage Marks - {{ exam.name }}</h2>
             <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.15rem;">
                 Course Unit: <strong style="color: var(--text-main);">{{ exam.course_unit.code }}</strong> | Total Marks: <strong style="color: var(--text-main);">{{ exam.total_marks }}</strong>
             </div>
         </div>
     </div>
 
-    <div style="position: relative; min-width: 260px;">
-        <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-        <input type="text" id="dashboardSearch" class="form-control" placeholder="Search student, reg no..." style="padding-left: 2.25rem;">
+    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <!-- Search Field -->
+        <div style="position: relative; min-width: 240px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search student, reg no..." style="padding-left: 2.25rem;">
+        </div>
+        
+        <!-- Add Marks Pop-up Button -->
+        <button type="button" class="btn" onclick="openAddModal()" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; padding: 0.65rem 1.25rem;">
+            <i class="fas fa-plus-circle" style="margin-right: 0.35rem;"></i> Add Mark
+        </button>
     </div>
 </div>
 
-<!-- Main Form & Table Container -->
+<!-- Main Form & Table Container (Allows both inline quick editing & modal usage) -->
 <form method="POST">
     {% csrf_token %}
     <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 1.5rem;">
-        <table class="table">
+        <table class="table" style="margin: 0;">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Registration</th>
+                    <th style="width: 50px;">#</th>
+                    <th style="width: 160px;">Registration</th>
                     <th>Student Name</th>
                     <th>Stream</th>
-                    <th>Marks (out of {{ exam.total_marks }})</th>
-                    <th>Grade</th>
+                    <th style="width: 150px;">Score (Max: {{ exam.total_marks }})</th>
+                    <th style="width: 140px;">Grade</th>
+                    <th style="text-align: right; width: 130px;">Actions</th>
                 </tr>
             </thead>
             <tbody id="marksTableBody">
@@ -106,29 +238,68 @@
                     </td>
                     <td><span style="font-size: 0.85rem; color: var(--text-muted);">{{ student.stream.name }}</span></td>
                     <td>
-                        <input type="number" name="marks_{{ student.reg_number }}"
+                        <input type="number" 
+                               name="marks_{{ student.reg_number }}"
                                value="{% if entry %}{{ entry.marks_obtained }}{% endif %}"
-                               min="0" max="{{ exam.total_marks }}" step="0.5" class="form-control" style="width: 110px; padding: 0.35rem 0.5rem; font-weight: 600;">
+                               min="0" 
+                               max="{{ exam.total_marks }}" 
+                               step="0.01" 
+                               class="form-control" 
+                               placeholder="0 - {{ exam.total_marks }}"
+                               style="width: 120px; padding: 0.35rem 0.5rem; font-weight: 600;">
                     </td>
                     <td>
                         {% if entry and entry.grade %}
-                            <span style="font-weight: 700; color: #2563eb;">{{ entry.grade.name }}</span>
+                            <span class="grade-badge">
+                                <i class="fas fa-award" style="margin-right: 0.3rem;"></i> {{ entry.grade.name }}
+                            </span>
                         {% else %}
-                            <span style="color: var(--text-muted);">-</span>
+                            <span style="color: var(--text-muted); font-size: 0.85rem;">-</span>
                         {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <div style="display: flex; gap: 0.35rem; justify-content: flex-end;">
+                            {% if entry %}
+                                <!-- View Button -->
+                                <button type="button" class="action-btn" title="View Details"
+                                        onclick="openViewModal('{{ student.name|escapejs }}', '{{ student.reg_number|escapejs }}', '{{ entry.marks_obtained }}', '{{ exam.total_marks }}', '{{ entry.grade.name|default:"-" }}', '{{ entry.remarks|default:""|escapejs }}', '{{ entry.entered_by.get_full_name|default:entry.entered_by.username }}', '{{ entry.date_entered|date:"M d, Y H:i" }}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                
+                                <!-- Edit Modal Button -->
+                                <button type="button" class="action-btn" title="Edit Mark"
+                                        onclick="openEditModal('{{ student.reg_number|escapejs }}', '{{ student.name|escapejs }}', '{{ entry.marks_obtained }}', '{{ entry.remarks|default:""|escapejs }}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+
+                                <!-- Delete Button -->
+                                <a href="{% url 'attendance:delete_mark' entry.id %}" 
+                                   class="action-btn delete-btn" 
+                                   onclick="return confirm('Delete marks for {{ student.name }}?');"
+                                   title="Delete Entry">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
+                            {% else %}
+                                <!-- Quick Add Button for unentered students -->
+                                <button type="button" class="action-btn" title="Add Mark"
+                                        onclick="openEditModal('{{ student.reg_number|escapejs }}', '{{ student.name|escapejs }}', '', '')">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% endwith %}
                 {% empty %}
                 <tr>
-                    <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                         <i class="fas fa-users-slash" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                         No students enrolled for this course unit.
                     </td>
                 </tr>
                 {% endfor %}
                 <tr id="searchEmptyRow" style="display: none;">
-                    <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                         <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                         No matching students discovered for your search criteria.
                     </td>
@@ -139,7 +310,7 @@
 
     <div style="display: flex; gap: 0.75rem; align-items: center;">
         <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff;">
-            <i class="fas fa-save" style="margin-right: 0.35rem;"></i> Save Marks
+            <i class="fas fa-save" style="margin-right: 0.35rem;"></i> Save All Marks
         </button>
         <a href="{% url 'attendance:manage_exams' %}" class="btn btn-outline" style="background: #fff; color: var(--text-main);">
             <i class="fas fa-arrow-left" style="margin-right: 0.35rem;"></i> Back to Exams
@@ -147,8 +318,107 @@
     </div>
 </form>
 
+<!-- ==================== POPUP MODAL: ADD / EDIT MARK ==================== -->
+<div class="modal-overlay" id="markFormModal">
+    <div class="modal-card">
+        <form method="POST" action="{% url 'attendance:save_single_mark' exam.id %}">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h3 id="modalFormTitle">Add Student Mark</h3>
+                <button type="button" class="modal-close-btn" onclick="closeModals()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Select Student -->
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Select Student</label>
+                    <select name="student_reg_number" id="modalStudentSelect" class="form-control" required style="padding: 0.65rem;">
+                        <option value="">-- Choose Student --</option>
+                        {% for student in students %}
+                            <option value="{{ student.reg_number }}">{{ student.name }} ({{ student.reg_number }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Score Input -->
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                        Marks Obtained (Max: {{ exam.total_marks }})
+                    </label>
+                    <input type="number" 
+                           name="marks_obtained" 
+                           id="modalMarksObtained" 
+                           class="form-control" 
+                           min="0" 
+                           max="{{ exam.total_marks }}" 
+                           step="0.01" 
+                           placeholder="Enter marks e.g. 75" 
+                           required>
+                </div>
+
+                <!-- Remarks -->
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">Remarks (Optional)</label>
+                    <textarea name="remarks" id="modalRemarks" class="form-control" rows="3" placeholder="Additional teacher notes..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModals()" style="background: #fff; color: var(--text-main);">Cancel</button>
+                <button type="submit" class="btn" style="background: #2563eb; color: #fff;">Save Mark</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==================== POPUP MODAL: VIEW DETAILS ==================== -->
+<div class="modal-overlay" id="viewDetailModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Mark Entry Details</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModals()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="detail-grid" style="margin-bottom: 1rem;">
+                <div class="detail-item" style="grid-column: span 2;">
+                    <label>Student Name</label>
+                    <span id="viewStudentName">-</span>
+                    <div id="viewRegNo" style="font-size: 0.8rem; color: var(--text-muted); font-family: monospace;"></div>
+                </div>
+                <div class="detail-item">
+                    <label>Score Obtained</label>
+                    <span id="viewScore">-</span>
+                </div>
+                <div class="detail-item">
+                    <label>Percentage</label>
+                    <span id="viewPercentage">-</span>
+                </div>
+                <div class="detail-item">
+                    <label>Grade Assigned</label>
+                    <span id="viewGrade">-</span>
+                </div>
+                <div class="detail-item">
+                    <label>Recorded By</label>
+                    <span id="viewEnteredBy">-</span>
+                </div>
+            </div>
+            <div class="detail-item" style="margin-bottom: 1rem;">
+                <label>Date Entered</label>
+                <span id="viewDateEntered">-</span>
+            </div>
+            <div class="detail-item">
+                <label>Teacher Remarks</label>
+                <span id="viewRemarks" style="font-weight: normal; font-size: 0.9rem;">None</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="closeModals()" style="background: #fff; color: var(--text-main);">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts for Search & Modals -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Table Filter Search logic
         const searchInput = document.getElementById('dashboardSearch');
         const dataRows = document.querySelectorAll('.student-row');
         const emptyRow = document.getElementById('searchEmptyRow');
@@ -174,5 +444,56 @@
             });
         }
     });
+
+    // Open "Add Mark" Popup Modal
+    function openAddModal() {
+        document.getElementById('modalFormTitle').innerText = 'Add Student Mark';
+        document.getElementById('modalStudentSelect').value = '';
+        document.getElementById('modalStudentSelect').disabled = false;
+        document.getElementById('modalMarksObtained').value = '';
+        document.getElementById('modalRemarks').value = '';
+        document.getElementById('markFormModal').classList.add('active');
+    }
+
+    // Open "Edit Mark" Popup Modal
+    function openEditModal(regNo, name, score, remarks) {
+        document.getElementById('modalFormTitle').innerText = 'Edit Mark for ' + name;
+        const select = document.getElementById('modalStudentSelect');
+        select.value = regNo;
+        document.getElementById('modalMarksObtained').value = score;
+        document.getElementById('modalRemarks').value = remarks;
+        document.getElementById('markFormModal').classList.add('active');
+    }
+
+    // Open "View Details" Popup Modal
+    function openViewModal(name, regNo, score, totalMarks, grade, remarks, enteredBy, dateEntered) {
+        document.getElementById('viewStudentName').innerText = name;
+        document.getElementById('viewRegNo').innerText = regNo;
+        document.getElementById('viewScore').innerText = score + ' / ' + totalMarks;
+        
+        const pct = ((parseFloat(score) / parseFloat(totalMarks)) * 100).toFixed(1);
+        document.getElementById('viewPercentage').innerText = pct + '%';
+        
+        document.getElementById('viewGrade').innerText = grade;
+        document.getElementById('viewEnteredBy').innerText = enteredBy || 'System';
+        document.getElementById('viewDateEntered').innerText = dateEntered || '-';
+        document.getElementById('viewRemarks').innerText = remarks && remarks.trim() !== '' ? remarks : 'No remarks provided.';
+        
+        document.getElementById('viewDetailModal').classList.add('active');
+    }
+
+    // Close all active modals
+    function closeModals() {
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.classList.remove('active');
+        });
+    }
+
+    // Close modal when clicking outside of modal card
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal-overlay')) {
+            closeModals();
+        }
+    };
 </script>
 {% endblock %}

@@ -9,7 +9,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
         flex-wrap: wrap;
         gap: 1rem;
         background: #ffffff;
@@ -39,13 +39,48 @@
         justify-content: center;
         font-size: 1.25rem;
     }
-    .action-group {
-        display: flex;
+
+    /* Filter Card */
+    .filter-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 0.75rem;
         align-items: center;
     }
 
-    /* Modal Context Interface Components */
+    /* Action Buttons */
+    .btn-action {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 0.35rem 0.6rem;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+    }
+    .btn-action-edit {
+        color: #2563eb;
+        border-color: rgba(37, 99, 235, 0.3);
+    }
+    .btn-action-edit:hover {
+        background: rgba(37, 99, 235, 0.1);
+    }
+    .btn-action-delete {
+        color: #dc2626;
+        border-color: rgba(220, 38, 38, 0.3);
+    }
+    .btn-action-delete:hover {
+        background: rgba(220, 38, 38, 0.1);
+    }
+
+    /* Modal Components */
     .modal {
         display: none;
         position: fixed;
@@ -109,14 +144,49 @@
         <h2>Trip Log</h2>
     </div>
 
-    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-        <div style="position: relative; min-width: 220px;">
+    <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+        <i class="fas fa-plus-circle"></i> Log Trip
+    </button>
+</div>
+
+<!-- Multi-Filter Control Panel -->
+<div class="filter-card">
+    <div class="filter-grid">
+        <!-- Live Search Keyword -->
+        <div style="position: relative;">
             <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search vehicle, route, driver..." style="padding-left: 2.25rem;">
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search keyword..." style="padding-left: 2.25rem;">
         </div>
-        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
-            <i class="fas fa-plus-circle"></i> Log Trip
-        </button>
+
+        <!-- Vehicle Filter -->
+        <div>
+            <select id="filterVehicle" class="form-control">
+                <option value="">All Vehicles</option>
+                {% for v in vehicles %}
+                    <option value="{{ v.id }}">{{ v.registration_number }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Route Filter -->
+        <div>
+            <select id="filterRoute" class="form-control">
+                <option value="">All Routes</option>
+                {% for r in routes %}
+                    <option value="{{ r.id }}">{{ r.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Driver Filter -->
+        <div>
+            <select id="filterDriver" class="form-control">
+                <option value="">All Drivers</option>
+                {% for d in drivers %}
+                    <option value="{{ d|lower }}">{{ d }}</option>
+                {% endfor %}
+            </select>
+        </div>
     </div>
 </div>
 
@@ -132,11 +202,15 @@
                 <th>Driver</th>
                 <th>Mileage (km)</th>
                 <th>Remarks</th>
+                <th style="text-align: right; padding-right: 1.5rem;">Actions</th>
             </tr>
         </thead>
         <tbody id="tripTableBody">
             {% for trip in trips %}  
-            <tr class="trip-row">
+            <tr class="trip-row" 
+                data-vehicle="{{ trip.vehicle.id }}" 
+                data-route="{{ trip.route.id }}" 
+                data-driver="{{ trip.driver_name|default:''|lower }}">
                 <td style="font-weight: 600; color: var(--text-main);">
                     <i class="fas fa-bus" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ trip.vehicle.registration_number }}
                 </td>
@@ -166,17 +240,37 @@
                 <td style="max-width: 200px; color: var(--text-muted); font-size: 0.875rem;">
                     {{ trip.remarks|default:"-" }}
                 </td>
+                <td style="text-align: right; padding-right: 1.5rem;">
+                    <button class="btn-action btn-action-edit edit-btn"
+                            data-id="{{ trip.id }}"
+                            data-vehicle-id="{{ trip.vehicle.id }}"
+                            data-route-id="{{ trip.route.id }}"
+                            data-dep-time="{{ trip.departure_time|date:'Y-m-d\TH:i' }}"
+                            data-arr-time="{% if trip.arrival_time %}{{ trip.arrival_time|date:'Y-m-d\TH:i' }}{% endif %}"
+                            data-driver-name="{{ trip.driver_name|default:'' }}"
+                            data-mileage-start="{{ trip.mileage_start|default:'' }}"
+                            data-mileage-end="{{ trip.mileage_end|default:'' }}"
+                            data-remarks="{{ trip.remarks|default:'' }}">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn-action btn-action-delete delete-btn"
+                            data-id="{{ trip.id }}"
+                            data-vehicle-number="{{ trip.vehicle.registration_number }}"
+                            data-route-name="{{ trip.route.name }}">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </button>
+                </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-map-marked-alt" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No trips logged.
                 </td>
             </tr>
             {% endfor %}
             <tr id="searchEmptyRow" style="display: none;">
-                <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No matching trip logs discovered for your filter criteria.
                 </td>
@@ -185,15 +279,16 @@
     </table>
 </div>
 
-<!-- Modal Creator Interface -->
+<!-- Modal: Create Trip -->
 <div class="modal" id="singleAddModal">
     <div class="modal-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
             <h3>Log Vehicle Trip</h3>
-            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
         <form method="POST" action="">
             {% csrf_token %}
+            <input type="hidden" name="action" value="create">
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                 <div class="form-group">
@@ -252,8 +347,106 @@
             </div>
 
             <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
-                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
                 <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Log Trip</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Trip -->
+<div class="modal" id="editModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Edit Vehicle Trip Log</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" id="edit_trip_id" name="trip_id">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_vehicle">Vehicle</label>
+                    <select id="edit_vehicle" name="vehicle" class="form-control" required>
+                        {% for v in vehicles %}
+                            <option value="{{ v.id }}">{{ v.registration_number }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_route">Route</label>
+                    <select id="edit_route" name="route" class="form-control" required>
+                        {% for r in routes %}
+                            <option value="{{ r.id }}">{{ r.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_departure_time">Departure Time</label>
+                    <input type="datetime-local" id="edit_departure_time" name="departure_time" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_arrival_time">Arrival Time (Optional)</label>
+                    <input type="datetime-local" id="edit_arrival_time" name="arrival_time" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="edit_driver_name">Driver Name</label>
+                <input type="text" id="edit_driver_name" name="driver_name" class="form-control">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_mileage_start">Start Mileage (km)</label>
+                    <input type="number" id="edit_mileage_start" name="mileage_start" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_mileage_end">End Mileage (km)</label>
+                    <input type="number" id="edit_mileage_end" name="mileage_end" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="edit_remarks">Remarks & Notes</label>
+                <textarea id="edit_remarks" name="remarks" class="form-control" rows="2"></textarea>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Delete Trip -->
+<div class="modal" id="deleteModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3 style="color: #dc2626;">Delete Trip Log</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" id="delete_trip_id" name="trip_id">
+
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+                Are you sure you want to delete the trip log for vehicle <strong id="deleteVehicleNumber" style="color: var(--text-main);"></strong> on route <strong id="deleteRouteName" style="color: var(--text-main);"></strong>?
+            </p>
+
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: white;">Delete Log</button>
             </div>
         </form>
     </div>
@@ -261,43 +454,107 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const modal = document.getElementById('singleAddModal');
-        const openBtn = document.getElementById('openModalBtn');
-        const closeBtn = document.getElementById('closeModalBtn');
-        const cancelBtn = document.getElementById('cancelModalBtn');
+        // --- MODALS TOGGLES ---
+        const createModal = document.getElementById('singleAddModal');
+        const editModal = document.getElementById('editModal');
+        const deleteModal = document.getElementById('deleteModal');
 
-        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
-        const closeModal = () => modal.classList.remove('active');
-        
-        if(closeBtn) closeBtn.addEventListener('click', closeModal);
-        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
-        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+        const openCreateBtn = document.getElementById('openModalBtn');
+        const closeBtns = document.querySelectorAll('.closeModalBtn');
 
-        // Automated Frontend Search Matrix
+        if(openCreateBtn) openCreateBtn.addEventListener('click', () => createModal.classList.add('active'));
+
+        closeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                createModal.classList.remove('active');
+                editModal.classList.remove('active');
+                deleteModal.classList.remove('active');
+            });
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === createModal) createModal.classList.remove('active');
+            if (e.target === editModal) editModal.classList.remove('active');
+            if (e.target === deleteModal) deleteModal.classList.remove('active');
+        });
+
+        // --- EDIT MODAL DATA POPULATION ---
+        const editBtns = document.querySelectorAll('.edit-btn');
+        editBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.getElementById('edit_trip_id').value = this.getAttribute('data-id');
+                document.getElementById('edit_vehicle').value = this.getAttribute('data-vehicle-id');
+                document.getElementById('edit_route').value = this.getAttribute('data-route-id');
+                document.getElementById('edit_departure_time').value = this.getAttribute('data-dep-time');
+                document.getElementById('edit_arrival_time').value = this.getAttribute('data-arr-time');
+                document.getElementById('edit_driver_name').value = this.getAttribute('data-driver-name');
+                document.getElementById('edit_mileage_start').value = this.getAttribute('data-mileage-start');
+                document.getElementById('edit_mileage_end').value = this.getAttribute('data-mileage-end');
+                document.getElementById('edit_remarks').value = this.getAttribute('data-remarks');
+
+                editModal.classList.add('active');
+            });
+        });
+
+        // --- DELETE MODAL DATA POPULATION ---
+        const deleteBtns = document.querySelectorAll('.delete-btn');
+        deleteBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.getElementById('delete_trip_id').value = this.getAttribute('data-id');
+                document.getElementById('deleteVehicleNumber').textContent = this.getAttribute('data-vehicle-number');
+                document.getElementById('deleteRouteName').textContent = this.getAttribute('data-route-name');
+
+                deleteModal.classList.add('active');
+            });
+        });
+
+        // --- MULTI-FILTERING SYSTEM ---
         const searchInput = document.getElementById('dashboardSearch');
+        const filterVehicle = document.getElementById('filterVehicle');
+        const filterRoute = document.getElementById('filterRoute');
+        const filterDriver = document.getElementById('filterDriver');
+
         const dataRows = document.querySelectorAll('.trip-row');
         const emptyRow = document.getElementById('searchEmptyRow');
 
-        if (searchInput) {
-            searchInput.addEventListener('input', function() {
-                const criteria = this.value.toLowerCase().trim();
-                let matchingCount = 0;
+        function applyFilters() {
+            const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const selectedVehicle = filterVehicle ? filterVehicle.value : '';
+            const selectedRoute = filterRoute ? filterRoute.value : '';
+            const selectedDriver = filterDriver ? filterDriver.value.toLowerCase() : '';
 
-                dataRows.forEach(row => {
-                    const searchableText = row.textContent.toLowerCase();
-                    if (searchableText.includes(criteria)) {
-                        row.style.display = '';
-                        matchingCount++;
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
+            let matchingCount = 0;
 
-                if (emptyRow) {
-                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            dataRows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const rowVehicle = row.getAttribute('data-vehicle') || '';
+                const rowRoute = row.getAttribute('data-route') || '';
+                const rowDriver = row.getAttribute('data-driver') || '';
+
+                const matchesQuery = !query || text.includes(query);
+                const matchesVehicle = !selectedVehicle || rowVehicle === selectedVehicle;
+                const matchesRoute = !selectedRoute || rowRoute === selectedRoute;
+                const matchesDriver = !selectedDriver || rowDriver === selectedDriver;
+
+                if (matchesQuery && matchesVehicle && matchesRoute && matchesDriver) {
+                    row.style.display = '';
+                    matchingCount++;
+                } else {
+                    row.style.display = 'none';
                 }
             });
+
+            if (emptyRow) {
+                emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            }
         }
+
+        if (searchInput) searchInput.addEventListener('input', applyFilters);
+        if (filterVehicle) filterVehicle.addEventListener('change', applyFilters);
+        if (filterRoute) filterRoute.addEventListener('change', applyFilters);
+        if (filterDriver) filterDriver.addEventListener('change', applyFilters);
+
+        applyFilters();
     });
 </script>
 

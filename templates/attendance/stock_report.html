@@ -5,11 +5,12 @@
 {% endblock %}
 
 <style>
+    /* Header Toolbar */
     .page-header-actions {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
         flex-wrap: wrap;
         gap: 1rem;
         background: #ffffff;
@@ -52,6 +53,83 @@
     }
     .badge-in  { background: rgba(16, 185, 129, 0.1); color: #059669; }
     .badge-out { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+
+    /* Live Search Toolbar */
+    .table-toolbar {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+        background: #f8fafc;
+        padding: 0.85rem 1rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .search-box-wrapper {
+        position: relative;
+        flex: 2 1 240px;
+        min-width: 200px;
+    }
+    .search-box-wrapper i {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+    .search-box-wrapper .form-control {
+        padding-left: 2.3rem;
+    }
+    .filter-select {
+        flex: 1 1 160px;
+        min-width: 140px;
+    }
+
+    /* Action Links */
+    .action-link {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+        transition: var(--transition);
+        background: none;
+        border: none;
+        cursor: pointer;
+    }
+    .action-link.edit { color: #2563eb; }
+    .action-link.delete { color: #dc2626; }
+    .action-link:hover { opacity: 0.7; }
+
+    /* Modal Styling */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center; justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%; max-width: 500px;
+        padding: 1.75rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+    .form-group { margin-bottom: 1.25rem; }
+    .form-group label {
+        display: block; font-size: 0.85rem; font-weight: 600;
+        margin-bottom: 0.4rem; color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%; padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
 </style>
 
 <!-- Messages Bar -->
@@ -74,10 +152,10 @@
     </div>
 </div>
 
-<!-- Filter Card -->
-<div class="card mb-4">
+<!-- Server-Side Date/Item Filter Card -->
+<div class="card mb-4" style="margin-bottom: 1.5rem;">
     <div class="card-body">
-        <form method="GET" class="row g-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) 140px; gap: 1rem; align-items: flex-end;">
+        <form method="GET" class="row g-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) 140px; gap: 1rem; align-items: flex-end;">
             <div>
                 <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem; color:var(--text-muted);">Inventory Item</label>
                 <select name="item" class="form-control">
@@ -104,9 +182,23 @@
     </div>
 </div>
 
+<!-- Frontend Live Search & Filter Bar -->
+<div class="table-toolbar">
+    <div class="search-box-wrapper">
+        <i class="fas fa-search"></i>
+        <input type="text" id="liveSearchInput" class="form-control" placeholder="Live search item, reference, remarks...">
+    </div>
+    
+    <select id="typeFilter" class="form-control filter-select">
+        <option value="ALL">All Types</option>
+        <option value="IN">Stock In</option>
+        <option value="OUT">Stock Out</option>
+    </select>
+</div>
+
 <!-- Main Table Container -->
 <div class="card" style="padding:0; overflow:hidden;">
-    <table class="table">
+    <table class="table" id="stockTable">
         <thead>
             <tr>
                 <th>Item Name</th>
@@ -115,11 +207,12 @@
                 <th>Date & Time</th>
                 <th>Reference</th>
                 <th>Remarks</th>
+                <th style="text-align: right;">Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for mov in movements %}
-            <tr>
+            <tr class="movement-row" data-type="{{ mov.movement_type|upper }}">
                 <td style="font-weight: 600; color: var(--text-main);">
                     <i class="fas fa-box" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ mov.item.name }}
                 </td>
@@ -136,17 +229,183 @@
                 </td>
                 <td style="font-weight: 600; font-size: 0.875rem;">{{ mov.reference|default:"-" }}</td>
                 <td style="color: var(--text-muted); font-size: 0.875rem;">{{ mov.remarks|default:"-" }}</td>
+                <td style="text-align: right;">
+                    <!-- Edit Button -->
+                    <button type="button" class="action-link edit" 
+                        onclick="openEditModal('{{ mov.id }}', '{{ mov.item.name|escapejs }}', '{{ mov.movement_type }}', '{{ mov.quantity }}', '{{ mov.reference|default:''|escapejs }}', '{{ mov.remarks|default:''|escapejs }}')">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+
+                    <!-- Delete Button -->
+                    <button type="button" class="action-link delete" 
+                        onclick="openDeleteModal('{{ mov.id }}', '{{ mov.item.name|escapejs }}', '{{ mov.quantity }}')">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </button>
+                </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-boxes" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No stock movements discovered for the selected criteria.
                 </td>
             </tr>
             {% endfor %}
+            <tr id="emptySearchRow" style="display: none;">
+                <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 1.75rem; display: block; margin-bottom: 0.5rem; opacity: 0.6;"></i>
+                    No matching stock movements found.
+                </td>
+            </tr>
         </tbody>
     </table>
 </div>
+
+<!-- Modal 1: Edit Stock Movement -->
+<div class="modal" id="editMovementModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+            <h3>Edit Stock Movement</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="movement_id" id="edit_movement_id">
+
+            <div class="form-group">
+                <label>Inventory Item</label>
+                <input type="text" id="edit_item_display" class="form-control" readonly style="background: #f1f5f9; font-weight: 600;">
+            </div>
+
+            <div class="form-group">
+                <label for="movement_type">Movement Type</label>
+                <select name="movement_type" id="edit_movement_type" class="form-control" required>
+                    <option value="IN">Stock In</option>
+                    <option value="OUT">Stock Out</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="quantity">Quantity</label>
+                <input type="number" name="quantity" id="edit_quantity" class="form-control" min="1" required>
+            </div>
+
+            <div class="form-group">
+                <label for="reference">Reference / Order #</label>
+                <input type="text" name="reference" id="edit_reference" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="remarks">Remarks</label>
+                <textarea name="remarks" id="edit_remarks" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 2: Delete Stock Movement Confirmation -->
+<div class="modal" id="deleteMovementModal">
+    <div class="modal-card" style="max-width:450px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="color:#dc2626;"><i class="fas fa-exclamation-triangle"></i> Confirm Deletion</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color: var(--text-main); margin-bottom: 1.5rem;">
+            Are you sure you want to delete this movement record for <strong id="delete_item_display"></strong> (Qty: <span id="delete_qty_display"></span>)? This operation cannot be reversed.
+        </p>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="movement_id" id="delete_movement_id">
+
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: #fff; border: none;">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Modal Close Handlers
+        const closeBtns = document.querySelectorAll('.closeModalBtn');
+        closeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+            });
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
+            }
+        });
+
+        // Frontend Live Search & Filtering Logic
+        const searchInput = document.getElementById('liveSearchInput');
+        const typeFilter = document.getElementById('typeFilter');
+        const rows = document.querySelectorAll('.movement-row');
+        const emptyRow = document.getElementById('emptySearchRow');
+
+        function filterTable() {
+            const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const selectedType = typeFilter ? typeFilter.value.toUpperCase() : 'ALL';
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const rowType = row.getAttribute('data-type') ? row.getAttribute('data-type').trim().toUpperCase() : '';
+
+                const matchesQuery = text.includes(query);
+                const matchesType = (selectedType === 'ALL' || rowType === selectedType);
+
+                if (matchesQuery && matchesType) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (emptyRow) {
+                emptyRow.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+            }
+        }
+
+        if (searchInput) searchInput.addEventListener('input', filterTable);
+        if (typeFilter) typeFilter.addEventListener('change', filterTable);
+    });
+
+    // Populate & Open Edit Modal
+    function openEditModal(id, itemName, movementType, quantity, reference, remarks) {
+        document.getElementById('edit_movement_id').value = id;
+        document.getElementById('edit_item_display').value = itemName;
+        document.getElementById('edit_movement_type').value = movementType;
+        document.getElementById('edit_quantity').value = quantity;
+        document.getElementById('edit_reference').value = reference;
+        document.getElementById('edit_remarks').value = remarks;
+
+        document.getElementById('editMovementModal').classList.add('active');
+    }
+
+    // Populate & Open Delete Modal
+    function openDeleteModal(id, itemName, quantity) {
+        document.getElementById('delete_movement_id').value = id;
+        document.getElementById('delete_item_display').innerText = itemName;
+        document.getElementById('delete_qty_display').innerText = quantity;
+
+        document.getElementById('deleteMovementModal').classList.add('active');
+    }
+</script>
 
 {% endblock %}

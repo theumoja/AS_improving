@@ -68,6 +68,54 @@
     .tab-pane { display: none; }
     .tab-pane.active { display: block; }
 
+    /* Filter Toolbars */
+    .filter-toolbar {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+        background: #f8fafc;
+        padding: 0.85rem 1rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .search-box-wrapper {
+        position: relative;
+        flex: 1 1 200px;
+        min-width: 180px;
+    }
+    .search-box-wrapper i {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+    .search-box-wrapper .form-control {
+        padding-left: 2.3rem;
+    }
+    .filter-select {
+        flex: 1 1 140px;
+        min-width: 130px;
+    }
+
+    /* Table Action Links */
+    .action-link {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+        transition: var(--transition);
+        text-decoration: none;
+        background: none;
+        border: none;
+        cursor: pointer;
+    }
+    .action-link.edit { color: #2563eb; }
+    .action-link.delete { color: #dc2626; }
+    .action-link:hover { opacity: 0.7; }
+
     /* Modals */
     .modal {
         display: none;
@@ -119,12 +167,15 @@
         <h2>Inventory Management</h2>
     </div>
 
-    <div style="display: flex; gap: 0.75rem;">
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
         <button class="btn" id="openItemModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
             <i class="fas fa-plus-circle"></i> Add Item
         </button>
         <button class="btn btn-outline" id="openSupplierModalBtn">
             <i class="fas fa-plus-circle"></i> Add Supplier
+        </button>
+        <button class="btn btn-outline" id="openAssetModalBtn">
+            <i class="fas fa-plus-circle"></i> Track Asset
         </button>
     </div>
 </div>
@@ -145,8 +196,39 @@
 
     <!-- Items Panel -->
     <div class="tab-pane active" id="items-pane">
+        <!-- Filter Controls: Category, Quantity, Unit Price, Supplier, Location, Reorder Level -->
+        <div class="filter-toolbar">
+            <div class="search-box-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="itemSearchInput" class="form-control" placeholder="Search item name...">
+            </div>
+            <select id="itemCategoryFilter" class="form-control filter-select">
+                <option value="ALL">All Categories</option>
+                <option value="FURNITURE">Furniture</option>
+                <option value="ELECTRONICS">Electronics</option>
+                <option value="STATIONERY">Stationery</option>
+                <option value="SPORTS">Sports</option>
+                <option value="LAB">Lab</option>
+                <option value="OTHER">Other</option>
+            </select>
+            <select id="itemSupplierFilter" class="form-control filter-select">
+                <option value="ALL">All Suppliers</option>
+                {% for sup in suppliers %}
+                    <option value="{{ sup.id }}">{{ sup.name }}</option>
+                {% endfor %}
+            </select>
+            <input type="text" id="itemLocationFilter" class="form-control filter-select" placeholder="Filter Location...">
+            <input type="number" id="itemMinQtyInput" class="form-control filter-select" placeholder="Min Qty">
+            <input type="number" step="0.01" id="itemMaxPriceInput" class="form-control filter-select" placeholder="Max Price">
+            <select id="itemReorderFilter" class="form-control filter-select">
+                <option value="ALL">All Stock Levels</option>
+                <option value="LOW">Low Stock (≤ Reorder Level)</option>
+                <option value="OK">Sufficient Stock</option>
+            </select>
+        </div>
+
         <div class="card" style="padding:0; overflow:hidden;">
-            <table class="table">
+            <table class="table" id="itemsTable">
                 <thead>
                     <tr>
                         <th>Item Name</th>
@@ -156,11 +238,18 @@
                         <th>Supplier</th>
                         <th>Location</th>
                         <th>Reorder Level</th>
+                        <th style="text-align: right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in items %}
-                    <tr>
+                    <tr class="item-row" 
+                        data-category="{{ item.category }}" 
+                        data-supplier="{{ item.supplier.id|default:'' }}"
+                        data-quantity="{{ item.quantity }}"
+                        data-price="{{ item.unit_price|default:0 }}"
+                        data-location="{{ item.location|default:'' }}"
+                        data-reorder="{{ item.reorder_level|default:0 }}">
                         <td style="font-weight: 600; color: var(--text-main);">
                             <i class="fas fa-box" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ item.name }}
                         </td>
@@ -172,15 +261,30 @@
                         <td>{{ item.supplier.name|default:"-" }}</td>
                         <td style="color: var(--text-muted); font-size: 0.875rem;">{{ item.location|default:"-" }}</td>
                         <td style="font-weight: 600; color: #d97706;">{{ item.reorder_level|default:"-" }}</td>
+                        <td style="text-align: right;">
+                            <button type="button" class="action-link edit" 
+                                onclick="openEditItemModal('{{ item.id }}', '{{ item.name|escapejs }}', '{{ item.category }}', '{{ item.quantity }}', '{{ item.unit_price|default:'' }}', '{{ item.supplier.id|default:'' }}', '{{ item.location|escapejs }}', '{{ item.reorder_level|default:'' }}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button type="button" class="action-link delete" onclick="openDeleteModal('delete_item', 'item_id', '{{ item.id }}', '{{ item.name|escapejs }}', 'Item')">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </button>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                             <i class="fas fa-box-open" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                             No inventory items registered.
                         </td>
                     </tr>
                     {% endfor %}
+                    <tr id="itemsNoResultRow" style="display: none;">
+                        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                            <i class="fas fa-search" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;"></i>
+                            No items match your search/filter criteria.
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -188,8 +292,20 @@
 
     <!-- Suppliers Panel -->
     <div class="tab-pane" id="suppliers-pane">
+        <!-- Filter Controls: Contact Person, Phone, Email, Address -->
+        <div class="filter-toolbar">
+            <div class="search-box-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="supplierSearchInput" class="form-control" placeholder="Search supplier name...">
+            </div>
+            <input type="text" id="supplierContactFilter" class="form-control filter-select" placeholder="Filter Contact Person...">
+            <input type="text" id="supplierPhoneFilter" class="form-control filter-select" placeholder="Filter Phone...">
+            <input type="text" id="supplierEmailFilter" class="form-control filter-select" placeholder="Filter Email...">
+            <input type="text" id="supplierAddressFilter" class="form-control filter-select" placeholder="Filter Address...">
+        </div>
+
         <div class="card" style="padding:0; overflow:hidden;">
-            <table class="table">
+            <table class="table" id="suppliersTable">
                 <thead>
                     <tr>
                         <th>Supplier Name</th>
@@ -197,11 +313,16 @@
                         <th>Phone</th>
                         <th>Email</th>
                         <th>Address</th>
+                        <th style="text-align: right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for sup in suppliers %}
-                    <tr>
+                    <tr class="supplier-row" 
+                        data-contact="{{ sup.contact_person|default:'' }}" 
+                        data-phone="{{ sup.phone|default:'' }}" 
+                        data-email="{{ sup.email|default:'' }}" 
+                        data-address="{{ sup.address|default:'' }}">
                         <td style="font-weight: 600; color: var(--text-main);">
                             <i class="fas fa-truck" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ sup.name }}
                         </td>
@@ -209,15 +330,30 @@
                         <td style="font-size: 0.875rem; color: var(--text-muted);">{{ sup.phone|default:"-" }}</td>
                         <td style="font-size: 0.875rem; color: #2563eb;">{{ sup.email|default:"-" }}</td>
                         <td style="font-size: 0.875rem; color: var(--text-muted);">{{ sup.address|default:"-" }}</td>
+                        <td style="text-align: right;">
+                            <button type="button" class="action-link edit" 
+                                onclick="openEditSupplierModal('{{ sup.id }}', '{{ sup.name|escapejs }}', '{{ sup.contact_person|escapejs }}', '{{ sup.phone|escapejs }}', '{{ sup.email|escapejs }}', '{{ sup.address|escapejs }}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button type="button" class="action-link delete" onclick="openDeleteModal('delete_supplier', 'supplier_id', '{{ sup.id }}', '{{ sup.name|escapejs }}', 'Supplier')">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </button>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                             <i class="fas fa-truck-loading" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                             No suppliers registered.
                         </td>
                     </tr>
                     {% endfor %}
+                    <tr id="suppliersNoResultRow" style="display: none;">
+                        <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                            <i class="fas fa-search" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;"></i>
+                            No suppliers match your search criteria.
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -225,8 +361,37 @@
 
     <!-- Assets Panel -->
     <div class="tab-pane" id="assets-pane">
+        <!-- Filter Controls: Item, Serial Number, Assigned To, Status -->
+        <div class="filter-toolbar">
+            <div class="search-box-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="assetSearchInput" class="form-control" placeholder="Search asset tag...">
+            </div>
+            <select id="assetItemFilter" class="form-control filter-select">
+                <option value="ALL">All Items</option>
+                {% for item in items %}
+                    <option value="{{ item.id }}">{{ item.name }}</option>
+                {% endfor %}
+            </select>
+            <input type="text" id="assetSerialFilter" class="form-control filter-select" placeholder="Filter Serial No...">
+            <select id="assetAssignedFilter" class="form-control filter-select">
+                <option value="ALL">All Assigned</option>
+                <option value="UNASSIGNED">Unassigned</option>
+                {% for usr in users %}
+                    <option value="{{ usr.id }}">{{ usr.username }}</option>
+                {% endfor %}
+            </select>
+            <select id="assetStatusFilter" class="form-control filter-select">
+                <option value="ALL">All Statuses</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="IN_USE">In Use</option>
+                <option value="REPAIR">In Repair</option>
+                <option value="DAMAGED">Damaged</option>
+            </select>
+        </div>
+
         <div class="card" style="padding:0; overflow:hidden;">
-            <table class="table">
+            <table class="table" id="assetsTable">
                 <thead>
                     <tr>
                         <th>Asset Tag</th>
@@ -234,16 +399,21 @@
                         <th>Serial Number</th>
                         <th>Assigned To</th>
                         <th>Status</th>
+                        <th style="text-align: right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for asset in assets %}
-                    <tr>
+                    <tr class="asset-row" 
+                        data-item="{{ asset.item.id }}" 
+                        data-serial="{{ asset.serial_number|default:'' }}" 
+                        data-assigned="{{ asset.assigned_to.id|default:'UNASSIGNED' }}" 
+                        data-status="{{ asset.status }}">
                         <td style="font-weight: 700; color: var(--text-main);">
                             <i class="fas fa-barcode" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ asset.asset_tag }}
                         </td>
                         <td style="font-weight: 600;">{{ asset.item.name }}</td>
-                        <td style="font-family: monospace; color: var(--text-muted);">{{ asset.serial_number }}</td>
+                        <td style="font-family: monospace; color: var(--text-muted);">{{ asset.serial_number|default:"-" }}</td>
                         <td><i class="fas fa-user-tie" style="margin-right: 0.3rem; color: var(--text-muted);"></i> {{ asset.assigned_to.username|default:"Unassigned" }}</td>
                         <td>
                             {% if asset.status == 'AVAILABLE' %}
@@ -254,15 +424,30 @@
                                 <span style="color: #d97706; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-tools"></i> {{ asset.status }}</span>
                             {% endif %}
                         </td>
+                        <td style="text-align: right;">
+                            <button type="button" class="action-link edit" 
+                                onclick="openEditAssetModal('{{ asset.id }}', '{{ asset.asset_tag|escapejs }}', '{{ asset.item.id }}', '{{ asset.serial_number|escapejs }}', '{{ asset.assigned_to.id|default:'' }}', '{{ asset.status }}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button type="button" class="action-link delete" onclick="openDeleteModal('delete_asset', 'asset_id', '{{ asset.id }}', '{{ asset.asset_tag|escapejs }}', 'Asset Tag')">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </button>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                             <i class="fas fa-qrcode" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                             No tracked assets found.
                         </td>
                     </tr>
                     {% endfor %}
+                    <tr id="assetsNoResultRow" style="display: none;">
+                        <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                            <i class="fas fa-search" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;"></i>
+                            No tracked assets match your search/filter criteria.
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -338,7 +523,77 @@
     </div>
 </div>
 
-<!-- Modal 2: Add Supplier -->
+<!-- Modal 2: Edit Item -->
+<div class="modal" id="editItemModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Edit Inventory Item</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_item">
+            <input type="hidden" id="edit_item_id" name="item_id">
+
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_item_name">Item Name</label>
+                    <input type="text" id="edit_item_name" name="name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_item_category">Category</label>
+                    <select id="edit_item_category" name="category" class="form-control">
+                        <option value="FURNITURE">Furniture</option>
+                        <option value="ELECTRONICS">Electronics</option>
+                        <option value="STATIONERY">Stationery</option>
+                        <option value="SPORTS">Sports</option>
+                        <option value="LAB">Lab</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_item_quantity">Quantity</label>
+                    <input type="number" id="edit_item_quantity" name="quantity" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_item_unit_price">Unit Price</label>
+                    <input type="number" step="0.01" id="edit_item_unit_price" name="unit_price" class="form-control">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_item_supplier">Supplier</label>
+                    <select id="edit_item_supplier" name="supplier" class="form-control">
+                        <option value="">No supplier</option>
+                        {% for sup in suppliers %}
+                            <option value="{{ sup.id }}">{{ sup.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit_item_location">Storage Location</label>
+                    <input type="text" id="edit_item_location" name="location" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="edit_item_reorder_level">Reorder Level</label>
+                <input type="number" id="edit_item_reorder_level" name="reorder_level" class="form-control">
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Update Item</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 3: Add Supplier -->
 <div class="modal" id="addSupplierModal">
     <div class="modal-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
@@ -384,8 +639,200 @@
     </div>
 </div>
 
+<!-- Modal 4: Edit Supplier -->
+<div class="modal" id="editSupplierModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Edit Supplier</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_supplier">
+            <input type="hidden" id="edit_supplier_id" name="supplier_id">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_sup_name">Supplier Name</label>
+                    <input type="text" id="edit_sup_name" name="name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_contact_person">Contact Person</label>
+                    <input type="text" id="edit_contact_person" name="contact_person" class="form-control">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_phone">Phone Number</label>
+                    <input type="text" id="edit_phone" name="phone" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="edit_email">Email Address</label>
+                    <input type="email" id="edit_email" name="email" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="edit_address">Physical Address</label>
+                <input type="text" id="edit_address" name="address" class="form-control">
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Update Supplier</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 5: Add Asset -->
+<div class="modal" id="addAssetModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Track New Asset</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_asset">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="asset_tag">Asset Tag / Code</label>
+                    <input type="text" id="asset_tag" name="asset_tag" class="form-control" required placeholder="e.g. AST-001">
+                </div>
+                <div class="form-group">
+                    <label for="asset_item">Inventory Item</label>
+                    <select id="asset_item" name="item" class="form-control" required>
+                        {% for item in items %}
+                            <option value="{{ item.id }}">{{ item.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="serial_number">Serial Number</label>
+                    <input type="text" id="serial_number" name="serial_number" class="form-control" placeholder="Serial No.">
+                </div>
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status" name="status" class="form-control">
+                        <option value="AVAILABLE">Available</option>
+                        <option value="IN_USE">In Use</option>
+                        <option value="REPAIR">In Repair</option>
+                        <option value="DAMAGED">Damaged</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="assigned_to">Assign To User</label>
+                <select id="assigned_to" name="assigned_to" class="form-control">
+                    <option value="">Unassigned</option>
+                    {% for usr in users %}
+                        <option value="{{ usr.id }}">{{ usr.username }} ({{ usr.get_role_display }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Asset</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 6: Edit Asset -->
+<div class="modal" id="editAssetModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Edit Tracked Asset</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_asset">
+            <input type="hidden" id="edit_asset_id" name="asset_id">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_asset_tag">Asset Tag</label>
+                    <input type="text" id="edit_asset_tag" name="asset_tag" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_asset_item">Inventory Item</label>
+                    <select id="edit_asset_item" name="item" class="form-control" required>
+                        {% for item in items %}
+                            <option value="{{ item.id }}">{{ item.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="edit_serial_number">Serial Number</label>
+                    <input type="text" id="edit_serial_number" name="serial_number" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="edit_status">Status</label>
+                    <select id="edit_status" name="status" class="form-control">
+                        <option value="AVAILABLE">Available</option>
+                        <option value="IN_USE">In Use</option>
+                        <option value="REPAIR">In Repair</option>
+                        <option value="DAMAGED">Damaged</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="edit_assigned_to">Assign To User</label>
+                <select id="edit_assigned_to" name="assigned_to" class="form-control">
+                    <option value="">Unassigned</option>
+                    {% for usr in users %}
+                        <option value="{{ usr.id }}">{{ usr.username }} ({{ usr.get_role_display }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Update Asset</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reusable Delete Modal -->
+<div class="modal" id="genericDeleteModal">
+    <div class="modal-card" style="max-width:450px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="color:#dc2626;"><i class="fas fa-exclamation-triangle"></i> Confirm Deletion</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color: var(--text-main); margin-bottom: 1.5rem;">
+            Are you sure you want to delete <span id="delete_target_label"></span> <strong id="delete_target_name"></strong>? This operation cannot be reversed.
+        </p>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" id="delete_action" name="action" value="">
+            <input type="hidden" id="delete_id_input" name="" value="">
+
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: #fff;">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Tab system logic
         const tabBtns = document.querySelectorAll('.tab-btn');
         const tabPanes = document.querySelectorAll('.tab-pane');
 
@@ -399,27 +846,258 @@
             });
         });
 
-        const itemModal = document.getElementById('addItemModal');
-        const supplierModal = document.getElementById('addSupplierModal');
+        // Add Modals triggers
+        const addItemModal = document.getElementById('addItemModal');
+        const addSupplierModal = document.getElementById('addSupplierModal');
+        const addAssetModal = document.getElementById('addAssetModal');
+
         const openItemBtn = document.getElementById('openItemModalBtn');
         const openSupplierBtn = document.getElementById('openSupplierModalBtn');
+        const openAssetBtn = document.getElementById('openAssetModalBtn');
+
+        if(openItemBtn) openItemBtn.addEventListener('click', () => addItemModal.classList.add('active'));
+        if(openSupplierBtn) openSupplierBtn.addEventListener('click', () => addSupplierModal.classList.add('active'));
+        if(openAssetBtn) openAssetBtn.addEventListener('click', () => addAssetModal.classList.add('active'));
+
+        // Close all modals handler
         const closeBtns = document.querySelectorAll('.closeModalBtn');
-
-        if(openItemBtn) openItemBtn.addEventListener('click', () => itemModal.classList.add('active'));
-        if(openSupplierBtn) openSupplierBtn.addEventListener('click', () => supplierModal.classList.add('active'));
-
         closeBtns.forEach(btn => {
             btn.addEventListener('click', () => {
-                itemModal.classList.remove('active');
-                supplierModal.classList.remove('active');
+                document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
             });
         });
 
         window.addEventListener('click', (e) => {
-            if(e.target === itemModal) itemModal.classList.remove('active');
-            if(e.target === supplierModal) supplierModal.classList.remove('active');
+            if(e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
+            }
         });
+
+        // ==========================================
+        // REAL-TIME SEARCH & FILTERING JS LOGIC
+        // ==========================================
+
+        // 1. Inventory Items Filtering
+        const itemSearchInput = document.getElementById('itemSearchInput');
+        const itemCategoryFilter = document.getElementById('itemCategoryFilter');
+        const itemSupplierFilter = document.getElementById('itemSupplierFilter');
+        const itemLocationFilter = document.getElementById('itemLocationFilter');
+        const itemMinQtyInput = document.getElementById('itemMinQtyInput');
+        const itemMaxPriceInput = document.getElementById('itemMaxPriceInput');
+        const itemReorderFilter = document.getElementById('itemReorderFilter');
+        
+        const itemRows = document.querySelectorAll('.item-row');
+        const itemsNoResultRow = document.getElementById('itemsNoResultRow');
+
+        function filterItems() {
+            const query = itemSearchInput ? itemSearchInput.value.toLowerCase().trim() : '';
+            const category = itemCategoryFilter ? itemCategoryFilter.value : 'ALL';
+            const supplier = itemSupplierFilter ? itemSupplierFilter.value : 'ALL';
+            const location = itemLocationFilter ? itemLocationFilter.value.toLowerCase().trim() : '';
+            const minQty = itemMinQtyInput && itemMinQtyInput.value !== '' ? parseFloat(itemMinQtyInput.value) : null;
+            const maxPrice = itemMaxPriceInput && itemMaxPriceInput.value !== '' ? parseFloat(itemMaxPriceInput.value) : null;
+            const reorder = itemReorderFilter ? itemReorderFilter.value : 'ALL';
+
+            let visibleCount = 0;
+
+            itemRows.forEach(row => {
+                const textContent = row.textContent.toLowerCase();
+                const rowCategory = row.getAttribute('data-category');
+                const rowSupplier = row.getAttribute('data-supplier');
+                const rowQuantity = parseFloat(row.getAttribute('data-quantity')) || 0;
+                const rowPrice = parseFloat(row.getAttribute('data-price')) || 0;
+                const rowLocation = (row.getAttribute('data-location') || '').toLowerCase();
+                const rowReorder = parseFloat(row.getAttribute('data-reorder')) || 0;
+
+                const matchesSearch = textContent.includes(query);
+                const matchesCategory = (category === 'ALL' || rowCategory === category);
+                const matchesSupplier = (supplier === 'ALL' || rowSupplier === supplier);
+                const matchesLocation = !location || rowLocation.includes(location);
+                const matchesQty = minQty === null || rowQuantity >= minQty;
+                const matchesPrice = maxPrice === null || rowPrice <= maxPrice;
+
+                let matchesReorder = true;
+                if (reorder === 'LOW') {
+                    matchesReorder = rowQuantity <= rowReorder;
+                } else if (reorder === 'OK') {
+                    matchesReorder = rowQuantity > rowReorder;
+                }
+
+                if (matchesSearch && matchesCategory && matchesSupplier && matchesLocation && matchesQty && matchesPrice && matchesReorder) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (itemsNoResultRow) {
+                itemsNoResultRow.style.display = (visibleCount === 0 && itemRows.length > 0) ? '' : 'none';
+            }
+        }
+
+        if (itemSearchInput) itemSearchInput.addEventListener('input', filterItems);
+        if (itemCategoryFilter) itemCategoryFilter.addEventListener('change', filterItems);
+        if (itemSupplierFilter) itemSupplierFilter.addEventListener('change', filterItems);
+        if (itemLocationFilter) itemLocationFilter.addEventListener('input', filterItems);
+        if (itemMinQtyInput) itemMinQtyInput.addEventListener('input', filterItems);
+        if (itemMaxPriceInput) itemMaxPriceInput.addEventListener('input', filterItems);
+        if (itemReorderFilter) itemReorderFilter.addEventListener('change', filterItems);
+
+        // 2. Suppliers Filtering
+        const supplierSearchInput = document.getElementById('supplierSearchInput');
+        const supplierContactFilter = document.getElementById('supplierContactFilter');
+        const supplierPhoneFilter = document.getElementById('supplierPhoneFilter');
+        const supplierEmailFilter = document.getElementById('supplierEmailFilter');
+        const supplierAddressFilter = document.getElementById('supplierAddressFilter');
+        
+        const supplierRows = document.querySelectorAll('.supplier-row');
+        const suppliersNoResultRow = document.getElementById('suppliersNoResultRow');
+
+        function filterSuppliers() {
+            const query = supplierSearchInput ? supplierSearchInput.value.toLowerCase().trim() : '';
+            const contact = supplierContactFilter ? supplierContactFilter.value.toLowerCase().trim() : '';
+            const phone = supplierPhoneFilter ? supplierPhoneFilter.value.toLowerCase().trim() : '';
+            const email = supplierEmailFilter ? supplierEmailFilter.value.toLowerCase().trim() : '';
+            const address = supplierAddressFilter ? supplierAddressFilter.value.toLowerCase().trim() : '';
+
+            let visibleCount = 0;
+
+            supplierRows.forEach(row => {
+                const textContent = row.textContent.toLowerCase();
+                const rowContact = (row.getAttribute('data-contact') || '').toLowerCase();
+                const rowPhone = (row.getAttribute('data-phone') || '').toLowerCase();
+                const rowEmail = (row.getAttribute('data-email') || '').toLowerCase();
+                const rowAddress = (row.getAttribute('data-address') || '').toLowerCase();
+
+                const matchesSearch = textContent.includes(query);
+                const matchesContact = !contact || rowContact.includes(contact);
+                const matchesPhone = !phone || rowPhone.includes(phone);
+                const matchesEmail = !email || rowEmail.includes(email);
+                const matchesAddress = !address || rowAddress.includes(address);
+
+                if (matchesSearch && matchesContact && matchesPhone && matchesEmail && matchesAddress) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (suppliersNoResultRow) {
+                suppliersNoResultRow.style.display = (visibleCount === 0 && supplierRows.length > 0) ? '' : 'none';
+            }
+        }
+
+        if (supplierSearchInput) supplierSearchInput.addEventListener('input', filterSuppliers);
+        if (supplierContactFilter) supplierContactFilter.addEventListener('input', filterSuppliers);
+        if (supplierPhoneFilter) supplierPhoneFilter.addEventListener('input', filterSuppliers);
+        if (supplierEmailFilter) supplierEmailFilter.addEventListener('input', filterSuppliers);
+        if (supplierAddressFilter) supplierAddressFilter.addEventListener('input', filterSuppliers);
+
+        // 3. Tracked Assets Filtering
+        const assetSearchInput = document.getElementById('assetSearchInput');
+        const assetItemFilter = document.getElementById('assetItemFilter');
+        const assetSerialFilter = document.getElementById('assetSerialFilter');
+        const assetAssignedFilter = document.getElementById('assetAssignedFilter');
+        const assetStatusFilter = document.getElementById('assetStatusFilter');
+        
+        const assetRows = document.querySelectorAll('.asset-row');
+        const assetsNoResultRow = document.getElementById('assetsNoResultRow');
+
+        function filterAssets() {
+            const query = assetSearchInput ? assetSearchInput.value.toLowerCase().trim() : '';
+            const item = assetItemFilter ? assetItemFilter.value : 'ALL';
+            const serial = assetSerialFilter ? assetSerialFilter.value.toLowerCase().trim() : '';
+            const assigned = assetAssignedFilter ? assetAssignedFilter.value : 'ALL';
+            const status = assetStatusFilter ? assetStatusFilter.value : 'ALL';
+
+            let visibleCount = 0;
+
+            assetRows.forEach(row => {
+                const textContent = row.textContent.toLowerCase();
+                const rowItem = row.getAttribute('data-item');
+                const rowSerial = (row.getAttribute('data-serial') || '').toLowerCase();
+                const rowAssigned = row.getAttribute('data-assigned');
+                const rowStatus = row.getAttribute('data-status');
+
+                const matchesSearch = textContent.includes(query);
+                const matchesItem = (item === 'ALL' || rowItem === item);
+                const matchesSerial = !serial || rowSerial.includes(serial);
+                const matchesAssigned = (assigned === 'ALL' || rowAssigned === assigned);
+                const matchesStatus = (status === 'ALL' || rowStatus === status);
+
+                if (matchesSearch && matchesItem && matchesSerial && matchesAssigned && matchesStatus) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (assetsNoResultRow) {
+                assetsNoResultRow.style.display = (visibleCount === 0 && assetRows.length > 0) ? '' : 'none';
+            }
+        }
+
+        if (assetSearchInput) assetSearchInput.addEventListener('input', filterAssets);
+        if (assetItemFilter) assetItemFilter.addEventListener('change', filterAssets);
+        if (assetSerialFilter) assetSerialFilter.addEventListener('input', filterAssets);
+        if (assetAssignedFilter) assetAssignedFilter.addEventListener('change', filterAssets);
+        if (assetStatusFilter) assetStatusFilter.addEventListener('change', filterAssets);
     });
+
+    // Edit Item Modal Populate
+    function openEditItemModal(id, name, category, quantity, unitPrice, supplierId, location, reorderLevel) {
+        document.getElementById('edit_item_id').value = id;
+        document.getElementById('edit_item_name').value = name;
+        document.getElementById('edit_item_category').value = category;
+        document.getElementById('edit_item_quantity').value = quantity;
+        document.getElementById('edit_item_unit_price').value = unitPrice;
+        document.getElementById('edit_item_supplier').value = supplierId;
+        document.getElementById('edit_item_location').value = location;
+        document.getElementById('edit_item_reorder_level').value = reorderLevel;
+
+        document.getElementById('editItemModal').classList.add('active');
+    }
+
+    // Edit Supplier Modal Populate
+    function openEditSupplierModal(id, name, contactPerson, phone, email, address) {
+        document.getElementById('edit_supplier_id').value = id;
+        document.getElementById('edit_sup_name').value = name;
+        document.getElementById('edit_contact_person').value = contactPerson;
+        document.getElementById('edit_phone').value = phone;
+        document.getElementById('edit_email').value = email;
+        document.getElementById('edit_address').value = address;
+
+        document.getElementById('editSupplierModal').classList.add('active');
+    }
+
+    // Edit Asset Modal Populate
+    function openEditAssetModal(id, tag, itemId, serialNumber, assignedToId, status) {
+        document.getElementById('edit_asset_id').value = id;
+        document.getElementById('edit_asset_tag').value = tag;
+        document.getElementById('edit_asset_item').value = itemId;
+        document.getElementById('edit_serial_number').value = serialNumber;
+        document.getElementById('edit_assigned_to').value = assignedToId;
+        document.getElementById('edit_status').value = status;
+
+        document.getElementById('editAssetModal').classList.add('active');
+    }
+
+    // Reusable Delete Modal Launcher
+    function openDeleteModal(actionName, inputParamName, targetId, targetName, targetLabel) {
+        document.getElementById('delete_action').value = actionName;
+        
+        const deleteIdInput = document.getElementById('delete_id_input');
+        deleteIdInput.name = inputParamName;
+        deleteIdInput.value = targetId;
+
+        document.getElementById('delete_target_label').innerText = targetLabel;
+        document.getElementById('delete_target_name').innerText = targetName;
+
+        document.getElementById('genericDeleteModal').classList.add('active');
+    }
 </script>
 
 {% endblock %}

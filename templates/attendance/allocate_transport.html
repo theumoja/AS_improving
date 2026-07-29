@@ -9,7 +9,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
         flex-wrap: wrap;
         gap: 1rem;
         background: #ffffff;
@@ -38,6 +38,46 @@
         align-items: center;
         justify-content: center;
         font-size: 1.25rem;
+    }
+
+    /* Filter Toolbar Styles */
+    .filter-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    /* Action Buttons */
+    .btn-action {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 0.35rem 0.6rem;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+    }
+    .btn-action-edit {
+        color: #2563eb;
+        border-color: rgba(37, 99, 235, 0.3);
+    }
+    .btn-action-edit:hover {
+        background: rgba(37, 99, 235, 0.1);
+    }
+    .btn-action-delete {
+        color: #dc2626;
+        border-color: rgba(220, 38, 38, 0.3);
+    }
+    .btn-action-delete:hover {
+        background: rgba(220, 38, 38, 0.1);
     }
 
     /* Modal Context Interface Components */
@@ -95,7 +135,7 @@
     {% endfor %}
 {% endif %}
 
-<!-- Header & Action Toolbar -->
+<!-- Header Toolbar -->
 <div class="page-header-actions">
     <div class="header-title-group">
         <div class="header-icon-box">
@@ -104,14 +144,64 @@
         <h2>Allocate Transport</h2>
     </div>
 
-    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-        <div style="position: relative; min-width: 220px;">
+    <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+        <i class="fas fa-plus-circle"></i> New Allocation
+    </button>
+</div>
+
+<!-- Multi-Filter Control Panel -->
+<div class="filter-card">
+    <div class="filter-grid">
+        <!-- Live Search -->
+        <div style="position: relative;">
             <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search student, route, term..." style="padding-left: 2.25rem;">
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search keyword..." style="padding-left: 2.25rem;">
         </div>
-        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
-            <i class="fas fa-plus-circle"></i> New Allocation
-        </button>
+
+        <!-- Student Filter -->
+        <div>
+            <select id="filterStudent" class="form-control">
+                <option value="">All Students</option>
+                {% for s in students %}
+                    <option value="{{ s.reg_number }}" {% if selected_student == s.reg_number %}selected{% endif %}>
+                        {{ s.name }} ({{ s.reg_number }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Route Filter -->
+        <div>
+            <select id="filterRoute" class="form-control">
+                <option value="">All Routes</option>
+                {% for r in routes %}
+                    <option value="{{ r.id }}" {% if selected_route == r.id|stringformat:"s" %}selected{% endif %}>
+                        {{ r.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Term Filter -->
+        <div>
+            <select id="filterTerm" class="form-control">
+                <option value="">All Terms</option>
+                {% for t in terms %}
+                    <option value="{{ t.id }}" {% if selected_term == t.id|stringformat:"s" %}selected{% endif %}>
+                        {{ t }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Status Filter -->
+        <div>
+            <select id="filterStatus" class="form-control">
+                <option value="">All Statuses</option>
+                <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
+                <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
+            </select>
+        </div>
     </div>
 </div>
 
@@ -124,19 +214,25 @@
                 <th>Route</th>
                 <th>Term</th>
                 <th>Status</th>
+                <th style="text-align: right; padding-right: 1.5rem;">Actions</th>
             </tr>
         </thead>
         <tbody id="allocationsTableBody">
-            {% for alloc in allocations %}[cite: 15] 
-            <tr class="allocation-row">
+            {% for alloc in allocations %}
+            <tr class="allocation-row" 
+                data-student="{{ alloc.student.reg_number }}" 
+                data-route="{{ alloc.route.id }}" 
+                data-term="{{ alloc.term.id }}" 
+                data-status="{% if alloc.is_active %}active{% else %}inactive{% endif %}">
                 <td style="font-weight: 600; color: var(--text-main);">
-                    <i class="fas fa-user-graduate" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ alloc.student.name }}[cite: 15]
+                    <i class="fas fa-user-graduate" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ alloc.student.name }}
+                    <small style="color: var(--text-muted); display: block; font-weight: normal;">{{ alloc.student.reg_number }}</small>
                 </td>
                 <td>
-                    <i class="fas fa-route" style="margin-right: 0.3rem; color: var(--text-muted);"></i> {{ alloc.route.name }}[cite: 15]
+                    <i class="fas fa-route" style="margin-right: 0.3rem; color: var(--text-muted);"></i> {{ alloc.route.name }}
                 </td>
                 <td>
-                    <span style="font-weight: 600; color: var(--text-muted);">{{ alloc.term }}</span>[cite: 15]
+                    <span style="font-weight: 600; color: var(--text-muted);">{{ alloc.term }}</span>
                 </td>
                 <td>
                     {% if alloc.is_active %}
@@ -145,17 +241,32 @@
                         <span style="color: #6b7280; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-times-circle"></i> Inactive</span>
                     {% endif %}
                 </td>
+                <td style="text-align: right; padding-right: 1.5rem;">
+                    <button class="btn-action btn-action-edit edit-btn" 
+                            data-id="{{ alloc.id }}"
+                            data-student-name="{{ alloc.student.name }}"
+                            data-route-id="{{ alloc.route.id }}"
+                            data-term-id="{{ alloc.term.id }}"
+                            data-active="{{ alloc.is_active|lower }}">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn-action btn-action-delete delete-btn" 
+                            data-id="{{ alloc.id }}"
+                            data-student-name="{{ alloc.student.name }}">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </button>
+                </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-bus-alt" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No transport allocations recorded.
                 </td>
             </tr>
             {% endfor %}
             <tr id="searchEmptyRow" style="display: none;">
-                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No matching allocations discovered for your search criteria.
                 </td>
@@ -164,12 +275,12 @@
     </table>
 </div>
 
-<!-- Modal Creator Interface -->
+<!-- Modal: Create Allocation -->
 <div class="modal" id="singleAddModal">
     <div class="modal-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
             <h3>Allocate Transport</h3>
-            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
         <form method="POST" action="">
             {% csrf_token %}
@@ -178,8 +289,8 @@
                 <label for="student_id">Student</label>
                 <select id="student_id" name="student_id" class="form-control" required>
                     <option value="">Select Student...</option>
-                    {% for s in students %}[cite: 15]
-                        <option value="{{ s.reg_number }}">{{ s.name }} ({{ s.reg_number }})</option>[cite: 15]
+                    {% for s in students %}
+                        <option value="{{ s.reg_number }}">{{ s.name }} ({{ s.reg_number }})</option>
                     {% endfor %}
                 </select>
             </div>
@@ -188,8 +299,8 @@
                 <label for="route_id">Route</label>
                 <select id="route_id" name="route_id" class="form-control" required>
                     <option value="">Select Route...</option>
-                    {% for r in routes %}[cite: 15]
-                        <option value="{{ r.id }}">{{ r.name }}</option>[cite: 15]
+                    {% for r in routes %}
+                        <option value="{{ r.id }}">{{ r.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -198,15 +309,85 @@
                 <label for="term_id">Term</label>
                 <select id="term_id" name="term_id" class="form-control" required>
                     <option value="">Select Term...</option>
-                    {% for t in terms %}[cite: 15]
-                        <option value="{{ t.id }}">{{ t }}</option>[cite: 15]
+                    {% for t in terms %}
+                        <option value="{{ t.id }}">{{ t }}</option>
                     {% endfor %}
                 </select>
             </div>
 
             <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
-                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
                 <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Allocate Transport</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Allocation -->
+<div class="modal" id="editModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Edit Transport Allocation</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="editForm" method="POST" action="">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label>Student</label>
+                <input type="text" id="editStudentName" class="form-control" disabled style="background:#f3f4f6; color:var(--text-muted);">
+            </div>
+
+            <div class="form-group">
+                <label for="edit_route_id">Route</label>
+                <select id="edit_route_id" name="route_id" class="form-control" required>
+                    {% for r in routes %}
+                        <option value="{{ r.id }}">{{ r.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="edit_term_id">Term</label>
+                <select id="edit_term_id" name="term_id" class="form-control" required>
+                    {% for t in terms %}
+                        <option value="{{ t.id }}">{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="edit_is_active">Status</label>
+                <select id="edit_is_active" name="is_active" class="form-control" required>
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                </select>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Delete Allocation -->
+<div class="modal" id="deleteModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3 style="color: #dc2626;">Delete Allocation</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="deleteForm" method="POST" action="">
+            {% csrf_token %}
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+                Are you sure you want to delete the transport allocation for <strong id="deleteStudentName" style="color: var(--text-main);"></strong>?
+            </p>
+
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: white;">Delete</button>
             </div>
         </form>
     </div>
@@ -214,43 +395,130 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const modal = document.getElementById('singleAddModal');
-        const openBtn = document.getElementById('openModalBtn');
-        const closeBtn = document.getElementById('closeModalBtn');
-        const cancelBtn = document.getElementById('cancelModalBtn');
+        // Modal Handlers
+        const createModal = document.getElementById('singleAddModal');
+        const editModal = document.getElementById('editModal');
+        const deleteModal = document.getElementById('deleteModal');
 
-        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
-        const closeModal = () => modal.classList.remove('active');
-        
-        if(closeBtn) closeBtn.addEventListener('click', closeModal);
-        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
-        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+        const openCreateBtn = document.getElementById('openModalBtn');
+        const closeBtns = document.querySelectorAll('.closeModalBtn');
 
-        // Automated Frontend Search Matrix
+        if(openCreateBtn) openCreateBtn.addEventListener('click', () => createModal.classList.add('active'));
+
+        closeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                createModal.classList.remove('active');
+                editModal.classList.remove('active');
+                deleteModal.classList.remove('active');
+            });
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === createModal) createModal.classList.remove('active');
+            if (e.target === editModal) editModal.classList.remove('active');
+            if (e.target === deleteModal) deleteModal.classList.remove('active');
+        });
+
+        // Edit Modal Trigger
+        const editBtns = document.querySelectorAll('.edit-btn');
+        const editForm = document.getElementById('editForm');
+        const editStudentName = document.getElementById('editStudentName');
+        const editRouteId = document.getElementById('edit_route_id');
+        const editTermId = document.getElementById('edit_term_id');
+        const editIsActive = document.getElementById('edit_is_active');
+
+        editBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                const studentName = this.getAttribute('data-student-name');
+                const routeId = this.getAttribute('data-route-id');
+                const termId = this.getAttribute('data-term-id');
+                const active = this.getAttribute('data-active');
+
+                // Dynamic Action URL
+                let editUrl = "{% url 'attendance:edit_transport_allocation' 0 %}".replace('0', id);
+                editForm.action = editUrl;
+
+                editStudentName.value = studentName;
+                editRouteId.value = routeId;
+                editTermId.value = termId;
+                editIsActive.value = active === 'true' ? 'true' : 'false';
+
+                editModal.classList.add('active');
+            });
+        });
+
+        // Delete Modal Trigger
+        const deleteBtns = document.querySelectorAll('.delete-btn');
+        const deleteForm = document.getElementById('deleteForm');
+        const deleteStudentName = document.getElementById('deleteStudentName');
+
+        deleteBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                const studentName = this.getAttribute('data-student-name');
+
+                // Dynamic Action URL
+                let deleteUrl = "{% url 'attendance:delete_transport_allocation' 0 %}".replace('0', id);
+                deleteForm.action = deleteUrl;
+
+                deleteStudentName.textContent = studentName;
+                deleteModal.classList.add('active');
+            });
+        });
+
+        // Live Filtering Logic
         const searchInput = document.getElementById('dashboardSearch');
+        const filterStudent = document.getElementById('filterStudent');
+        const filterRoute = document.getElementById('filterRoute');
+        const filterTerm = document.getElementById('filterTerm');
+        const filterStatus = document.getElementById('filterStatus');
+
         const dataRows = document.querySelectorAll('.allocation-row');
         const emptyRow = document.getElementById('searchEmptyRow');
 
-        if (searchInput) {
-            searchInput.addEventListener('input', function() {
-                const criteria = this.value.toLowerCase().trim();
-                let matchingCount = 0;
+        function applyFilters() {
+            const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const selectedStudent = filterStudent ? filterStudent.value : '';
+            const selectedRoute = filterRoute ? filterRoute.value : '';
+            const selectedTerm = filterTerm ? filterTerm.value : '';
+            const selectedStatus = filterStatus ? filterStatus.value : '';
 
-                dataRows.forEach(row => {
-                    const searchableText = row.textContent.toLowerCase();
-                    if (searchableText.includes(criteria)) {
-                        row.style.display = '';
-                        matchingCount++;
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
+            let matchingCount = 0;
 
-                if (emptyRow) {
-                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            dataRows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const rowStudent = row.getAttribute('data-student') || '';
+                const rowRoute = row.getAttribute('data-route') || '';
+                const rowTerm = row.getAttribute('data-term') || '';
+                const rowStatus = row.getAttribute('data-status') || '';
+
+                const matchesQuery = !query || text.includes(query);
+                const matchesStudent = !selectedStudent || rowStudent === selectedStudent;
+                const matchesRoute = !selectedRoute || rowRoute === selectedRoute;
+                const matchesTerm = !selectedTerm || rowTerm === selectedTerm;
+                const matchesStatus = !selectedStatus || rowStatus === selectedStatus;
+
+                if (matchesQuery && matchesStudent && matchesRoute && matchesTerm && matchesStatus) {
+                    row.style.display = '';
+                    matchingCount++;
+                } else {
+                    row.style.display = 'none';
                 }
             });
+
+            if (emptyRow) {
+                emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            }
         }
+
+        if (searchInput) searchInput.addEventListener('input', applyFilters);
+        if (filterStudent) filterStudent.addEventListener('change', applyFilters);
+        if (filterRoute) filterRoute.addEventListener('change', applyFilters);
+        if (filterTerm) filterTerm.addEventListener('change', applyFilters);
+        if (filterStatus) filterStatus.addEventListener('change', applyFilters);
+
+        applyFilters();
     });
 </script>
 

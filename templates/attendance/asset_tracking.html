@@ -5,11 +5,12 @@
 {% endblock %}
 
 <style>
+    /* Header Toolbar */
     .page-header-actions {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
         flex-wrap: wrap;
         gap: 1rem;
         background: #ffffff;
@@ -40,8 +41,85 @@
         font-size: 1.25rem;
     }
 
-    /* Movement Badges */
-    .movement-badge {
+    /* KPI Summary Cards */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .kpi-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+    .kpi-data h4 {
+        margin: 0;
+        font-size: 0.825rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        font-weight: 600;
+    }
+    .kpi-data .kpi-value {
+        font-size: 1.65rem;
+        font-weight: 800;
+        color: var(--text-main);
+        margin-top: 0.35rem;
+        line-height: 1;
+    }
+    .kpi-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+    }
+    .kpi-icon.total { background: rgba(37, 99, 235, 0.1); color: #2563eb; }
+    .kpi-icon.assigned { background: rgba(16, 185, 129, 0.1); color: #059669; }
+
+    /* Live Search & Filter Bar */
+    .table-toolbar {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+        background: #f8fafc;
+        padding: 0.85rem 1rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .search-box-wrapper {
+        position: relative;
+        flex: 2 1 240px;
+        min-width: 200px;
+    }
+    .search-box-wrapper i {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+    .search-box-wrapper .form-control {
+        padding-left: 2.3rem;
+    }
+    .filter-select {
+        flex: 1 1 180px;
+        min-width: 150px;
+    }
+
+    /* Status Badges */
+    .status-badge {
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
@@ -49,9 +127,58 @@
         border-radius: var(--radius-sm);
         font-weight: 700;
         font-size: 0.825rem;
+        text-transform: capitalize;
     }
-    .badge-in  { background: rgba(16, 185, 129, 0.1); color: #059669; }
-    .badge-out { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+    .status-available   { background: rgba(16, 185, 129, 0.1); color: #059669; }
+    .status-assigned    { background: rgba(37, 99, 235, 0.1); color: #2563eb; }
+    .status-in-use      { background: rgba(14, 165, 233, 0.1); color: #0284c7; } /* Added for IN_USE */
+    .status-maintenance { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+    .status-retired     { background: rgba(107, 114, 128, 0.1); color: #4b5563; }
+    .status-danger      { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+
+    /* Action Links */
+    .action-link {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+        transition: var(--transition);
+        background: none;
+        border: none;
+        cursor: pointer;
+    }
+    .action-link.edit { color: #2563eb; }
+    .action-link.delete { color: #dc2626; }
+    .action-link:hover { opacity: 0.7; }
+
+    /* Modal Styling */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center; justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%; max-width: 500px;
+        padding: 1.75rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+    .form-group { margin-bottom: 1.25rem; }
+    .form-group label {
+        display: block; font-size: 0.85rem; font-weight: 600;
+        margin-bottom: 0.4rem; color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%; padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
 </style>
 
 <!-- Messages Bar -->
@@ -64,89 +191,293 @@
     {% endfor %}
 {% endif %}
 
-<!-- Header Toolbar -->
+<!-- Page Header -->
 <div class="page-header-actions">
     <div class="header-title-group">
         <div class="header-icon-box">
-            <i class="fas fa-chart-line"></i>
+            <i class="fas fa-laptop-house"></i>
         </div>
-        <h2>Asset Movement Report</h2>
+        <div>
+            <h2>Asset Tracking & Assignment</h2>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">Assign organizational assets to staff members, manage statuses, and track lifecycle</span>
+        </div>
     </div>
 </div>
 
-<!-- Filter Card -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="GET" class="row g-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) 140px; gap: 1rem; align-items: flex-end;">
-            <div>
-                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem; color:var(--text-muted);">Inventory Item</label>
-                <select name="item" class="form-control">
-                    <option value="">All Items</option>
-                    {% for i in items %}
-                        <option value="{{ i.id }}" {% if i.id|stringformat:"s" == selected_item %}selected{% endif %}>{{ i.name }}</option>
+<!-- KPI Cards -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-data">
+            <h4>Total Assets</h4>
+            <div class="kpi-value">{{ assets|length }}</div>
+        </div>
+        <div class="kpi-icon total">
+            <i class="fas fa-boxes"></i>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-data">
+            <h4>Assigned Assets</h4>
+            <div class="kpi-value" style="color: #2563eb;">
+                {% with assigned_count=0 %}
+                    {% for a in assets %}{% if a.assigned_to %}{% endif %}{% endfor %}
+                    {{ assets|length }}
+                {% endwith %}
+            </div>
+        </div>
+        <div class="kpi-icon assigned">
+            <i class="fas fa-user-check"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Live Filter Toolbar -->
+<div class="table-toolbar">
+    <div class="search-box-wrapper">
+        <i class="fas fa-search"></i>
+        <input type="text" id="assetSearchInput" class="form-control" placeholder="Search asset tag, item name, assigned staff...">
+    </div>
+    
+    <!-- Expanded Status Options Filter (IN_USE included) -->
+    <select id="assetStatusFilter" class="form-control filter-select">
+        <option value="ALL">All Statuses</option>
+        <option value="AVAILABLE">Available</option>
+        <option value="ASSIGNED">Assigned</option>
+        <option value="IN_USE">In Use</option>
+        <option value="MAINTENANCE">Maintenance</option>
+        <option value="RETIRED">Retired</option>
+        <option value="DAMAGED">Damaged</option>
+        <option value="DISPOSED">Disposed</option>
+        <option value="LOST">Lost</option>
+    </select>
+</div>
+
+<!-- Main Asset Table -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table" id="assetTable">
+        <thead>
+            <tr>
+                <th>Asset / Tag</th>
+                <th>Inventory Item</th>
+                <th>Assigned To</th>
+                <th>Status</th>
+                <th style="text-align: right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for asset in assets %}
+            <tr class="asset-row" data-status="{{ asset.status|upper }}">
+                <td style="font-weight: 600; color: var(--text-main); font-family: monospace;">
+                    <i class="fas fa-barcode" style="margin-right: 0.4rem; color: var(--text-muted);"></i> {{ asset }}
+                </td>
+                <td style="font-weight: 600; color: var(--text-main);">
+                    {{ asset.item.name }}
+                </td>
+                <td>
+                    {% if asset.assigned_to %}
+                        <span style="font-weight: 600; color: var(--text-main);">
+                            <i class="fas fa-user-circle" style="margin-right: 0.3rem; color: #2563eb;"></i>
+                            {{ asset.assigned_to.get_full_name|default:asset.assigned_to.username }}
+                        </span>
+                    {% else %}
+                        <span style="color: var(--text-muted); font-style: italic;">Unassigned</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if asset.status|upper == 'AVAILABLE' %}
+                        <span class="status-badge status-available"><i class="fas fa-check-circle"></i> Available</span>
+                    {% elif asset.status|upper == 'ASSIGNED' %}
+                        <span class="status-badge status-assigned"><i class="fas fa-user-tag"></i> Assigned</span>
+                    {% elif asset.status|upper == 'IN_USE' or asset.status|upper == 'IN USE' %}
+                        <span class="status-badge status-in-use"><i class="fas fa-desktop"></i> In Use</span>
+                    {% elif asset.status|upper == 'MAINTENANCE' %}
+                        <span class="status-badge status-maintenance"><i class="fas fa-tools"></i> Maintenance</span>
+                    {% elif asset.status|upper == 'RETIRED' %}
+                        <span class="status-badge status-retired"><i class="fas fa-archive"></i> Retired</span>
+                    {% elif asset.status|upper == 'DAMAGED' or asset.status|upper == 'DISPOSED' or asset.status|upper == 'LOST' %}
+                        <span class="status-badge status-danger"><i class="fas fa-exclamation-circle"></i> {{ asset.status|title }}</span>
+                    {% else %}
+                        <span class="status-badge status-retired"><i class="fas fa-info-circle"></i> {{ asset.status }}</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: right;">
+                    <!-- Edit Link -->
+                    <button type="button" class="action-link edit" 
+                        onclick="openAssignModal('{{ asset.id }}', '{{ asset|escapejs }}', '{{ asset.assigned_to.id|default:'' }}', '{{ asset.status|escapejs }}')">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+
+                    <!-- Delete Link -->
+                    <button type="button" class="action-link delete" 
+                        onclick="openDeleteModal('{{ asset.id }}', '{{ asset|escapejs }}')">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-box-open" style="font-size: 2.25rem; display: block; margin-bottom: 0.75rem; opacity: 0.6;"></i>
+                    No assets recorded in the system.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="emptySearchRow" style="display: none;">
+                <td colspan="5" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 1.75rem; display: block; margin-bottom: 0.5rem; opacity: 0.6;"></i>
+                    No matching assets found.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal 1: Assign / Edit Asset Status -->
+<div class="modal" id="assignAssetModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+            <h3>Update Asset Assignment</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update">
+            <input type="hidden" name="asset_id" id="modal_asset_id">
+
+            <div class="form-group">
+                <label>Asset</label>
+                <input type="text" id="modal_asset_display" class="form-control" readonly style="background: #f1f5f9; font-weight: 600;">
+            </div>
+
+            <div class="form-group">
+                <label for="assigned_to">Assign To Staff Member</label>
+                <select name="assigned_to" id="modal_assigned_to" class="form-control">
+                    <option value="">-- Unassigned --</option>
+                    {% for user in staff_users %}
+                        <option value="{{ user.id }}">
+                            {{ user.get_full_name|default:user.username }} ({% if user.email %}{{ user.email }}{% else %}Staff{% endif %})
+                        </option>
                     {% endfor %}
                 </select>
             </div>
-            <div>
-                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem; color:var(--text-muted);">Start Date</label>
-                <input type="date" name="start_date" value="{{ start_date }}" class="form-control">
+
+            <div class="form-group">
+                <label for="status">Asset Status</label>
+                <select name="status" id="modal_status" class="form-control" required>
+                    <option value="AVAILABLE">AVAILABLE</option>
+                    <option value="ASSIGNED">ASSIGNED</option>
+                    <option value="IN_USE">IN_USE</option>
+                    <option value="MAINTENANCE">MAINTENANCE</option>
+                    <option value="RETIRED">RETIRED</option>
+                    <option value="DAMAGED">DAMAGED</option>
+                    <option value="DISPOSED">DISPOSED</option>
+                    <option value="LOST">LOST</option>
+                </select>
             </div>
-            <div>
-                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.4rem; color:var(--text-muted);">End Date</label>
-                <input type="date" name="end_date" value="{{ end_date }}" class="form-control">
-            </div>
-            <div>
-                <button type="submit" class="btn" style="width: 100%; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
-                    <i class="fas fa-filter" style="margin-right:0.35rem;"></i> Filter
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    Save Assignment
                 </button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Main Table Container -->
-<div class="card" style="padding:0; overflow:hidden;">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Item Name</th>
-                <th>Movement Type</th>
-                <th>Quantity</th>
-                <th>Date & Time</th>
-                <th>Reference</th>
-                <th>Remarks</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for mov in movements %}
-            <tr>
-                <td style="font-weight: 600; color: var(--text-main);">
-                    <i class="fas fa-box" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ mov.item.name }}
-                </td>
-                <td>
-                    {% if mov.movement_type == 'IN' %}
-                        <span class="movement-badge badge-in"><i class="fas fa-arrow-down"></i> Asset In</span>
-                    {% else %}
-                        <span class="movement-badge badge-out"><i class="fas fa-arrow-up"></i> Asset Out</span>
-                    {% endif %}
-                </td>
-                <td style="font-weight: 700;">{{ mov.quantity }}</td>
-                <td style="font-size: 0.875rem; color: var(--text-muted);">
-                    <i class="far fa-clock" style="margin-right:0.3rem;"></i> {{ mov.date|date:"Y-m-d H:i" }}
-                </td>
-                <td style="font-weight: 600; font-size: 0.875rem;">{{ mov.reference|default:"-" }}</td>
-                <td style="color: var(--text-muted); font-size: 0.875rem;">{{ mov.remarks|default:"-" }}</td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                    <i class="fas fa-boxes" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
-                    No Asset movements discovered for the selected criteria.
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<!-- Modal 2: Delete Asset Confirmation -->
+<div class="modal" id="deleteAssetModal">
+    <div class="modal-card" style="max-width:450px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="color:#dc2626;"><i class="fas fa-exclamation-triangle"></i> Confirm Deletion</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color: var(--text-main); margin-bottom: 1.5rem;">
+            Are you sure you want to delete asset <strong id="delete_asset_display"></strong>? This operation cannot be reversed.
+        </p>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="asset_id" id="delete_asset_id">
+
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: #fff; border: none;">Delete</button>
+            </div>
+        </form>
+    </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Modal Close Handlers
+        const closeBtns = document.querySelectorAll('.closeModalBtn');
+
+        closeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+            });
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
+            }
+        });
+
+        // Search & Filter Logic
+        const searchInput = document.getElementById('assetSearchInput');
+        const statusFilter = document.getElementById('assetStatusFilter');
+        const rows = document.querySelectorAll('.asset-row');
+        const emptyRow = document.getElementById('emptySearchRow');
+
+        function filterTable() {
+            const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const selectedStatus = statusFilter ? statusFilter.value.toUpperCase().replace(' ', '_') : 'ALL';
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const rowStatus = row.getAttribute('data-status') ? row.getAttribute('data-status').trim().toUpperCase().replace(' ', '_') : '';
+
+                const matchesQuery = text.includes(query);
+                const matchesStatus = (selectedStatus === 'ALL' || rowStatus === selectedStatus);
+
+                if (matchesQuery && matchesStatus) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (emptyRow) {
+                emptyRow.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+            }
+        }
+
+        if (searchInput) searchInput.addEventListener('input', filterTable);
+        if (statusFilter) statusFilter.addEventListener('change', filterTable);
+    });
+
+    // Populate and open Edit Modal
+    function openAssignModal(id, assetDisplay, assignedToId, status) {
+        document.getElementById('modal_asset_id').value = id;
+        document.getElementById('modal_asset_display').value = assetDisplay;
+        document.getElementById('modal_assigned_to').value = assignedToId;
+        document.getElementById('modal_status').value = status.toUpperCase().replace(' ', '_');
+
+        document.getElementById('assignAssetModal').classList.add('active');
+    }
+
+    // Populate and open Delete Modal
+    function openDeleteModal(id, assetDisplay) {
+        document.getElementById('delete_asset_id').value = id;
+        document.getElementById('delete_asset_display').innerText = assetDisplay;
+
+        document.getElementById('deleteAssetModal').classList.add('active');
+    }
+</script>
 
 {% endblock %}

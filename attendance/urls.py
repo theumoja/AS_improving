@@ -167,9 +167,11 @@ urlpatterns = [
    # Examination
     # Examination
     path('exams/', views_admin.manage_exams, name='manage_exams'),
-    path('exams/edit/<int:exam_id>/', views_admin.edit_exam, name='edit_exam'),        # ADD THIS
-    path('exams/delete/<int:exam_id>/', views_admin.delete_exam, name='delete_exam'),  # ADD THIS
+    path('exams/edit/<int:exam_id>/', views_admin.edit_exam, name='edit_exam'),
+    path('exams/marks/<int:exam_id>/save-single/', views_users.save_single_mark, name='save_single_mark'),
+    path('exams/delete/<int:exam_id>/', views_admin.delete_exam, name='delete_exam'),
     path('exams/marks/<int:exam_id>/', views_users.manage_marks, name='manage_marks'),
+    path('exams/marks/delete/<int:mark_id>/', views_users.delete_mark, name='delete_mark'),
     path('exams/grades/', views_admin.view_grades, name='view_grades'),
     path('exams/report-card/<str:student_id>/<int:term_id>/', views_users.generate_report_card, name='generate_report_card'),
     path('exams/transcript/<str:student_id>/<int:term_id>/', views_admin.generate_transcript, name='generate_transcript'),
@@ -183,7 +185,10 @@ urlpatterns = [
 
     # Transport
     path('transport/vehicles/', views_admin.manage_vehicles, name='manage_vehicles'),
-    path('transport/allocate/', views_admin.allocate_transport, name='allocate_transport'),
+    path('allocate/transport/', views_admin.allocate_transport, name='allocate_transport'),
+    path('allocate/transport/edit/<int:pk>/', views_admin.edit_transport_allocation, name='edit_transport_allocation'),
+    path('allocate/transport/delete/<int:pk>/', views_admin.delete_transport_allocation, name='delete_transport_allocation'),
+
     path('transport/trips/', views_admin.trip_log, name='trip_log'),
     path('transport/dashboard/', views_users.transport_dashboard, name='transport_dashboard'),
 

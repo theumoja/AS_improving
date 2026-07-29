@@ -3,963 +3,486 @@
 {% block sidebar %}
 {% include "attendance/sidebar.html" %}
 {% endblock %}
+
+<!-- Load Chart.js CDN for Visual Analytics -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
-    /* ----- Animated gradient for profile card ----- */
-    @keyframes shimmer {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
+    :root {
+        --bg-card: #ffffff;
+        --border-color: #e5e7eb;
+        --text-dark: #1f2937;
+        --text-sub: #6b7280;
+        --accent-green: #10b981;
+        --accent-red: #ef4444;
+        --accent-blue: #2563eb;
+        --accent-amber: #f59e0b;
     }
 
-    /* ----- Profile Card (Glass + Gradient) ----- */
-    .profile-card {
-        background: linear-gradient(135deg, #0a2a4a, #1a3a6e, #0f3a5a);
-        background-size: 300% 300%;
-        animation: shimmer 6s ease infinite;
-        border-radius: 24px;
-        padding: 2rem 2rem 1.5rem 2rem;
-        color: #fff;
-        margin-bottom: 2rem;
-        box-shadow: 0 15px 40px -10px rgba(10, 42, 74, 0.4);
-        position: relative;
-        overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    .profile-card::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        right: -20%;
-        width: 400px;
-        height: 400px;
-        background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
-        pointer-events: none;
-    }
-    .profile-card::after {
-        content: '';
-        position: absolute;
-        bottom: -40%;
-        left: -20%;
-        width: 350px;
-        height: 350px;
-        background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
-        pointer-events: none;
-    }
-    .profile-top {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 1.5rem;
-        position: relative;
-        z-index: 1;
-    }
-    .profile-avatar {
-        width: 90px;
-        height: 90px;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.12);
-        backdrop-filter: blur(8px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2.8rem;
-        color: #bfdbfe;
-        border: 3px solid rgba(255,255,255,0.25);
-        flex-shrink: 0;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.2);
-        transition: transform 0.3s;
-    }
-    .profile-avatar:hover {
-        transform: scale(1.05);
-    }
-    .profile-info {
-        flex: 1;
-    }
-    .profile-info h2 {
-        color: #fff;
-        margin: 0 0 0.2rem 0;
-        font-size: 1.9rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        text-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    }
-    .profile-info .staff-id {
-        color: #bfdbfe;
-        font-weight: 500;
-        font-size: 0.95rem;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-    .profile-info .email {
-        color: #93b4e0;
-        font-size: 0.9rem;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-    .profile-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.6rem;
-        margin-top: 0.4rem;
-    }
-    .profile-tags .tag {
-        background: rgba(255,255,255,0.1);
-        backdrop-filter: blur(4px);
-        padding: 0.2rem 1.2rem;
-        border-radius: 50px;
-        font-size: 0.8rem;
-        font-weight: 500;
-        border: 1px solid rgba(255,255,255,0.08);
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        transition: 0.2s;
-    }
-    .profile-tags .tag:hover {
-        background: rgba(255,255,255,0.2);
-        transform: translateY(-1px);
-    }
-    .profile-tags .tag i {
-        opacity: 0.8;
-        font-size: 0.7rem;
-    }
-    .profile-stats-summary {
-        display: flex;
-        gap: 1.2rem;
-        margin-left: auto;
-        flex-wrap: wrap;
-        position: relative;
-        z-index: 1;
-    }
-    .profile-stats-summary .stat-badge {
-        text-align: center;
-        background: rgba(255,255,255,0.08);
-        padding: 0.4rem 1rem;
-        border-radius: 16px;
-        backdrop-filter: blur(4px);
-        border: 1px solid rgba(255,255,255,0.06);
-        min-width: 80px;
-        transition: 0.2s;
-    }
-    .profile-stats-summary .stat-badge:hover {
-        background: rgba(255,255,255,0.15);
-        transform: translateY(-2px);
-    }
-    .profile-stats-summary .stat-badge .number {
-        font-size: 1.6rem;
-        font-weight: 700;
-        display: block;
-        line-height: 1.2;
-    }
-    .profile-stats-summary .stat-badge .label {
-        font-size: 0.65rem;
-        text-transform: uppercase;
-        opacity: 0.7;
-        letter-spacing: 0.04em;
-        font-weight: 500;
-    }
-    .profile-stats-summary .stat-badge.attendance .number {
-        color: #34d399;
-    }
-    .profile-stats-summary .stat-badge.present .number {
-        color: #60a5fa;
-    }
-    .profile-stats-summary .stat-badge.absent .number {
-        color: #f87171;
-    }
-
-    /* ----- Stats Grid (cards) ----- */
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-    .stat-card {
-        background: #fff;
-        border-radius: 18px;
-        padding: 1.25rem 1.5rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-        border: 1px solid #f1f5f9;
-        display: flex;
-        align-items: center;
-        gap: 1.2rem;
-        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-        cursor: default;
-        position: relative;
-        overflow: hidden;
-    }
-    .stat-card::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, rgba(255,255,255,0.5), transparent);
-        opacity: 0;
-        transition: opacity 0.3s;
-        pointer-events: none;
-    }
-    .stat-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 30px rgba(0,0,0,0.08);
-        border-color: #e2e8f0;
-    }
-    .stat-card:hover::after {
-        opacity: 1;
-    }
-    .stat-card .icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.4rem;
-        flex-shrink: 0;
-        transition: transform 0.3s;
-    }
-    .stat-card:hover .icon {
-        transform: scale(1.05) rotate(-3deg);
-    }
-    .stat-card .icon.blue { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #2563eb; }
-    .stat-card .icon.green { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #16a34a; }
-    .stat-card .icon.orange { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #d97706; }
-    .stat-card .icon.purple { background: linear-gradient(135deg, #f3e8ff, #e9d5ff); color: #7c3aed; }
-    .stat-card .info h4 {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        font-weight: 700;
-        color: #64748b;
-        margin: 0;
-        letter-spacing: 0.05em;
-    }
-    .stat-card .info .number {
-        font-size: 1.6rem;
-        font-weight: 800;
-        color: #0f172a;
-        line-height: 1.2;
-        font-variant-numeric: tabular-nums;
-    }
-
-    /* ----- Chart containers ----- */
-    .chart-container-box {
-        position: relative;
-        height: 260px;
-        width: 100%;
-        margin-top: 0.5rem;
-    }
-
-    /* ----- Activity Timeline (glass) ----- */
-    .activity-timeline {
-        margin-top: 0.5rem;
-        position: relative;
-        padding-left: 1.5rem;
-        border-left: 2px solid #e2e8f0;
-    }
-    .activity-item {
-        position: relative;
-        margin-bottom: 1.5rem;
-        background: rgba(255,255,255,0.6);
-        backdrop-filter: blur(4px);
-        padding: 0.75rem 1rem 0.75rem 1.25rem;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,0.3);
-        transition: all 0.2s;
-    }
-    .activity-item:hover {
-        background: rgba(255,255,255,0.85);
-        transform: translateX(4px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-    }
-    .activity-item::before {
-        content: '';
-        position: absolute;
-        left: calc(-1.5rem - 6px);
-        top: 18px;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: #2c6e6b;
-        border: 2px solid #fff;
-        box-shadow: 0 0 0 3px rgba(44,110,107,0.2);
-    }
-    .activity-time {
-        font-size: 0.7rem;
-        color: #64748b;
-        font-weight: 600;
-        float: right;
-        background: #f1f5f9;
-        padding: 0.1rem 0.6rem;
-        border-radius: 20px;
-    }
-    .activity-item h4 {
-        margin: 0 0 0.2rem 0;
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: #0f172a;
-    }
-    .activity-item p {
-        margin: 0;
-        font-size: 0.85rem;
-        color: #475569;
-    }
-
-    /* ----- Quick Actions (glass tiles) ----- */
-    .quick-actions-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 0.75rem;
-        margin-top: 0.5rem;
-    }
-    .action-tile {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 1.25rem 0.5rem;
-        background: rgba(255,255,255,0.7);
-        backdrop-filter: blur(4px);
-        border: 1px solid rgba(255,255,255,0.3);
-        border-radius: 16px;
-        text-decoration: none;
-        color: #1e293b;
-        font-weight: 500;
-        font-size: 0.85rem;
-        text-align: center;
-        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-    }
-    .action-tile i {
-        font-size: 1.8rem;
-        color: #2c6e6b;
-        margin-bottom: 0.4rem;
-        transition: transform 0.3s;
-    }
-    .action-tile:hover {
-        transform: translateY(-4px);
-        border-color: #2c6e6b;
-        box-shadow: 0 8px 25px rgba(44,110,107,0.12);
-        background: #ffffff;
-        color: #0f172a;
-    }
-    .action-tile:hover i {
-        transform: scale(1.1);
-    }
-
-    /* ----- Tables (with glass effect) ----- */
-    .table-wrapper {
-        border-radius: 16px;
-        border: 1px solid #f1f5f9;
-        background: #fff;
-        overflow: hidden;
-    }
-    .table-wrapper table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9rem;
-    }
-    .table-wrapper th {
-        background: #f8fafc;
-        font-weight: 700;
-        color: #475569;
-        text-transform: uppercase;
-        font-size: 0.7rem;
-        letter-spacing: 0.04em;
-        padding: 0.8rem 1rem;
-        border-bottom: 2px solid #e2e8f0;
-    }
-    .table-wrapper td {
-        padding: 0.7rem 1rem;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-    }
-    .table-wrapper tbody tr:hover {
-        background: #f8fafc;
-    }
-    .table-wrapper tbody tr:last-child td {
-        border-bottom: none;
-    }
-
-    /* ----- Badges ----- */
-    .badge {
-        display: inline-block;
-        padding: 0.2rem 0.7rem;
-        border-radius: 50px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        text-transform: capitalize;
-    }
-    .badge-present { background: #dcfce7; color: #15803d; }
-    .badge-absent { background: #fee2e2; color: #dc2626; }
-    .badge-locked { background: #f1f5f9; color: #64748b; }
-    .badge-submitted { background: #d1fae5; color: #065f46; }
-
-    /* ----- Buttons (refined) ----- */
-    .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.4rem;
-        padding: 0.5rem 1.2rem;
-        border: none;
-        border-radius: 50px;
-        font-weight: 600;
-        font-size: 0.85rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        text-decoration: none;
-        white-space: nowrap;
-    }
-    .btn-primary {
-        background: linear-gradient(135deg, #2c6e6b, #1e4f4d);
-        color: #fff;
-        box-shadow: 0 4px 12px rgba(44,110,107,0.2);
-    }
-    .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(44,110,107,0.3);
-        filter: brightness(1.05);
-    }
-    .btn-success {
-        background: linear-gradient(135deg, #10b981, #059669);
-        color: #fff;
-        box-shadow: 0 4px 12px rgba(16,185,129,0.2);
-    }
-    .btn-success:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(16,185,129,0.3);
-        filter: brightness(1.05);
-    }
-    .btn-outline {
-        background: transparent;
-        border: 1px solid #e2e8f0;
-        color: #475569;
-    }
-    .btn-outline:hover {
-        background: #f1f5f9;
-        transform: translateY(-2px);
-    }
-    .btn-sm { padding: 0.3rem 0.8rem; font-size: 0.75rem; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
-
-    /* ----- Filter form (glass) ----- */
-    .filter-section {
-        background: rgba(255,255,255,0.6);
-        backdrop-filter: blur(4px);
-        border: 1px solid rgba(255,255,255,0.3);
-        border-radius: 16px;
-        padding: 1.25rem;
-        margin-bottom: 1.5rem;
-    }
-    .filter-section .grid-3 {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1.25rem;
-    }
-    .filter-section label {
-        font-weight: 600;
-        font-size: 0.8rem;
-        color: #64748b;
-        display: block;
-        margin-bottom: 0.3rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-    }
-    .filter-section select,
-    .filter-section input[type="date"] {
-        width: 100%;
-        padding: 0.5rem 0.8rem;
-        border: 1.5px solid #e2e8f0;
-        border-radius: 10px;
-        background: #fff;
-        font-size: 0.9rem;
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .filter-section select:focus,
-    .filter-section input[type="date"]:focus {
-        border-color: #2c6e6b;
-        box-shadow: 0 0 0 3px rgba(44,110,107,0.12);
-        outline: none;
-    }
-    .filter-actions {
+    .page-header-actions {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        margin-bottom: 2rem;
         flex-wrap: wrap;
         gap: 1rem;
-        border-top: 1px solid #e2e8f0;
-        padding-top: 1.25rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
     }
-    .filter-group {
+    .header-title-group {
         display: flex;
-        gap: 0.4rem;
         align-items: center;
-        flex-wrap: wrap;
+        gap: 0.85rem;
     }
-    .btn-toggle {
-        background: #fff;
-        border: 1.5px solid #e2e8f0;
-        padding: 0.3rem 0.8rem;
-        border-radius: 50px;
-        cursor: pointer;
-        font-size: 0.8rem;
-        font-weight: 500;
-        color: #475569;
-        transition: all 0.2s;
+    .header-title-group h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--text-dark);
     }
-    .btn-toggle:hover {
-        border-color: #94a3b8;
-        background: #f8fafc;
-    }
-    .btn-toggle.active {
-        background: #2c6e6b;
-        color: #fff;
-        border-color: #2c6e6b;
+    .header-icon-box {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        background: rgba(37, 99, 235, 0.1);
+        color: var(--accent-blue);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
     }
 
-    /* ----- Responsive ----- */
-    @media (max-width: 768px) {
-        .profile-top {
-            flex-direction: column;
-            align-items: stretch;
-            text-align: center;
-        }
-        .profile-stats-summary {
-            margin-left: 0;
-            justify-content: center;
-        }
-        .profile-avatar {
-            margin: 0 auto;
-        }
-        .profile-info h2 {
-            font-size: 1.4rem;
-        }
-        .stats-grid {
-            grid-template-columns: 1fr 1fr;
-        }
-        .filter-section .grid-3 {
-            grid-template-columns: 1fr;
-        }
-        .filter-actions {
-            flex-direction: column;
-            align-items: stretch;
-        }
-        .filter-group {
-            justify-content: center;
-        }
+    /* Metric Cards Grid */
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 2rem;
     }
-    @media (max-width: 480px) {
-        .stats-grid {
-            grid-template-columns: 1fr;
-        }
-        .profile-stats-summary .stat-badge {
-            min-width: 60px;
-            padding: 0.3rem 0.8rem;
-        }
-        .profile-stats-summary .stat-badge .number {
-            font-size: 1.2rem;
-        }
-        .quick-actions-grid {
-            grid-template-columns: 1fr 1fr;
-        }
+    .metric-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+    }
+    .metric-info h5 {
+        margin: 0 0 0.35rem 0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-sub);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .metric-value {
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: var(--text-dark);
+        line-height: 1;
+    }
+    .metric-subtext {
+        font-size: 0.75rem;
+        color: var(--text-sub);
+        margin-top: 0.35rem;
+    }
+    .metric-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+    }
+
+    /* Icon Tints */
+    .icon-vehicles    { background: rgba(37, 99, 235, 0.1); color: var(--accent-blue); }
+    .icon-active      { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); }
+    .icon-routes      { background: rgba(14, 165, 233, 0.1); color: #0ea5e9; }
+    .icon-allocations { background: rgba(245, 158, 11, 0.1); color: var(--accent-amber); }
+    .icon-distance    { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+
+    /* Dashboard Layout Grids */
+    .dashboard-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .dashboard-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 1.5rem;
+    }
+    .card-header-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .card-header-title h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-dark);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* Badges */
+    .badge {
+        padding: 0.25rem 0.65rem;
+        border-radius: 50px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .badge-win { background: rgba(16, 185, 129, 0.12); color: var(--accent-green); }
+    .badge-loss { background: rgba(239, 68, 68, 0.12); color: var(--accent-red); }
+    .badge-warning { background: rgba(245, 158, 11, 0.12); color: var(--accent-amber); }
+    .badge-info { background: rgba(37, 99, 235, 0.12); color: var(--accent-blue); }
+
+    /* Performance Item Lists */
+    .perf-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .perf-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px dashed var(--border-color);
+    }
+    .perf-item:last-child {
+        border-bottom: none;
+    }
+    .perf-item-title {
+        font-weight: 600;
+        color: var(--text-dark);
+        font-size: 0.9rem;
+    }
+    .perf-item-sub {
+        font-size: 0.78rem;
+        color: var(--text-sub);
+    }
+
+    /* Tables */
+    .dashboard-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+    }
+    .dashboard-table th {
+        text-align: left;
+        padding: 0.75rem 0.5rem;
+        background: #f9fafb;
+        color: var(--text-sub);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .dashboard-table td {
+        padding: 0.85rem 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-dark);
+    }
+    .dashboard-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .chart-container {
+        position: relative;
+        max-height: 280px;
+        width: 100%;
     }
 </style>
 
-<!-- ====== PROFILE CARD ====== -->
-<div class="profile-card">
-    <div class="profile-top">
-        <div class="profile-avatar">
-            <i class="fas fa-chalkboard-teacher"></i>
-        </div>
-        <div class="profile-info">
-            <h2>{{ teacher_profile.name|default:user.username }}</h2>
-            {% if teacher_profile.staff_id %}
-                <span class="staff-id"><i class="fas fa-id-badge"></i> Staff ID: {{ teacher_profile.staff_id }}</span>
-            {% endif %}
-            <span class="email"><i class="fas fa-envelope"></i> {{ user.email|default:"No email provided" }}</span>
-            <div class="profile-tags">
-                <span class="tag"><i class="fas fa-user-tag"></i> {{ user.get_role_display }}</span>
-                {% if user.teacher_profile.courses.all %}
-                    <span class="tag"><i class="fas fa-book"></i> {{ user.teacher_profile.courses.count }} Course{{ user.teacher_profile.courses.count|pluralize }}</span>
-                {% endif %}
-                <span class="tag"><i class="fas fa-users"></i> {{ total_students_count }} Students</span>
-            </div>
-        </div>
-        <div class="profile-stats-summary">
-            <div class="stat-badge attendance">
-                <span class="number">{{ global_attendance_rate }}%</span>
-                <span class="label">Attendance</span>
-            </div>
-            <div class="stat-badge present">
-                <span class="number">{{ distribution.present_count|default:0 }}</span>
-                <span class="label">Present</span>
-            </div>
-            <div class="stat-badge absent">
-                <span class="number">{{ distribution.absent_count|default:0 }}</span>
-                <span class="label">Absent</span>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ====== MESSAGES (styled) ====== -->
+<!-- Messages Bar -->
 {% if messages %}
-<div style="margin-bottom: 1.5rem;">
     {% for message in messages %}
-    <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'warning' %}warning{% else %}success{% endif %} alert-dismissible fade show" role="alert" style="padding: 0.75rem 1.25rem; border-radius: 12px; background: {% if message.tags == 'error' %}#fee2e2{% elif message.tags == 'warning' %}#fef3c7{% else %}#dcfce7{% endif %}; border-left: 4px solid {% if message.tags == 'error' %}#dc2626{% elif message.tags == 'warning' %}#d97706{% else %}#16a34a{% endif %}; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; position: relative;">
-        <i class="fas {% if message.tags == 'success' %}fa-check-circle text-success{% elif message.tags == 'warning' %}fa-exclamation-triangle text-warning{% else %}fa-times-circle text-danger{% endif %} fa-lg"></i>
-        <div><strong>System Notification:</strong> {{ message }}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.5;"></button>
-    </div>
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: 8px; background: #ffffff; border: 1px solid var(--border-color);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: var(--accent-blue);"></i>
+            {{ message }}
+        </div>
     {% endfor %}
-</div>
 {% endif %}
 
-<!-- ====== STATS GRID ====== -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="icon blue"><i class="fas fa-users"></i></div>
-        <div class="info">
-            <h4>Total Students</h4>
-            <div class="number" data-target="{{ total_students_count }}">0</div>
+<!-- Header Toolbar -->
+<div class="page-header-actions">
+    <div class="header-title-group">
+        <div class="header-icon-box">
+            <i class="fas fa-bus-alt"></i>
         </div>
-    </div>
-    <div class="stat-card">
-        <div class="icon orange"><i class="fas fa-graduation-cap"></i></div>
-        <div class="info">
-            <h4>Active Classes</h4>
-            <div class="number" data-target="{{ active_classes_count }}">0</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="icon purple"><i class="fas fa-clock"></i></div>
-        <div class="info">
-            <h4>Today's Sessions</h4>
-            <div class="number" data-target="{{ todays_sessions_count }}">0</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="icon green"><i class="fas fa-percent"></i></div>
-        <div class="info">
-            <h4>Attendance Rate</h4>
-            <div class="number" data-target="{{ global_attendance_rate }}">0%</div>
+        <div>
+            <h2>Transport Analytics & Logistics Dashboard</h2>
+            <div style="font-size: 0.8rem; color: var(--text-sub);">Real-time monitoring of fleet status, capacity utilization, route demand, and operational losses.</div>
         </div>
     </div>
 </div>
 
-<!-- ====== CHARTS ====== -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-    <div class="card" style="padding: 1.5rem;">
-        <h3><i class="fas fa-chart-bar" style="color: #2c6e6b;"></i> Weekly Attendance Trend</h3>
-        <div class="chart-container-box">
-            <canvas id="weeklyTrendChart"></canvas>
+<!-- Metrics Overview Cards -->
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-info">
+            <h5>Total Fleet</h5>
+            <div class="metric-value">{{ total_vehicles }}</div>
+            <div class="metric-subtext">{{ active_vehicles }} Active | {{ maintenance_vehicles }} Maintenance</div>
+        </div>
+        <div class="metric-icon icon-vehicles">
+            <i class="fas fa-bus"></i>
         </div>
     </div>
-    <div class="card" style="padding: 1.5rem;">
-        <h3><i class="fas fa-chart-pie" style="color: #2c6e6b;"></i> Attendance Distribution</h3>
-        <div style="display: grid; grid-template-columns: 1.2fr 1fr; align-items: center; height: 240px; gap: 0.5rem;">
-            <div><canvas id="distributionPieChart"></canvas></div>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:0.4rem;">
-                    <span><i class="fas fa-circle" style="color:#10b981;"></i> Present</span>
-                    <strong>{{ distribution.present_pct }}%</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:0.4rem;">
-                    <span><i class="fas fa-circle" style="color:#ef4444;"></i> Absent</span>
-                    <strong>{{ distribution.absent_pct }}%</strong>
-                </div>
-            </div>
+
+    <div class="metric-card">
+        <div class="metric-info">
+            <h5>Capacity Utilization</h5>
+            <div class="metric-value">{{ capacity_utilization }}%</div>
+            <div class="metric-subtext">{{ active_allocations }} / {{ total_fleet_capacity }} Active Seats</div>
+        </div>
+        <div class="metric-icon icon-active">
+            <i class="fas fa-users-slash"></i>
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-info">
+            <h5>Active Allocations</h5>
+            <div class="metric-value">{{ active_allocations }}</div>
+            <div class="metric-subtext">{{ unallocated_students }} Unassigned Students</div>
+        </div>
+        <div class="metric-icon icon-allocations">
+            <i class="fas fa-ticket-alt"></i>
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-info">
+            <h5>Total Routes</h5>
+            <div class="metric-value">{{ total_routes }}</div>
+            <div class="metric-subtext">Active Route Channels</div>
+        </div>
+        <div class="metric-icon icon-routes">
+            <i class="fas fa-route"></i>
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-info">
+            <h5>Total Distance Travelled</h5>
+            <div class="metric-value">{{ total_distance_km }} <span style="font-size: 1rem; font-weight: 600;">km</span></div>
+            <div class="metric-subtext">{{ total_trips }} Logged Trips</div>
+        </div>
+        <div class="metric-icon icon-distance">
+            <i class="fas fa-tachometer-alt"></i>
         </div>
     </div>
 </div>
 
-<!-- ====== ACTIVITY + QUICK ACTIONS ====== -->
-<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-    <div class="card" style="padding: 1.5rem;">
-        <h3><i class="fas fa-history" style="color: #2c6e6b;"></i> Recent Activity</h3>
-        <div class="activity-timeline">
-            {% for log in recent_activity_feed %}
-                <div class="activity-item">
-                    <span class="activity-time">{{ log.time }}</span>
-                    <h4>Attendance recorded for {{ log.stream_name }}</h4>
-                    <p>
-                        <span style="color:#16a34a; font-weight:600;">{{ log.present }} present</span>
-                        &bull; <span style="color:#dc2626; font-weight:600;">{{ log.absent }} absent</span>
-                    </p>
-                </div>
+<!-- Analytics Charts Section -->
+<div class="dashboard-grid-2">
+    <!-- Chart 1: Fleet Status -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-chart-pie" style="color: var(--accent-blue);"></i> Fleet Operational Status</h3>
+            <span class="badge badge-info">Fleet Availability</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="fleetStatusChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Chart 2: Route Demand -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-chart-bar" style="color: var(--accent-green);"></i> Top Route Subscriptions</h3>
+            <span class="badge badge-win">Demand Analysis</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="routeDemandChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Operational Performance: Top Wins vs Top Losses & Risks -->
+<div class="dashboard-grid-2">
+    <!-- Column 1: Top Wins -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-trophy" style="color: #eab308;"></i> Operational Wins & High Demand Assets</h3>
+            <span class="badge badge-win">Top Performers</span>
+        </div>
+
+        <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.75rem;">Most Popular Routes (Student Subscriptions)</h4>
+        <ul class="perf-list" style="margin-bottom: 1.5rem;">
+            {% for route in top_routes %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ route.name }}</div>
+                        <div class="perf-item-sub">{{ route.start_location }} &rarr; {{ route.end_location }}</div>
+                    </div>
+                    <span class="badge badge-win">{{ route.active_students }} Active Students</span>
+                </li>
             {% empty %}
-                <p style="color: #94a3b8; padding: 1rem 0;">No recent activity.</p>
+                <li class="perf-item"><span class="perf-item-sub">No route data available.</span></li>
             {% endfor %}
-        </div>
-    </div>
+        </ul>
 
-    <div class="card" style="padding: 1.5rem;">
-        <h3><i class="fas fa-bolt" style="color: #d97706;"></i> Quick Actions</h3>
-        <div class="quick-actions-grid">
-            <a href="#timetable-section" class="action-tile">
-                <i class="fas fa-clipboard-check"></i>
-                <span>Mark Attendance</span>
-            </a>
-            <a href="{% url 'attendance:teacher_dashboard' %}#detailed-reports" class="action-tile">
-                <i class="fas fa-users"></i>
-                <span>View Roster</span>
-            </a>
-        </div>
-    </div>
-</div>
-
-<!-- ====== TIMETABLE ====== -->
-<div id="timetable-section" class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
-    <h3><i class="fas fa-calendar-day" style="color: #2c6e6b;"></i> Active Timetable (Week starting {{ week_start|date:"Y-m-d"|default:"Active Matrix" }})</h3>
-
-    {% if has_multiple_units %}
-    <div style="margin-bottom: 1.5rem; background: #fffbeb; border: 1px solid #fde68a; padding: 1.25rem; border-radius: 12px;">
-        <span style="font-weight:600; font-size:0.9rem; color:#854d0e; display:block; margin-bottom:0.5rem;">
-            <i class="fas fa-exclamation-circle"></i> Multiple Units Assigned – select a Course Unit first:
-        </span>
-        <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
-            {% for cu in course_units %}
-                <a href="?selected_course_unit={{ cu.code }}{% if filter_dept %}&filter_dept={{ filter_dept }}{% endif %}{% if filter_course %}&filter_course={{ filter_course }}{% endif %}{% if filter_stream %}&filter_stream={{ filter_stream }}{% endif %}"
-                   class="btn {% if selected_course_unit_id == cu.code %}btn-primary{% else %}btn-outline{% endif %}"
-                   style="font-size:0.85rem; padding:0.4rem 1rem;">
-                    {{ cu.name }}
-                </a>
+        <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.75rem;">Most Active Fleet Vehicles (Completed Trips)</h4>
+        <ul class="perf-list">
+            {% for vehicle in top_vehicles %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ vehicle.registration_number }} ({{ vehicle.model }})</div>
+                        <div class="perf-item-sub">Driver: {{ vehicle.driver_name }}</div>
+                    </div>
+                    <span class="badge badge-info">{{ vehicle.trip_count }} Completed Trips</span>
+                </li>
+            {% empty %}
+                <li class="perf-item"><span class="perf-item-sub">No vehicle trip data available.</span></li>
             {% endfor %}
-        </div>
+        </ul>
     </div>
-    {% endif %}
 
-    <div class="table-wrapper">
-        <table>
-            <thead>
-                <tr>
-                    <th>Day</th>
-                    <th>Time</th>
-                    <th>Department</th>
-                    <th>Course Unit</th>
-                    <th>Stream</th>
-                    <th style="text-align:center;">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for entry in timetable %}
-                <tr>
-                    <td style="font-weight:600;">{{ entry.get_day_display|default:entry.day }}</td>
-                    <td style="font-family:monospace; font-size:0.85rem;">{{ entry.start_time|time:"H:i" }} – {{ entry.end_time|time:"H:i" }}</td>
-                    <td><span style="color:#475569; font-size:0.85rem;">{{ entry.course_unit.course.department.name|default:"Unassigned" }}</span></td>
-                    <td>{{ entry.course_unit.name }}</td>
-                    <td><span style="background:#f1f5f9; padding:0.15rem 0.6rem; border-radius:4px; font-size:0.8rem; font-weight:600;">{{ entry.stream.name }}</span></td>
-                    <td style="text-align:center;">
-                        {% if has_multiple_units and not selected_course_unit_id %}
-                            <button class="btn btn-sm" style="background:#e2e8f0; color:#64748b; cursor:not-allowed;" onclick="alert('Please select a Course Unit above first.')">
-                                <i class="fas fa-lock"></i> Locked
-                            </button>
-                        {% elif entry.day != current_weekday_str %}
-                            <button class="btn btn-sm" style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; border:1px solid #e2e8f0;" onclick="alert('This session is on {{ entry.get_day_display }}. Only available on the actual day.')">
-                                <i class="fas fa-calendar-times"></i> Locked
-                            </button>
-                        {% elif entry.id in marked_today_ids %}
-                            <button class="btn btn-sm" style="background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; cursor:default; font-weight:600;">
-                                <i class="fas fa-check-double"></i> Submitted
-                            </button>
-                        {% else %}
-                            <a href="{% url 'attendance:mark_attendance' entry.id %}" class="btn btn-sm btn-primary">
-                                <i class="fas fa-clipboard-check"></i> Mark
-                            </a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="6" style="text-align:center; padding:2rem; color:#94a3b8;">No timetable entries found.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Column 2: Top Losses / Operational Risks -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-exclamation-triangle" style="color: var(--accent-red);"></i> Operational Losses & Risk Exposure</h3>
+            <span class="badge badge-loss">Risks & Inefficiencies</span>
+        </div>
+
+        <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.75rem;">Underutilized Routes (Low Capacity Efficiency)</h4>
+        <ul class="perf-list" style="margin-bottom: 1.5rem;">
+            {% for route in underutilized_routes %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ route.name }}</div>
+                        <div class="perf-item-sub">Departure: {{ route.departure_time|time:"H:i" }}</div>
+                    </div>
+                    <span class="badge badge-loss">{{ route.active_students }} Subscribed</span>
+                </li>
+            {% empty %}
+                <li class="perf-item"><span class="perf-item-sub">No underutilized route risks identified.</span></li>
+            {% endfor %}
+        </ul>
+
+        <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.75rem;">Grounded Vehicles in Maintenance</h4>
+        <ul class="perf-list">
+            {% for v in maintenance_list %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ v.registration_number }} - {{ v.model }}</div>
+                        <div class="perf-item-sub">Driver Contact: {{ v.driver_contact }}</div>
+                    </div>
+                    <span class="badge badge-warning">IN MAINTENANCE</span>
+                </li>
+            {% empty %}
+                <li class="perf-item"><span class="perf-item-sub" style="color: var(--accent-green);"><i class="fas fa-check-circle"></i> All vehicles are currently active or operational.</span></li>
+            {% endfor %}
+        </ul>
     </div>
 </div>
 
-<!-- ====== STUDENT ROSTER ====== -->
-<div id="detailed-reports" class="card" style="padding: 1.5rem;">
-    <h3><i class="fas fa-users" style="color: #2c6e6b;"></i> Assigned Student Roster</h3>
-
-    <form method="GET" action="#detailed-reports" id="reportFilterForm" class="filter-section">
-        <input type="hidden" name="quick_range" id="quickRangeInput" value="{{ quick_range|default:'' }}">
-        <input type="hidden" name="selected_course_unit" value="{{ selected_course_unit_id|default:'' }}">
-
-        <div class="grid-3">
-            <div>
-                <label>Department</label>
-                <select name="filter_dept" onchange="document.getElementById('reportFilterForm').submit();">
-                    <option value="">-- All --</option>
-                    {% for dept in departments %}
-                        <option value="{{ dept.id }}" {% if filter_dept == dept.id|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label>Course</label>
-                <select name="filter_course" onchange="document.getElementById('reportFilterForm').submit();">
-                    <option value="">-- All --</option>
-                    {% for course in courses %}
-                        <option value="{{ course.code }}" {% if filter_course == course.code %}selected{% endif %}>{{ course.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label>Stream</label>
-                <select name="filter_stream" onchange="document.getElementById('reportFilterForm').submit();">
-                    <option value="">-- All --</option>
-                    {% for stream in selectable_streams %}
-                        <option value="{{ stream.id }}" {% if filter_stream == stream.id|stringformat:"s" %}selected{% endif %}>{{ stream.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+<!-- Fleet Mileage Wear & Tear Chart + Recent Activity Log -->
+<div class="dashboard-grid-2">
+    <!-- Mileage Accumulation Exposure -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-tools" style="color: var(--accent-amber);"></i> Vehicle Wear Exposure (Accumulated Mileage)</h3>
+            <span class="badge badge-warning">Maintenance Exposure</span>
         </div>
-
-        <div class="filter-actions">
-            <div class="filter-group">
-                <span style="font-weight:500; font-size:0.8rem; color:#64748b;">Timeframe:</span>
-                <button type="button" class="btn-toggle {% if quick_range == 'today' %}active{% endif %}" onclick="setQuickRange('today')">Today</button>
-                <button type="button" class="btn-toggle {% if quick_range == 'week' %}active{% endif %}" onclick="setQuickRange('week')">This Week</button>
-                <button type="button" class="btn-toggle {% if quick_range == 'month' %}active{% endif %}" onclick="setQuickRange('month')">This Month</button>
-                <button type="button" class="btn-toggle {% if not quick_range %}active{% endif %}" onclick="setQuickRange('')">Custom</button>
-            </div>
-            <div id="customDateInputs" style="{% if quick_range %}display:none;{% endif %} display:flex; align-items:center; gap:0.5rem;">
-                <input type="date" name="start_date" value="{{ start_date|default:'' }}" placeholder="Start">
-                <span style="color:#94a3b8;">to</span>
-                <input type="date" name="end_date" value="{{ end_date|default:'' }}" placeholder="End">
-            </div>
-            <div style="display:flex; gap:0.5rem;">
-                <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Apply</button>
-                <a href="?export=detailed_student_csv&filter_dept={{ filter_dept|default:'' }}&filter_course={{ filter_course|default:'' }}&filter_stream={{ filter_stream|default:'' }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&quick_range={{ quick_range|default:'' }}&selected_course_unit={{ selected_course_unit_id|default:'' }}"
-                   class="btn btn-success"><i class="fas fa-download"></i> Download</a>
-            </div>
+        <div class="chart-container">
+            <canvas id="mileageExposureChart"></canvas>
         </div>
-    </form>
+    </div>
 
-    <div class="table-wrapper">
-        <table>
-            <thead>
-                <tr>
-                    <th>Reg. Number</th>
-                    <th>Full Name</th>
-                    <th>Department</th>
-                    <th>Course</th>
-                    <th>Stream</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for s in students %}
-                <tr>
-                    <td style="font-family:monospace; font-size:0.85rem;">{{ s.reg_number }}</td>
-                    <td style="font-weight:600;">{{ s.name }}</td>
-                    <td>{{ s.course.department.name|default:"—" }}</td>
-                    <td>{{ s.course.name }}</td>
-                    <td><span style="background:#e2e8f0; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.8rem;">{{ s.stream.name }}</span></td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="5" style="text-align:center; padding:2rem; color:#94a3b8;">No students match your filters.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Recent Trip Operations -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-history" style="color: var(--accent-blue);"></i> Recent Trip Operations</h3>
+            <span class="badge badge-info">{{ recent_trips|length }} Recent Logs</span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="dashboard-table">
+                <thead>
+                    <tr>
+                        <th>Vehicle</th>
+                        <th>Route</th>
+                        <th>Departure</th>
+                        <th>Distance</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trip in recent_trips %}
+                        <tr>
+                            <td><strong>{{ trip.vehicle.registration_number }}</strong></td>
+                            <td>{{ trip.route.name }}</td>
+                            <td>{{ trip.departure_time|date:"d M, H:i" }}</td>
+                            <td>
+                                {% if trip.mileage_end and trip.mileage_start %}
+                                    {{ trip.mileage_end|add:"-"|add:trip.mileage_start }} km
+                                {% else %}
+                                    --
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if trip.arrival_time %}
+                                    <span class="badge badge-win">COMPLETED</span>
+                                {% else %}
+                                    <span class="badge badge-warning">IN-TRANSIT</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-sub);">No recent trips recorded.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
+<!-- JavaScript Chart.js Initialization -->
 <script>
-    // Quick range helper
-    function setQuickRange(value) {
-        document.getElementById('quickRangeInput').value = value;
-        document.getElementById('reportFilterForm').submit();
-    }
-
-    // Toggle custom date inputs
-    document.querySelectorAll('.btn-toggle').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            const parent = this.closest('.filter-actions');
-            const customDiv = parent.querySelector('#customDateInputs');
-            if (this.textContent.trim() === 'Custom') {
-                customDiv.style.display = 'flex';
-            } else {
-                customDiv.style.display = 'none';
-            }
-        });
-    });
-
-    // Animated counters
     document.addEventListener('DOMContentLoaded', function() {
-        const counters = document.querySelectorAll('.number[data-target]');
-        const animateCounter = (el) => {
-            const target = parseFloat(el.dataset.target);
-            const isPercentage = el.textContent.includes('%');
-            const duration = 1000;
-            const startTime = performance.now();
-            const update = (currentTime) => {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const eased = 1 - Math.pow(1 - progress, 3);
-                const current = eased * target;
-                if (isPercentage) {
-                    el.textContent = Math.round(current) + '%';
-                } else {
-                    el.textContent = Math.round(current);
-                }
-                if (progress < 1) {
-                    requestAnimationFrame(update);
-                } else {
-                    if (isPercentage) {
-                        el.textContent = target + '%';
-                    } else {
-                        el.textContent = target;
-                    }
-                }
-            };
-            requestAnimationFrame(update);
-        };
-        setTimeout(() => {
-            counters.forEach(c => {
-                if (c.textContent.includes('%')) c.textContent = '0%';
-                else c.textContent = '0';
-                animateCounter(c);
-            });
-        }, 300);
+        // Parse JSON data safely from Django context
+        const fleetStatusLabels = JSON.parse('{{ fleet_status_labels_json|escapejs }}');
+        const fleetStatusData = JSON.parse('{{ fleet_status_data_json|escapejs }}');
 
-        // Charts
-        const ctxTrend = document.getElementById('weeklyTrendChart').getContext('2d');
-        new Chart(ctxTrend, {
-            type: 'bar',
-            data: {
-                labels: {{ weekly_trend_labels|safe }},
-                datasets: [{
-                    label: 'Attendance Rate (%)',
-                    data: {{ weekly_trend_rates|safe }},
-                    backgroundColor: '#2c6e6b',
-                    borderRadius: 6,
-                    maxBarThickness: 35
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { min: 0, max: 100, grid: { color: '#f1f5f9' } },
-                    x: { grid: { display: false } }
-                },
-                plugins: { legend: { display: false } }
-            }
-        });
+        const routeLabels = JSON.parse('{{ route_labels_json|escapejs }}');
+        const routeData = JSON.parse('{{ route_data_json|escapejs }}');
 
-        const ctxPie = document.getElementById('distributionPieChart').getContext('2d');
-        new Chart(ctxPie, {
+        const mileageLabels = JSON.parse('{{ mileage_labels_json|escapejs }}');
+        const mileageData = JSON.parse('{{ mileage_data_json|escapejs }}');
+
+        // 1. Fleet Status Chart (Doughnut)
+        const fleetCtx = document.getElementById('fleetStatusChart').getContext('2d');
+        new Chart(fleetCtx, {
             type: 'doughnut',
             data: {
-                labels: ['Present', 'Absent'],
+                labels: fleetStatusLabels,
                 datasets: [{
-                    data: [{{ distribution.present_pct }}, {{ distribution.absent_pct }}],
-                    backgroundColor: ['#10b981', '#ef4444'],
+                    data: fleetStatusData,
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
                     borderWidth: 2,
                     borderColor: '#ffffff'
                 }]
@@ -967,8 +490,64 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                cutout: '70%'
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+
+        // 2. Route Demand Chart (Bar)
+        const routeCtx = document.getElementById('routeDemandChart').getContext('2d');
+        new Chart(routeCtx, {
+            type: 'bar',
+            data: {
+                labels: routeLabels,
+                datasets: [{
+                    label: 'Subscribed Students',
+                    data: routeData,
+                    backgroundColor: 'rgba(37, 99, 235, 0.75)',
+                    borderColor: '#2563eb',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // 3. Mileage Exposure Chart (Horizontal Bar)
+        const mileageCtx = document.getElementById('mileageExposureChart').getContext('2d');
+        new Chart(mileageCtx, {
+            type: 'bar',
+            data: {
+                labels: mileageLabels,
+                datasets: [{
+                    label: 'Total Distance Travelled (km)',
+                    data: mileageData,
+                    backgroundColor: 'rgba(245, 158, 11, 0.75)',
+                    borderColor: '#f59e0b',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { beginAtZero: true }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
             }
         });
     });

@@ -7,3 +7,4 @@ psycopg2-binary>=2.9,<3
 dj-database-url
 reportlab
 python-dateutil
+django_pesapal

@@ -5,11 +5,12 @@
 {% endblock %}
 
 <style>
+    /* Header Toolbar */
     .page-header-actions {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
         flex-wrap: wrap;
         gap: 1rem;
         background: #ffffff;
@@ -40,35 +41,138 @@
         font-size: 1.25rem;
     }
 
-    /* Tab Navigation */
-    .custom-tabs-container { margin-bottom: 1.5rem; }
-    .tab-nav {
+    /* Tab Navigation Styles */
+    .tabs-nav {
         display: flex;
         gap: 0.5rem;
-        border-bottom: 1px solid var(--border);
-        padding-bottom: 0.5rem;
         margin-bottom: 1.5rem;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 0;
     }
     .tab-btn {
-        background: transparent;
-        border: none;
-        padding: 0.65rem 1.25rem;
+        padding: 0.75rem 1.25rem;
         font-size: 0.95rem;
         font-weight: 600;
         color: var(--text-muted);
-        border-radius: var(--radius-sm);
+        background: transparent;
+        border: none;
+        border-bottom: 3px solid transparent;
         cursor: pointer;
-        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s ease;
+        margin-bottom: -2px;
+        border-top-left-radius: var(--radius-sm);
+        border-top-right-radius: var(--radius-sm);
+    }
+    .tab-btn:hover {
+        color: #2563eb;
+        background: rgba(37, 99, 235, 0.05);
+    }
+    .tab-btn.active {
+        color: #2563eb;
+        border-bottom-color: #2563eb;
+        background: #ffffff;
+        font-weight: 700;
+    }
+    .tab-pane {
+        display: none;
+    }
+    .tab-pane.active {
+        display: block;
+    }
+
+    /* Section Cards */
+    .section-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+    .section-card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8fafc;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    .section-card-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-main);
         display: flex;
         align-items: center;
         gap: 0.5rem;
     }
-    .tab-btn:hover { color: #2563eb; background: rgba(37, 99, 235, 0.05); }
-    .tab-btn.active { color: #2563eb; background: rgba(37, 99, 235, 0.1); }
-    .tab-pane { display: none; }
-    .tab-pane.active { display: block; }
 
-    /* Modals */
+    /* Live Search & Filter Bar */
+    .table-toolbar {
+        display: flex;
+        gap: 0.75rem;
+        padding: 1rem 1.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+        background: #ffffff;
+        border-bottom: 1px solid var(--border);
+    }
+    .search-box-wrapper {
+        position: relative;
+        flex: 2 1 240px;
+        min-width: 200px;
+    }
+    .search-box-wrapper i {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+    .search-box-wrapper .form-control {
+        padding-left: 2.3rem;
+    }
+    .filter-select {
+        flex: 1 1 160px;
+        min-width: 140px;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.65rem;
+        border-radius: var(--radius-sm);
+        font-weight: 700;
+        font-size: 0.825rem;
+        text-transform: capitalize;
+    }
+    .status-available   { background: rgba(16, 185, 129, 0.1); color: #059669; }
+    .status-in-use      { background: rgba(37, 99, 235, 0.1); color: #2563eb; }
+    .status-maintenance { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+    .status-out         { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+
+    /* Action Links */
+    .action-link {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+        transition: var(--transition);
+        background: none;
+        border: none;
+        cursor: pointer;
+    }
+    .action-link.edit { color: #2563eb; }
+    .action-link.delete { color: #dc2626; }
+    .action-link:hover { opacity: 0.7; }
+
+    /* Modal Styling */
     .modal {
         display: none;
         position: fixed;
@@ -83,12 +187,11 @@
     .modal-card {
         background: #fff;
         border-radius: var(--radius-md);
-        width: 100%; max-width: 600px;
-        padding: 2rem;
+        width: 100%; max-width: 520px;
+        padding: 1.75rem;
         box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-        max-height: 90vh; overflow-y: auto;
     }
-    .form-group { margin-bottom: 1.25rem; }
+    .form-group { margin-bottom: 1rem; }
     .form-group label {
         display: block; font-size: 0.85rem; font-weight: 600;
         margin-bottom: 0.4rem; color: var(--text-muted);
@@ -97,6 +200,11 @@
         width: 100%; padding: 0.65rem 0.75rem;
         border: 1px solid var(--border); border-radius: var(--radius-sm);
         font-family: var(--font);
+    }
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
     }
 </style>
 
@@ -110,173 +218,245 @@
     {% endfor %}
 {% endif %}
 
-<!-- Header Toolbar -->
+<!-- Page Header Toolbar -->
 <div class="page-header-actions">
     <div class="header-title-group">
         <div class="header-icon-box">
-            <i class="fas fa-bus"></i>
+            <i class="fas fa-bus-alt"></i>
         </div>
-        <h2>Vehicles & Routes Management</h2>
-    </div>
-
-    <div style="display: flex; gap: 0.75rem;">
-        <button class="btn" id="openVehicleModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
-            <i class="fas fa-plus-circle"></i> Add Vehicle
-        </button>
-        <button class="btn btn-outline" id="openRouteModalBtn">
-            <i class="fas fa-plus-circle"></i> Add Route
-        </button>
-    </div>
-</div>
-
-<!-- Tabs & Tables Container -->
-<div class="custom-tabs-container">
-    <div class="tab-nav">
-        <button type="button" class="tab-btn active" data-tab="vehicles-pane">
-            <i class="fas fa-truck"></i> Fleet Vehicles
-        </button>
-        <button type="button" class="tab-btn" data-tab="routes-pane">
-            <i class="fas fa-route"></i> Transport Routes
-        </button>
-    </div>
-
-    <!-- Vehicles Pane -->
-    <div class="tab-pane active" id="vehicles-pane">
-        <div class="card" style="padding:0; overflow:hidden;">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Registration No</th>
-                        <th>Model</th>
-                        <th>Capacity</th>
-                        <th>Driver</th>
-                        <th>Contact</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for v in vehicles %}
-                    <tr>
-                        <td style="font-weight: 600; color: var(--text-main);">{{ v.registration_number }}</td>
-                        <td>{{ v.model }}</td>
-                        <td><span style="font-weight: 600;">{{ v.capacity }} seats</span></td>
-                        <td><i class="fas fa-user-circle" style="margin-right:0.3rem; color:var(--text-muted);"></i> {{ v.driver_name }}</td>
-                        <td style="color: var(--text-muted); font-size: 0.875rem;">{{ v.driver_contact }}</td>
-                        <td>
-                            {% if v.status == 'ACTIVE' %}
-                                <span style="color: #059669; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-check-circle"></i> Active</span>
-                            {% elif v.status == 'MAINTENANCE' %}
-                                <span style="color: #d97706; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-tools"></i> Maintenance</span>
-                            {% else %}
-                                <span style="color: #6b7280; font-weight: 600; font-size: 0.85rem;"><i class="fas fa-times-circle"></i> Inactive</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                            <i class="fas fa-bus" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
-                            No fleet vehicles registered.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Routes Pane -->
-    <div class="tab-pane" id="routes-pane">
-        <div class="card" style="padding:0; overflow:hidden;">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Route Name</th>
-                        <th>Assigned Vehicle</th>
-                        <th>Start Location</th>
-                        <th>End Location</th>
-                        <th>Schedule (Dep / Arr)</th>
-                        <th>Operational Days</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in routes %}
-                    <tr>
-                        <td style="font-weight: 600; color: var(--text-main);">{{ r.name }}</td>
-                        <td>
-                            {% if r.vehicle %}
-                                <span style="font-weight: 600; color: #2563eb;">{{ r.vehicle.registration_number }}</span>
-                            {% else %}
-                                <span style="color: var(--text-muted); font-size: 0.85rem;">Unassigned</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ r.start_location }}</td>
-                        <td>{{ r.end_location }}</td>
-                        <td style="font-size: 0.875rem;">
-                            <div><i class="far fa-clock" style="margin-right: 0.3rem; color: var(--text-muted);"></i> {{ r.departure_time|time:"H:i" }}</div>
-                            <small style="color: var(--text-muted);">Arr: {{ r.arrival_time|time:"H:i" }}</small>
-                        </td>
-                        <td><span style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted);">{{ r.days_of_week }}</span></td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                            <i class="fas fa-route" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
-                            No transport routes configured.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div>
+            <h2>Fleet & Route Management</h2>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">Configure organizational vehicles, drivers, departure schedules, and transport routes</span>
         </div>
     </div>
 </div>
 
-<!-- Modal 1: Add Vehicle -->
-<div class="modal" id="addVehicleModal">
+<!-- Tab Navigation Bar -->
+<div class="tabs-nav">
+    <button type="button" class="tab-btn active" id="tabBtnVehicles" onclick="switchTab('vehicles')">
+        <i class="fas fa-car"></i> Fleet Vehicles
+    </button>
+    <button type="button" class="tab-btn" id="tabBtnRoutes" onclick="switchTab('routes')">
+        <i class="fas fa-route"></i> Transport Routes
+    </button>
+</div>
+
+<!-- TAB 1: FLEET VEHICLES -->
+<div class="tab-pane active" id="tabPaneVehicles">
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3><i class="fas fa-car" style="color: #2563eb;"></i> Fleet Vehicles Table</h3>
+            <button type="button" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);" onclick="openAddVehicleModal()">
+                <i class="fas fa-plus" style="margin-right:0.35rem;"></i> Add Vehicle
+            </button>
+        </div>
+
+        <!-- Vehicles Live Filter Toolbar -->
+        <div class="table-toolbar">
+            <div class="search-box-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="vehicleSearchInput" class="form-control" placeholder="Search registration, model, driver, contact...">
+            </div>
+            <select id="vehicleStatusFilter" class="form-control filter-select">
+                <option value="ALL">All Statuses</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="IN_USE">In Use</option>
+                <option value="MAINTENANCE">Maintenance</option>
+                <option value="OUT_OF_SERVICE">Out of Service</option>
+            </select>
+        </div>
+
+        <table class="table" id="vehicleTable">
+            <thead>
+                <tr>
+                    <th>Registration</th>
+                    <th>Model</th>
+                    <th>Capacity</th>
+                    <th>Driver</th>
+                    <th>Contact</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in vehicles %}
+                <tr class="vehicle-row" data-status="{{ v.status|upper|slugify }}">
+                    <td style="font-weight: 700; color: var(--text-main); font-family: monospace;">
+                        <i class="fas fa-shuttle-van" style="margin-right: 0.4rem; color: var(--text-muted);"></i> {{ v.registration_number }}
+                    </td>
+                    <td style="font-weight: 600;">{{ v.model|default:"-" }}</td>
+                    <td><i class="fas fa-users" style="margin-right:0.3rem; color:var(--text-muted);"></i> {{ v.capacity }} seats</td>
+                    <td style="font-weight: 600; color: var(--text-main);">{{ v.driver_name|default:"Unassigned" }}</td>
+                    <td style="color: var(--text-muted); font-size: 0.875rem;">{{ v.driver_contact|default:"-" }}</td>
+                    <td>
+                        {% if v.status|upper == 'AVAILABLE' %}
+                            <span class="status-badge status-available"><i class="fas fa-check-circle"></i> Available</span>
+                        {% elif v.status|upper == 'IN_USE' or v.status|upper == 'IN USE' %}
+                            <span class="status-badge status-in-use"><i class="fas fa-road"></i> In Use</span>
+                        {% elif v.status|upper == 'MAINTENANCE' %}
+                            <span class="status-badge status-maintenance"><i class="fas fa-tools"></i> Maintenance</span>
+                        {% else %}
+                            <span class="status-badge status-out"><i class="fas fa-ban"></i> {{ v.status|title }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <button type="button" class="action-link edit" 
+                            onclick="openEditVehicleModal('{{ v.id }}', '{{ v.registration_number|escapejs }}', '{{ v.model|default:''|escapejs }}', '{{ v.capacity }}', '{{ v.driver_name|default:''|escapejs }}', '{{ v.driver_contact|default:''|escapejs }}', '{{ v.status|escapejs }}')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button type="button" class="action-link delete" 
+                            onclick="openDeleteVehicleModal('{{ v.id }}', '{{ v.registration_number|escapejs }}')">
+                            <i class="fas fa-trash-alt"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                        <i class="fas fa-bus" style="font-size: 2rem; display: block; margin-bottom: 0.5rem; opacity:0.6;"></i>
+                        No vehicles registered in the fleet.
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr id="emptyVehicleSearchRow" style="display: none;">
+                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No vehicles match your search or filter.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- TAB 2: TRANSPORT ROUTES -->
+<div class="tab-pane" id="tabPaneRoutes">
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3><i class="fas fa-route" style="color: #2563eb;"></i> Transport Routes Table</h3>
+            <button type="button" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);" onclick="openAddRouteModal()">
+                <i class="fas fa-plus" style="margin-right:0.35rem;"></i> Add Route
+            </button>
+        </div>
+
+        <!-- Routes Live Filter Toolbar -->
+        <div class="table-toolbar">
+            <div class="search-box-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="routeSearchInput" class="form-control" placeholder="Search route name, assigned vehicle, locations, days...">
+            </div>
+        </div>
+
+        <table class="table" id="routeTable">
+            <thead>
+                <tr>
+                    <th>Route Name</th>
+                    <th>Assigned Vehicle</th>
+                    <th>Start Location</th>
+                    <th>End Location</th>
+                    <th>Schedule (Dep / Arr)</th>
+                    <th>Operational Days</th>
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in routes %}
+                <tr class="route-row">
+                    <td style="font-weight: 700; color: var(--text-main);">
+                        <i class="fas fa-map-signs" style="margin-right: 0.4rem; color: var(--text-muted);"></i> {{ r.name }}
+                    </td>
+                    <td>
+                        {% if r.vehicle %}
+                            <span style="font-weight: 600; font-family: monospace; color: #2563eb;">{{ r.vehicle.registration_number }}</span> 
+                            <small style="color: var(--text-muted);">({{ r.vehicle.model|default:"Vehicle" }})</small>
+                        {% else %}
+                            <span style="color: var(--text-muted); font-style: italic;">Unassigned</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-weight: 600; color: #059669;"><i class="fas fa-map-marker-alt" style="margin-right:0.25rem;"></i> {{ r.start_location }}</td>
+                    <td style="font-weight: 600; color: #dc2626;"><i class="fas fa-flag-checkered" style="margin-right:0.25rem;"></i> {{ r.end_location }}</td>
+                    <td style="font-size: 0.875rem; color: var(--text-main); font-weight: 600;">
+                        <i class="far fa-clock" style="margin-right:0.25rem; color: var(--text-muted);"></i>
+                        {{ r.departure_time|time:"H:i" }} - {{ r.arrival_time|time:"H:i" }}
+                    </td>
+                    <td style="color: var(--text-muted); font-size: 0.85rem;">{{ r.days_of_week|default:"Everyday" }}</td>
+                    <td style="text-align: right;">
+                        <button type="button" class="action-link edit" 
+                            onclick="openEditRouteModal('{{ r.id }}', '{{ r.name|escapejs }}', '{{ r.vehicle.id|default:'' }}', '{{ r.start_location|escapejs }}', '{{ r.end_location|escapejs }}', '{{ r.departure_time|time:'H:i' }}', '{{ r.arrival_time|time:'H:i' }}', '{{ r.days_of_week|default:''|escapejs }}')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button type="button" class="action-link delete" 
+                            onclick="openDeleteRouteModal('{{ r.id }}', '{{ r.name|escapejs }}')">
+                            <i class="fas fa-trash-alt"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                        <i class="fas fa-map-marked-alt" style="font-size: 2rem; display: block; margin-bottom: 0.5rem; opacity:0.6;"></i>
+                        No transport routes configured.
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr id="emptyRouteSearchRow" style="display: none;">
+                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        No routes match your search query.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ================= MODALS ================= -->
+
+<!-- Modal 1: Add / Edit Vehicle -->
+<div class="modal" id="vehicleModal">
     <div class="modal-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-            <h3>Add Fleet Vehicle</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+            <h3 id="vehicleModalTitle">Add New Vehicle</h3>
             <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
         <form method="POST" action="">
             {% csrf_token %}
-            <input type="hidden" name="action" value="add_vehicle">
+            <input type="hidden" name="action" id="vehicle_action" value="add_vehicle">
+            <input type="hidden" name="vehicle_id" id="vehicle_id">
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-row">
                 <div class="form-group">
                     <label for="registration_number">Registration Number</label>
-                    <input type="text" id="registration_number" name="registration_number" class="form-control" required placeholder="e.g. UAB 123X">
+                    <input type="text" name="registration_number" id="v_reg" class="form-control" required placeholder="e.g. UAB 123X">
                 </div>
                 <div class="form-group">
-                    <label for="model">Vehicle Model</label>
-                    <input type="text" id="model" name="model" class="form-control" required placeholder="e.g. Toyota Coaster">
+                    <label for="model">Model</label>
+                    <input type="text" name="model" id="v_model" class="form-control" placeholder="e.g. Toyota Coaster">
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-row">
                 <div class="form-group">
                     <label for="capacity">Passenger Capacity</label>
-                    <input type="number" id="capacity" name="capacity" class="form-control" required placeholder="e.g. 30">
+                    <input type="number" name="capacity" id="v_capacity" class="form-control" required min="1" placeholder="30">
                 </div>
                 <div class="form-group">
-                    <label for="status">Initial Status</label>
-                    <select id="status" name="status" class="form-control">
-                        <option value="ACTIVE">Active</option>
-                        <option value="MAINTENANCE">Maintenance</option>
-                        <option value="INACTIVE">Inactive</option>
+                    <label for="status">Status</label>
+                    <select name="status" id="v_status" class="form-control" required>
+                        <option value="AVAILABLE">AVAILABLE</option>
+                        <option value="IN_USE">IN_USE</option>
+                        <option value="MAINTENANCE">MAINTENANCE</option>
+                        <option value="OUT_OF_SERVICE">OUT_OF_SERVICE</option>
                     </select>
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-row">
                 <div class="form-group">
                     <label for="driver_name">Driver Name</label>
-                    <input type="text" id="driver_name" name="driver_name" class="form-control" required placeholder="Full name">
+                    <input type="text" name="driver_name" id="v_driver" class="form-control" placeholder="Driver Full Name">
                 </div>
                 <div class="form-group">
                     <label for="driver_contact">Driver Contact</label>
-                    <input type="text" id="driver_contact" name="driver_contact" class="form-control" required placeholder="Phone number">
+                    <input type="text" name="driver_contact" id="v_contact" class="form-control" placeholder="+256 700 000000">
                 </div>
             </div>
 
@@ -288,58 +468,81 @@
     </div>
 </div>
 
-<!-- Modal 2: Add Route -->
-<div class="modal" id="addRouteModal">
+<!-- Modal 2: Delete Vehicle Confirmation -->
+<div class="modal" id="deleteVehicleModal">
+    <div class="modal-card" style="max-width:450px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="color:#dc2626;"><i class="fas fa-exclamation-triangle"></i> Confirm Deletion</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color: var(--text-main); margin-bottom: 1.5rem;">
+            Are you sure you want to delete vehicle <strong id="delete_v_display"></strong>? This will also affect routes assigned to this vehicle.
+        </p>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete_vehicle">
+            <input type="hidden" name="vehicle_id" id="delete_v_id">
+
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: #fff; border: none;">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 3: Add / Edit Route -->
+<div class="modal" id="routeModal">
     <div class="modal-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-            <h3>Add Transport Route</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+            <h3 id="routeModalTitle">Add New Route</h3>
             <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
         <form method="POST" action="">
             {% csrf_token %}
-            <input type="hidden" name="action" value="add_route">
+            <input type="hidden" name="action" id="route_action" value="add_route">
+            <input type="hidden" name="route_id" id="route_id">
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div class="form-group">
-                    <label for="route_name">Route Name</label>
-                    <input type="text" id="route_name" name="name" class="form-control" required placeholder="e.g. Northern Express">
-                </div>
-                <div class="form-group">
-                    <label for="route_vehicle">Assigned Vehicle</label>
-                    <select id="route_vehicle" name="vehicle" class="form-control">
-                        <option value="">No vehicle assigned</option>
-                        {% for v in vehicles %}
-                            <option value="{{ v.id }}">{{ v.registration_number }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+            <div class="form-group">
+                <label for="name">Route Name</label>
+                <input type="text" name="name" id="r_name" class="form-control" required placeholder="e.g. Northern Campus Express">
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="vehicle">Assigned Vehicle</label>
+                <select name="vehicle" id="r_vehicle" class="form-control">
+                    <option value="">-- Unassigned --</option>
+                    {% for v in vehicles %}
+                        <option value="{{ v.id }}">{{ v.registration_number }} ({{ v.model|default:"Vehicle" }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group">
                     <label for="start_location">Start Location</label>
-                    <input type="text" id="start_location" name="start_location" class="form-control" required placeholder="Starting point">
+                    <input type="text" name="start_location" id="r_start" class="form-control" required placeholder="Main Campus Gate">
                 </div>
                 <div class="form-group">
                     <label for="end_location">End Location</label>
-                    <input type="text" id="end_location" name="end_location" class="form-control" required placeholder="Destination">
+                    <input type="text" name="end_location" id="r_end" class="form-control" required placeholder="Hostel Complex">
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-row">
                 <div class="form-group">
                     <label for="departure_time">Departure Time</label>
-                    <input type="time" id="departure_time" name="departure_time" class="form-control" required>
+                    <input type="time" name="departure_time" id="r_dep" class="form-control" required>
                 </div>
                 <div class="form-group">
                     <label for="arrival_time">Arrival Time</label>
-                    <input type="time" id="arrival_time" name="arrival_time" class="form-control" required>
+                    <input type="time" name="arrival_time" id="r_arr" class="form-control" required>
                 </div>
             </div>
 
             <div class="form-group">
                 <label for="days_of_week">Operational Days</label>
-                <input type="text" id="days_of_week" name="days_of_week" class="form-control" required placeholder="e.g. MON,WED,FRI">
+                <input type="text" name="days_of_week" id="r_days" class="form-control" placeholder="e.g. Mon, Wed, Fri or Weekdays">
             </div>
 
             <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
@@ -350,42 +553,192 @@
     </div>
 </div>
 
+<!-- Modal 4: Delete Route Confirmation -->
+<div class="modal" id="deleteRouteModal">
+    <div class="modal-card" style="max-width:450px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="color:#dc2626;"><i class="fas fa-exclamation-triangle"></i> Confirm Deletion</h3>
+            <button type="button" class="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <p style="color: var(--text-main); margin-bottom: 1.5rem;">
+            Are you sure you want to delete route <strong id="delete_r_display"></strong>?
+        </p>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete_route">
+            <input type="hidden" name="route_id" id="delete_r_id">
+
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline closeModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: #fff; border: none;">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- JavaScript for Tabs, Modals & Live Filtering -->
 <script>
+    // --- Tab Switcher Logic ---
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+
+        if (tab === 'vehicles') {
+            document.getElementById('tabBtnVehicles').classList.add('active');
+            document.getElementById('tabPaneVehicles').classList.add('active');
+        } else if (tab === 'routes') {
+            document.getElementById('tabBtnRoutes').classList.add('active');
+            document.getElementById('tabPaneRoutes').classList.add('active');
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
-        const tabBtns = document.querySelectorAll('.tab-btn');
-        const tabPanes = document.querySelectorAll('.tab-pane');
-
-        tabBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                const targetTab = this.getAttribute('data-tab');
-                tabBtns.forEach(b => b.classList.remove('active'));
-                tabPanes.forEach(p => p.classList.remove('active'));
-                this.classList.add('active');
-                document.getElementById(targetTab).classList.add('active');
-            });
-        });
-
-        const vehicleModal = document.getElementById('addVehicleModal');
-        const routeModal = document.getElementById('addRouteModal');
-        const openVehicleBtn = document.getElementById('openVehicleModalBtn');
-        const openRouteBtn = document.getElementById('openRouteModalBtn');
+        // Close Modal Events
         const closeBtns = document.querySelectorAll('.closeModalBtn');
-
-        if(openVehicleBtn) openVehicleBtn.addEventListener('click', () => vehicleModal.classList.add('active'));
-        if(openRouteBtn) openRouteBtn.addEventListener('click', () => routeModal.classList.add('active'));
-
         closeBtns.forEach(btn => {
             btn.addEventListener('click', () => {
-                vehicleModal.classList.remove('active');
-                routeModal.classList.remove('active');
+                document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
             });
         });
 
         window.addEventListener('click', (e) => {
-            if(e.target === vehicleModal) vehicleModal.classList.remove('active');
-            if(e.target === routeModal) routeModal.classList.remove('active');
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
+            }
         });
+
+        // ---------------- FLEET VEHICLE LIVE FILTER ----------------
+        const vehicleSearch = document.getElementById('vehicleSearchInput');
+        const vehicleStatusFilter = document.getElementById('vehicleStatusFilter');
+        const vehicleRows = document.querySelectorAll('.vehicle-row');
+        const emptyVehicleRow = document.getElementById('emptyVehicleSearchRow');
+
+        function filterVehicles() {
+            const query = vehicleSearch ? vehicleSearch.value.toLowerCase().trim() : '';
+            const status = vehicleStatusFilter ? vehicleStatusFilter.value.toLowerCase().replace('_', '-') : 'all';
+            let count = 0;
+
+            vehicleRows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const rowStatus = row.getAttribute('data-status') || '';
+
+                const matchesQuery = text.includes(query);
+                const matchesStatus = (status === 'all' || rowStatus.includes(status));
+
+                if (matchesQuery && matchesStatus) {
+                    row.style.display = '';
+                    count++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (emptyVehicleRow) {
+                emptyVehicleRow.style.display = (count === 0 && vehicleRows.length > 0) ? '' : 'none';
+            }
+        }
+
+        if (vehicleSearch) vehicleSearch.addEventListener('input', filterVehicles);
+        if (vehicleStatusFilter) vehicleStatusFilter.addEventListener('change', filterVehicles);
+
+        // ---------------- ROUTE LIVE FILTER ----------------
+        const routeSearch = document.getElementById('routeSearchInput');
+        const routeRows = document.querySelectorAll('.route-row');
+        const emptyRouteRow = document.getElementById('emptyRouteSearchRow');
+
+        function filterRoutes() {
+            const query = routeSearch ? routeSearch.value.toLowerCase().trim() : '';
+            let count = 0;
+
+            routeRows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    row.style.display = '';
+                    count++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (emptyRouteRow) {
+                emptyRouteRow.style.display = (count === 0 && routeRows.length > 0) ? '' : 'none';
+            }
+        }
+
+        if (routeSearch) routeSearch.addEventListener('input', filterRoutes);
     });
+
+    // --- Vehicle Modals logic ---
+    function openAddVehicleModal() {
+        document.getElementById('vehicleModalTitle').innerText = "Add New Vehicle";
+        document.getElementById('vehicle_action').value = "add_vehicle";
+        document.getElementById('vehicle_id').value = "";
+        document.getElementById('v_reg').value = "";
+        document.getElementById('v_model').value = "";
+        document.getElementById('v_capacity').value = "";
+        document.getElementById('v_driver').value = "";
+        document.getElementById('v_contact').value = "";
+        document.getElementById('v_status').value = "AVAILABLE";
+
+        document.getElementById('vehicleModal').classList.add('active');
+    }
+
+    function openEditVehicleModal(id, reg, model, capacity, driver, contact, status) {
+        document.getElementById('vehicleModalTitle').innerText = "Edit Vehicle Details";
+        document.getElementById('vehicle_action').value = "edit_vehicle";
+        document.getElementById('vehicle_id').value = id;
+        document.getElementById('v_reg').value = reg;
+        document.getElementById('v_model').value = model;
+        document.getElementById('v_capacity').value = capacity;
+        document.getElementById('v_driver').value = driver;
+        document.getElementById('v_contact').value = contact;
+        document.getElementById('v_status').value = status.toUpperCase().replace(' ', '_');
+
+        document.getElementById('vehicleModal').classList.add('active');
+    }
+
+    function openDeleteVehicleModal(id, regDisplay) {
+        document.getElementById('delete_v_id').value = id;
+        document.getElementById('delete_v_display').innerText = regDisplay;
+        document.getElementById('deleteVehicleModal').classList.add('active');
+    }
+
+    // --- Route Modals logic ---
+    function openAddRouteModal() {
+        document.getElementById('routeModalTitle').innerText = "Add New Route";
+        document.getElementById('route_action').value = "add_route";
+        document.getElementById('route_id').value = "";
+        document.getElementById('r_name').value = "";
+        document.getElementById('r_vehicle').value = "";
+        document.getElementById('r_start').value = "";
+        document.getElementById('r_end').value = "";
+        document.getElementById('r_dep').value = "";
+        document.getElementById('r_arr').value = "";
+        document.getElementById('r_days').value = "";
+
+        document.getElementById('routeModal').classList.add('active');
+    }
+
+    function openEditRouteModal(id, name, vehicleId, start, end, depTime, arrTime, days) {
+        document.getElementById('routeModalTitle').innerText = "Edit Route Details";
+        document.getElementById('route_action').value = "edit_route";
+        document.getElementById('route_id').value = id;
+        document.getElementById('r_name').value = name;
+        document.getElementById('r_vehicle').value = vehicleId;
+        document.getElementById('r_start').value = start;
+        document.getElementById('r_end').value = end;
+        document.getElementById('r_dep').value = depTime;
+        document.getElementById('r_arr').value = arrTime;
+        document.getElementById('r_days').value = days;
+
+        document.getElementById('routeModal').classList.add('active');
+    }
+
+    function openDeleteRouteModal(id, nameDisplay) {
+        document.getElementById('delete_r_id').value = id;
+        document.getElementById('delete_r_display').innerText = nameDisplay;
+        document.getElementById('deleteRouteModal').classList.add('active');
+    }
 </script>
 
 {% endblock %}

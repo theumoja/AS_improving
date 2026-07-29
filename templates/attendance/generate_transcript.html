@@ -68,9 +68,9 @@
             <i class="fas fa-file-pdf"></i>
         </div>
         <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem;">Report Card Ready</h3>
-        <p style="color: var(--text-muted); margin-bottom: 1.5rem; max-width: 400px; margin-left: auto; margin-right: auto;">Your report card is being prepared. Click the button below to download[cite: 17].</p>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem; max-width: 400px; margin-left: auto; margin-right: auto;">Your report card is being prepared. Click the button below to download.</p>
         <a href="{% url 'attendance:generate_report_card' request.user.student_profile.reg_number current_term.id %}" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 0.75rem 1.5rem; font-size: 1rem; color: #fff; display: inline-flex; align-items: center; gap: 0.5rem;">
-            <i class="fas fa-download"></i> Download Report Card[cite: 17]
+            <i class="fas fa-download"></i> Download Report Card
         </a>
     </div>
 </div>
