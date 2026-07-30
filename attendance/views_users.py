@@ -19,9 +19,32 @@ from attendance.models import *
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
+
 @login_required
 def my_apps(request):
+    """Main Apps Dashboard - Shows top-level modules based on user permissions."""
     return render(request, 'attendance/my_apps.html')
+
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def my_apps_2(request):
+    """Sub-modules View - Shows detailed action cards for a selected main module."""
+    module = request.GET.get('module', '')
+    if not module:
+        return redirect('attendance:my_apps')
+
+    # Format 'online_learning' -> 'Online Learning' directly in Python
+    module_title = module.replace('_', ' ').title()
+
+    return render(request, 'attendance/my_apps_2.html', {
+        'selected_module': module,
+        'module_title': module_title,
+    })
 
 @login_required
 def home(request):

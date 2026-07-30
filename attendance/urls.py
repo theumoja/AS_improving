@@ -10,6 +10,7 @@ urlpatterns = [
     # Baseline Root Landing Page Routing
     path('', views_users.home, name='home'),
     path('my-apps/', views_users.my_apps, name='my_apps'),
+    path('my-apps-2/', views_users.my_apps_2, name='my_apps_2'),
     
     # Auth routing infrastructure
     path('login/', views.custom_login_view, name='login'),
