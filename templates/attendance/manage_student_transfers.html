@@ -40,14 +40,73 @@
         font-size: 1.25rem;
     }
 
-    /* Transfer Form Container */
-    .transfer-card {
+    /* Dynamic Filter Toolbar */
+    .filter-toolbar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) 100px;
+        gap: 1rem;
         background: #ffffff;
+        padding: 1.25rem;
         border-radius: var(--radius-md);
         border: 1px solid var(--border);
+        margin-bottom: 1.5rem;
+        align-items: end;
+    }
+
+    /* Badges */
+    .badge-info {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: rgba(37, 99, 235, 0.08);
+        color: #2563eb;
+        border: 1px solid rgba(37, 99, 235, 0.2);
+        padding: 0.35rem 0.65rem;
+        border-radius: var(--radius-sm);
+        font-size: 0.825rem;
+        font-weight: 600;
+    }
+
+    /* Action Icon Buttons */
+    .btn-icon {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.95rem;
+        padding: 0.35rem 0.5rem;
+        border-radius: var(--radius-sm);
+        transition: background 0.2s;
+    }
+    .btn-transfer { color: #2563eb; }
+    .btn-transfer:hover { background: rgba(37, 99, 235, 0.1); }
+    .btn-delete { color: #dc2626; }
+    .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
+
+    /* Modal Interface */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 550px;
         padding: 2rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        max-width: 1000px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        max-height: 90vh;
+        overflow-y: auto;
     }
     .form-group {
         margin-bottom: 1.25rem;
@@ -65,12 +124,6 @@
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         font-family: var(--font);
-    }
-    .form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 1.25rem;
-        margin-bottom: 1.5rem;
     }
 </style>
 
@@ -92,17 +145,138 @@
         </div>
         <h2>Student Transfers</h2>
     </div>
+
+    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <div style="position: relative; min-width: 250px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search student name, reg no..." style="padding-left: 2.25rem;">
+        </div>
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-exchange-alt"></i> Perform Transfer
+        </button>
+    </div>
 </div>
 
-<!-- Main Transfer Form Card -->
-<div class="transfer-card">
-    <form method="POST" action="">
-        {% csrf_token %}
-        <div class="form-grid">
+<!-- Pre-Filled Dynamic Filter Toolbar -->
+<div class="filter-toolbar">
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterStream">Current Stream</label>
+        <select id="filterStream" class="form-control">
+            <option value="">All Streams</option>
+            {% for st in streams %}
+                <option value="{{ st.id }}">{{ st.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterCourse">Current Course</label>
+        <select id="filterCourse" class="form-control">
+            <option value="">All Courses</option>
+            {% for c in courses %}
+                <option value="{{ c.code }}">{{ c.code }} - {{ c.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <button type="button" id="resetFilters" class="btn btn-outline" style="width: 100%; padding: 0.65rem;">Reset</button>
+    </div>
+</div>
+
+<!-- Transfers Table Container -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); background: #ffffff;">
+        <h5 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-main);">Active Student Enrollments</h5>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Reg No.</th>
+                <th>Student Name</th>
+                <th>Current Stream</th>
+                <th>Current Course</th>
+                <th style="text-align: right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="transferTableBody">
+            {% for student in students %}
+            <tr class="transfer-row"
+                data-reg="{{ student.reg_number }}"
+                data-name="{{ student.name }}"
+                data-stream-id="{{ student.stream.id|default:'' }}"
+                data-course-code="{{ student.course.code|default:'' }}">
+                
+                <td style="font-weight: 600; color: var(--text-muted);">
+                    #{{ student.reg_number }}
+                </td>
+
+                <td style="font-weight: 600; color: var(--text-main);">
+                    <i class="fas fa-user-graduate" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ student.name }}
+                </td>
+
+                <td>
+                    {% if student.stream %}
+                        <span class="badge-info"><i class="fas fa-layer-group"></i> {{ student.stream.name }}</span>
+                    {% else %}
+                        <span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">Unassigned</span>
+                    {% endif %}
+                </td>
+
+                <td>
+                    {% if student.course %}
+                        <span style="font-weight: 600; color: var(--text-main);">{{ student.course.code }}</span>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">({{ student.course.name }})</span>
+                    {% else %}
+                        <span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">Unassigned</span>
+                    {% endif %}
+                </td>
+
+                <td style="text-align: right;">
+                    <!-- Transfer Action Button -->
+                    <button type="button" class="btn-icon btn-transfer" title="Transfer Student"
+                        onclick="openTransferModal('{{ student.reg_number }}', '{{ student.stream.id|default:'' }}', '{{ student.course.code|default:'' }}')">
+                        <i class="fas fa-exchange-alt"></i> Transfer
+                    </button>
+
+                    <!-- Delete Action Button -->
+                    <button type="button" class="btn-icon btn-delete" title="Delete Student"
+                        onclick="openDeleteModal('{{ student.reg_number }}', `{{ student.name|escapejs }}`)">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-user-slash" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No student records found.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching student records found for your filter criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Transfer Action Modal -->
+<div class="modal" id="transferModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3>Transfer Student Stream / Course</h3>
+            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="" id="transferForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="transfer">
+
             <div class="form-group">
-                <label for="student_id">
-                    <i class="fas fa-user-graduate" style="margin-right:0.3rem;"></i> Target Student
-                </label>
+                <label for="student_id"><i class="fas fa-user-graduate" style="margin-right:0.3rem;"></i> Select Student</label>
                 <select id="student_id" name="student_id" class="form-control" required>
                     <option value="">Select Student...</option>
                     {% for s in students %}
@@ -112,9 +286,7 @@
             </div>
 
             <div class="form-group">
-                <label for="new_stream">
-                    <i class="fas fa-layer-group" style="margin-right:0.3rem;"></i> New Stream
-                </label>
+                <label for="new_stream"><i class="fas fa-layer-group" style="margin-right:0.3rem;"></i> New Stream</label>
                 <select id="new_stream" name="new_stream" class="form-control">
                     <option value="">No change</option>
                     {% for st in streams %}
@@ -124,9 +296,7 @@
             </div>
 
             <div class="form-group">
-                <label for="new_course">
-                    <i class="fas fa-book" style="margin-right:0.3rem;"></i> New Course
-                </label>
+                <label for="new_course"><i class="fas fa-book" style="margin-right:0.3rem;"></i> New Course</label>
                 <select id="new_course" name="new_course" class="form-control">
                     <option value="">No change</option>
                     {% for c in courses %}
@@ -134,14 +304,128 @@
                     {% endfor %}
                 </select>
             </div>
-        </div>
 
-        <div style="display: flex; justify-content: flex-end; padding-top: 0.5rem;">
-            <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); min-width: 180px;">
-                <i class="fas fa-exchange-alt" style="margin-right: 0.5rem;"></i> Transfer Student
-            </button>
-        </div>
-    </form>
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    <i class="fas fa-exchange-alt" style="margin-right: 0.3rem;"></i> Confirm Transfer
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal" id="deleteModal">
+    <div class="modal-card" style="max-width: 400px; text-align: center;">
+        <div style="font-size: 2.5rem; color: #dc2626; margin-bottom: 1rem;"><i class="fas fa-exclamation-triangle"></i></div>
+        <h3>Confirm Deletion</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Are you sure you want to delete <strong id="deleteStudentName"></strong>? This action cannot be undone.</p>
+        
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="student_id" id="deleteStudentId" value="">
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline" id="cancelDeleteBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: #fff;">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Global Functions to Trigger Modals
+    function openTransferModal(regNumber, currentStreamId, currentCourseCode) {
+        document.getElementById('student_id').value = regNumber;
+        document.getElementById('new_stream').value = currentStreamId || '';
+        document.getElementById('new_course').value = currentCourseCode || '';
+        document.getElementById('transferModal').classList.add('active');
+    }
+
+    function openDeleteModal(regNumber, studentName) {
+        document.getElementById('deleteStudentId').value = regNumber;
+        document.getElementById('deleteStudentName').textContent = studentName;
+        document.getElementById('deleteModal').classList.add('active');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const transferModal = document.getElementById('transferModal');
+        const deleteModal = document.getElementById('deleteModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+
+        if(openBtn) {
+            openBtn.addEventListener('click', () => {
+                document.getElementById('transferForm').reset();
+                transferModal.classList.add('active');
+            });
+        }
+
+        const closeTransferModal = () => transferModal.classList.remove('active');
+        const closeDeleteModal = () => deleteModal.classList.remove('active');
+        
+        if(closeBtn) closeBtn.addEventListener('click', closeTransferModal);
+        if(cancelBtn) cancelBtn.addEventListener('click', closeTransferModal);
+        if(cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+        
+        window.addEventListener('click', (e) => { 
+            if(e.target === transferModal) closeTransferModal(); 
+            if(e.target === deleteModal) closeDeleteModal();
+        });
+
+        // Filter Matrix Logic based on Search, Stream, and Course Dropdowns
+        const searchInput = document.getElementById('dashboardSearch');
+        const filterStream = document.getElementById('filterStream');
+        const filterCourse = document.getElementById('filterCourse');
+        const resetBtn = document.getElementById('resetFilters');
+        const dataRows = document.querySelectorAll('.transfer-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        function applyFilters() {
+            const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const streamVal = filterStream ? filterStream.value : '';
+            const courseVal = filterCourse ? filterCourse.value : '';
+
+            let matchingCount = 0;
+
+            dataRows.forEach(row => {
+                const rStream = row.getAttribute('data-stream-id');
+                const rCourse = row.getAttribute('data-course-code');
+                const rowText = row.textContent.toLowerCase();
+
+                let matchesSearch = !searchVal || rowText.includes(searchVal);
+                let matchesStream = !streamVal || rStream === streamVal;
+                let matchesCourse = !courseVal || rCourse === courseVal;
+
+                if (matchesSearch && matchesStream && matchesCourse) {
+                    row.style.display = '';
+                    matchingCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (emptyRow) {
+                emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            }
+        }
+
+        if (searchInput) searchInput.addEventListener('input', applyFilters);
+        if (filterStream) filterStream.addEventListener('change', applyFilters);
+        if (filterCourse) filterCourse.addEventListener('change', applyFilters);
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                if (filterStream) filterStream.value = '';
+                if (filterCourse) filterCourse.value = '';
+                applyFilters();
+            });
+        }
+    });
+</script>
 
 {% endblock %}

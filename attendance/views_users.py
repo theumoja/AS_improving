@@ -2910,11 +2910,19 @@ def parent_dashboard(request):
 
 # ==================== ONLINE LEARNING MODULE (Teacher & Student) ====================
 
-from .models import OnlineCourse, Lesson, Assignment, Submission, OnlineExam, OnlineExamQuestion, OnlineExamAnswer, Note
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from .models import (
+    OnlineCourse, Lesson, CourseUnit, TeacherProfile, User
+)
 
 @login_required
+@transaction.atomic
 def manage_online_courses(request):
-    """CRUD for online courses, lessons, assignments (Teacher)."""
+    """CRUD for online courses and lessons (Teacher/Admin)."""
     if request.user.role not in [User.IS_TEACHER, User.IS_ADMIN]:
         return HttpResponse("Unauthorized", status=403)
 
@@ -2926,6 +2934,8 @@ def manage_online_courses(request):
 
     if request.method == 'POST':
         action = request.POST.get('action')
+
+        # --- ONLINE COURSE ACTIONS ---
         if action == 'add_course':
             name = request.POST.get('name')
             course_unit_code = request.POST.get('course_unit')
@@ -2933,22 +2943,79 @@ def manage_online_courses(request):
             instructor_id = request.POST.get('instructor')
             start = request.POST.get('start_date')
             end = request.POST.get('end_date')
+            is_active = request.POST.get('is_active') == 'on' or request.POST.get('is_active') == 'true'
+
             course_unit = CourseUnit.objects.get(code=course_unit_code)
             instructor = TeacherProfile.objects.get(id=instructor_id) if instructor_id else request.user.teacher_profile
+
             OnlineCourse.objects.create(
                 name=name, course_unit=course_unit, description=description,
-                instructor=instructor, start_date=start, end_date=end, is_active=True
+                instructor=instructor, start_date=start, end_date=end, is_active=is_active
             )
-            messages.success(request, "Online course created.")
+            messages.success(request, "Online course created successfully.")
+
+        elif action == 'edit_course':
+            course_id = request.POST.get('course_id')
+            course = get_object_or_404(OnlineCourse, id=course_id)
+            
+            course.name = request.POST.get('name')
+            course_unit_code = request.POST.get('course_unit')
+            if course_unit_code:
+                course.course_unit = CourseUnit.objects.get(code=course_unit_code)
+            
+            instructor_id = request.POST.get('instructor')
+            if instructor_id:
+                course.instructor = TeacherProfile.objects.get(id=instructor_id)
+            
+            course.description = request.POST.get('description')
+            course.start_date = request.POST.get('start_date')
+            course.end_date = request.POST.get('end_date')
+            course.is_active = request.POST.get('is_active') == 'on' or request.POST.get('is_active') == 'true'
+            course.save()
+
+            messages.success(request, f"Course '{course.name}' updated successfully.")
+
+        elif action == 'delete_course':
+            course_id = request.POST.get('course_id')
+            course = get_object_or_404(OnlineCourse, id=course_id)
+            course_name = course.name
+            course.delete()
+            messages.success(request, f"Course '{course_name}' deleted successfully.")
+
+        # --- LESSON ACTIONS ---
         elif action == 'add_lesson':
             course_id = request.POST.get('course')
             title = request.POST.get('title')
             content = request.POST.get('content')
             video_url = request.POST.get('video_url')
-            order = request.POST.get('order')
+            order = request.POST.get('order') or 1
+
             course = OnlineCourse.objects.get(id=course_id)
             Lesson.objects.create(course=course, title=title, content=content, video_url=video_url, order=order)
-            messages.success(request, "Lesson added.")
+            messages.success(request, "Lesson added successfully.")
+
+        elif action == 'edit_lesson':
+            lesson_id = request.POST.get('lesson_id')
+            lesson = get_object_or_404(Lesson, id=lesson_id)
+            course_id = request.POST.get('course')
+
+            if course_id:
+                lesson.course = OnlineCourse.objects.get(id=course_id)
+            lesson.title = request.POST.get('title')
+            lesson.content = request.POST.get('content')
+            lesson.video_url = request.POST.get('video_url')
+            lesson.order = request.POST.get('order') or 1
+            lesson.save()
+
+            messages.success(request, f"Lesson '{lesson.title}' updated successfully.")
+
+        elif action == 'delete_lesson':
+            lesson_id = request.POST.get('lesson_id')
+            lesson = get_object_or_404(Lesson, id=lesson_id)
+            lesson_title = lesson.title
+            lesson.delete()
+            messages.success(request, f"Lesson '{lesson_title}' deleted successfully.")
+
         return redirect('attendance:manage_online_courses')
 
     course_units = CourseUnit.objects.all()
@@ -2958,6 +3025,7 @@ def manage_online_courses(request):
         'course_units': course_units,
         'teachers': teachers,
     })
+
 
 
 @login_required
@@ -3056,10 +3124,17 @@ def take_online_exam(request, exam_id):
         'questions': questions,
     })
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from .models import OnlineCourse, OnlineExam, User
 
 @login_required
+@transaction.atomic
 def manage_online_exams(request):
-    """Teacher creates online exams."""
+    """Teacher/Admin CRUD for online exams."""
     if request.user.role not in [User.IS_TEACHER, User.IS_ADMIN]:
         return HttpResponse("Unauthorized", status=403)
 
@@ -3071,6 +3146,8 @@ def manage_online_exams(request):
 
     if request.method == 'POST':
         action = request.POST.get('action')
+
+        # --- CREATE ONLINE EXAM ---
         if action == 'add_exam':
             course_id = request.POST.get('course')
             title = request.POST.get('title')
@@ -3078,28 +3155,61 @@ def manage_online_exams(request):
             start_time = request.POST.get('start_time')
             end_time = request.POST.get('end_time')
             total_marks = request.POST.get('total_marks')
-            course = OnlineCourse.objects.get(id=course_id)
+            is_published = request.POST.get('is_published') in ['on', 'true', 'True']
+
+            course = get_object_or_404(OnlineCourse, id=course_id)
             OnlineExam.objects.create(
-                online_course=course, title=title, description=description,
-                start_time=start_time, end_time=end_time,
-                total_marks=total_marks, is_published=False
+                online_course=course,
+                title=title,
+                description=description,
+                start_time=start_time,
+                end_time=end_time,
+                total_marks=total_marks,
+                is_published=is_published
             )
-            messages.success(request, "Online exam created.")
+            messages.success(request, "Online exam created successfully.")
+
+        # --- EDIT ONLINE EXAM ---
+        elif action == 'edit_exam':
+            exam_id = request.POST.get('exam_id')
+            exam = get_object_or_404(OnlineExam, id=exam_id)
+            course_id = request.POST.get('course')
+
+            if course_id:
+                exam.online_course = get_object_or_404(OnlineCourse, id=course_id)
+
+            exam.title = request.POST.get('title')
+            exam.description = request.POST.get('description')
+            exam.start_time = request.POST.get('start_time')
+            exam.end_time = request.POST.get('end_time')
+            exam.total_marks = request.POST.get('total_marks')
+            exam.is_published = request.POST.get('is_published') in ['on', 'true', 'True']
+            exam.save()
+
+            messages.success(request, f"Exam '{exam.title}' updated successfully.")
+
+        # --- DELETE ONLINE EXAM ---
+        elif action == 'delete_exam':
+            exam_id = request.POST.get('exam_id')
+            exam = get_object_or_404(OnlineExam, id=exam_id)
+            exam_title = exam.title
+            exam.delete()
+            messages.success(request, f"Exam '{exam_title}' deleted successfully.")
+
         return redirect('attendance:manage_online_exams')
 
-    exams = OnlineExam.objects.filter(online_course__in=courses)
+    exams = OnlineExam.objects.filter(online_course__in=courses).select_related('online_course')
     return render(request, 'attendance/manage_online_exams.html', {
         'courses': courses,
         'exams': exams,
     })
-
 
 # Add this to views_users.py (at the end or near other dashboard views)
 
 @login_required
 def registrar_dashboard(request):
     """Overview dashboard for the Academic Registrar."""
-    if request.user.role != User.IS_REGISTRAR:
+    if request.user.role not in [User.IS_REGISTRAR, User.IS_ADMIN]:
         return HttpResponse("Unauthorized", status=403)
 
     total_students = StudentProfile.objects.count()

@@ -40,14 +40,85 @@
         font-size: 1.25rem;
     }
 
-    /* Link Card Layout */
-    .link-card {
+    /* Filter Toolbar Styles */
+    .filter-toolbar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) 100px;
+        gap: 1rem;
         background: #ffffff;
+        padding: 1.25rem;
         border-radius: var(--radius-md);
         border: 1px solid var(--border);
+        margin-bottom: 1.5rem;
+        align-items: end;
+    }
+
+    /* Student Tag Badges */
+    .student-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: rgba(37, 99, 235, 0.08);
+        color: #2563eb;
+        border: 1px solid rgba(37, 99, 235, 0.2);
+        padding: 0.25rem 0.55rem;
+        border-radius: var(--radius-sm);
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin: 0.15rem;
+    }
+
+    .badge-count {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.6rem;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.8rem;
+    }
+    .badge-linked { background: rgba(16, 185, 129, 0.1); color: #059669; }
+    .badge-unlinked { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+
+    /* Action Icon Buttons */
+    .btn-icon {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.95rem;
+        padding: 0.35rem 0.5rem;
+        border-radius: var(--radius-sm);
+        transition: background 0.2s;
+    }
+    .btn-edit { color: #2563eb; }
+    .btn-edit:hover { background: rgba(37, 99, 235, 0.1); }
+    .btn-delete { color: #dc2626; }
+    .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
+
+    /* Modal Context Interfaces */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 600px;
         padding: 2rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        max-width: 900px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        max-height: 90vh;
+        overflow-y: auto;
     }
     .form-group {
         margin-bottom: 1.25rem;
@@ -58,12 +129,6 @@
         font-weight: 600;
         margin-bottom: 0.4rem;
         color: var(--text-muted);
-    }
-    .form-group small {
-        display: block;
-        margin-top: 0.35rem;
-        color: var(--text-muted);
-        font-size: 0.8rem;
     }
     .form-control {
         width: 100%;
@@ -80,17 +145,6 @@
         padding: 0.5rem 0.75rem;
         border-radius: var(--radius-sm);
         margin-bottom: 0.2rem;
-    }
-    .form-grid {
-        display: grid;
-        grid-template-columns: 1fr 2fr;
-        gap: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-    @media (max-width: 768px) {
-        .form-grid {
-            grid-template-columns: 1fr;
-        }
     }
 </style>
 
@@ -110,19 +164,146 @@
         <div class="header-icon-box">
             <i class="fas fa-link"></i>
         </div>
-        <h2>Link Parent to Students</h2>
+        <h2>Parent & Student Connections</h2>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <div style="position: relative; min-width: 260px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search parent or student..." style="padding-left: 2.25rem;">
+        </div>
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-plus-circle"></i> Link Parent
+        </button>
     </div>
 </div>
 
-<!-- Main Link Card -->
-<div class="link-card">
-    <form method="POST" action="">
-        {% csrf_token %}
-        <div class="form-grid">
+<!-- Pre-Filled Dynamic Filter Toolbar -->
+<div class="filter-toolbar">
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterParent">Parent Name</label>
+        <select id="filterParent" class="form-control">
+            <option value="">All Parents</option>
+            {% for p in parents %}
+                <option value="{{ p.name }}">{{ p.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterLinkStatus">Link Status</label>
+        <select id="filterLinkStatus" class="form-control">
+            <option value="">All Statuses</option>
+            <option value="linked">Has Linked Students</option>
+            <option value="unlinked">No Students Linked</option>
+        </select>
+    </div>
+
+    <div>
+        <button type="button" id="resetFilters" class="btn btn-outline" style="width: 100%; padding: 0.65rem;">Reset</button>
+    </div>
+</div>
+
+<!-- Main Table: Linked Parents & Students -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); background: #ffffff;">
+        <h5 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-main);">Parent - Student Mapping</h5>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Parent Details</th>
+                <th>Username</th>
+                <th>Linked Students</th>
+                <th>Total Students</th>
+                <th style="text-align: right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="parentStudentTableBody">
+            {% for parent in parents %}
+            {% with linked_list=parent.students.all %}
+            <tr class="link-row"
+                data-parent-id="{{ parent.id }}"
+                data-parent-name="{{ parent.name }}"
+                data-username="{{ parent.user.username }}"
+                data-linked-count="{{ linked_list|length }}"
+                data-student-ids="{% for s in linked_list %}{{ s.reg_number }}{% if not forloop.last %},{% endif %}{% endfor %}">
+                
+                <td style="font-weight: 600; color: var(--text-main);">
+                    <i class="fas fa-user-friends" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ parent.name }}
+                </td>
+
+                <td style="color: var(--text-muted);">
+                    <i class="fas fa-user" style="margin-right: 0.25rem;"></i> {{ parent.user.username }}
+                </td>
+
+                <td style="max-width: 380px;">
+                    {% if linked_list %}
+                        {% for s in linked_list %}
+                            <span class="student-tag">
+                                <i class="fas fa-user-graduate"></i> {{ s.name }} ({{ s.reg_number }})
+                            </span>
+                        {% endfor %}
+                    {% else %}
+                        <span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">No students linked yet</span>
+                    {% endif %}
+                </td>
+
+                <td>
+                    {% if linked_list %}
+                        <span class="badge-count badge-linked"><i class="fas fa-check-circle" style="margin-right:0.25rem;"></i> {{ linked_list|length }} Linked</span>
+                    {% else %}
+                        <span class="badge-count badge-unlinked"><i class="fas fa-exclamation-circle" style="margin-right:0.25rem;"></i> 0 Linked</span>
+                    {% endif %}
+                </td>
+
+                <td style="text-align: right;">
+                    <!-- Quick Edit Button -->
+                    <button type="button" class="btn-icon btn-edit" title="Manage Links"
+                        onclick="openEditModal('{{ parent.id }}', '{% for s in linked_list %}{{ s.reg_number }}{% if not forloop.last %},{% endif %}{% endfor %}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <!-- Unlink All Button -->
+                    {% if linked_list %}
+                    <button type="button" class="btn-icon btn-delete" title="Unlink All Students"
+                        onclick="openUnlinkModal('{{ parent.id }}', `{{ parent.name|escapejs }}`)">
+                        <i class="fas fa-unlink"></i>
+                    </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endwith %}
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-users-slash" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No parent accounts found.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching parent or student records found for your filter criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Creator / Link Manager -->
+<div class="modal" id="linkModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3 id="modalTitle">Link Parent to Students</h3>
+            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="" id="linkForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="link">
+
             <div class="form-group">
-                <label for="parent_id">
-                    <i class="fas fa-user-friends" style="margin-right: 0.3rem;"></i> Parent
-                </label>
+                <label for="parent_id"><i class="fas fa-user-friends" style="margin-right: 0.3rem;"></i> Target Parent</label>
                 <select id="parent_id" name="parent_id" class="form-control" required>
                     <option value="">Select Parent...</option>
                     {% for p in parents %}
@@ -132,24 +313,150 @@
             </div>
 
             <div class="form-group">
-                <label for="student_ids">
-                    <i class="fas fa-user-graduate" style="margin-right: 0.3rem;"></i> Target Students
-                </label>
+                <label for="student_ids"><i class="fas fa-user-graduate" style="margin-right: 0.3rem;"></i> Select Students</label>
                 <select id="student_ids" name="student_ids" class="form-control" multiple required>
                     {% for s in students %}
                         <option value="{{ s.reg_number }}">{{ s.name }} ({{ s.reg_number }})</option>
                     {% endfor %}
                 </select>
-                <small><i class="fas fa-info-circle"></i> Hold <strong>Ctrl</strong> (or <strong>Cmd</strong> on Mac) to select multiple students.</small>
+                <small style="color: var(--text-muted); margin-top: 0.35rem; display: block;"><i class="fas fa-info-circle"></i> Hold <strong>Ctrl</strong> (or <strong>Cmd</strong> on Mac) to select multiple students.</small>
             </div>
-        </div>
 
-        <div style="display: flex; justify-content: flex-end; padding-top: 0.5rem;">
-            <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); min-width: 180px;">
-                <i class="fas fa-link" style="margin-right: 0.5rem;"></i> Link Students
-            </button>
-        </div>
-    </form>
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" id="modalSubmitBtn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    <i class="fas fa-link" style="margin-right: 0.3rem;"></i> Save Connection
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
+
+<!-- Unlink Confirmation Modal -->
+<div class="modal" id="unlinkModal">
+    <div class="modal-card" style="max-width: 400px; text-align: center;">
+        <div style="font-size: 2.5rem; color: #dc2626; margin-bottom: 1rem;"><i class="fas fa-exclamation-triangle"></i></div>
+        <h3>Unlink Students</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Are you sure you want to remove all student links for <strong id="unlinkParentName"></strong>?</p>
+        
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="unlink_all">
+            <input type="hidden" name="parent_id" id="unlinkParentId" value="">
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline" id="cancelUnlinkBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: #fff;">Unlink All</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Global Modal Functions
+    function openEditModal(parentId, studentIdsCsv) {
+        document.getElementById('modalTitle').textContent = 'Manage Linked Students';
+        const parentSelect = document.getElementById('parent_id');
+        parentSelect.value = parentId;
+        
+        // Pre-select student choices in multi-select dropdown
+        const selectedStudentIds = studentIdsCsv ? studentIdsCsv.split(',') : [];
+        const studentSelect = document.getElementById('student_ids');
+        Array.from(studentSelect.options).forEach(opt => {
+            opt.selected = selectedStudentIds.includes(opt.value);
+        });
+
+        document.getElementById('modalSubmitBtn').innerHTML = '<i class="fas fa-save" style="margin-right: 0.3rem;"></i> Update Connections';
+        document.getElementById('linkModal').classList.add('active');
+    }
+
+    function openUnlinkModal(parentId, parentName) {
+        document.getElementById('unlinkParentId').value = parentId;
+        document.getElementById('unlinkParentName').textContent = parentName;
+        document.getElementById('unlinkModal').classList.add('active');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('linkModal');
+        const unlinkModal = document.getElementById('unlinkModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+        const cancelUnlinkBtn = document.getElementById('cancelUnlinkBtn');
+
+        if(openBtn) {
+            openBtn.addEventListener('click', () => {
+                document.getElementById('modalTitle').textContent = 'Link Parent to Students';
+                document.getElementById('linkForm').reset();
+                document.getElementById('modalSubmitBtn').innerHTML = '<i class="fas fa-link" style="margin-right: 0.3rem;"></i> Save Connection';
+                modal.classList.add('active');
+            });
+        }
+
+        const closeModal = () => modal.classList.remove('active');
+        const closeUnlinkModal = () => unlinkModal.classList.remove('active');
+        
+        if(closeBtn) closeBtn.addEventListener('click', closeModal);
+        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        if(cancelUnlinkBtn) cancelUnlinkBtn.addEventListener('click', closeUnlinkModal);
+        
+        window.addEventListener('click', (e) => { 
+            if(e.target === modal) closeModal(); 
+            if(e.target === unlinkModal) closeUnlinkModal();
+        });
+
+        // Filter Matrix Logic
+        const searchInput = document.getElementById('dashboardSearch');
+        const filterParent = document.getElementById('filterParent');
+        const filterLinkStatus = document.getElementById('filterLinkStatus');
+        const resetBtn = document.getElementById('resetFilters');
+        const dataRows = document.querySelectorAll('.link-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        function applyFilters() {
+            const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const parentVal = filterParent ? filterParent.value : '';
+            const statusVal = filterLinkStatus ? filterLinkStatus.value : '';
+
+            let matchingCount = 0;
+
+            dataRows.forEach(row => {
+                const rParentName = row.getAttribute('data-parent-name');
+                const rCount = parseInt(row.getAttribute('data-linked-count') || '0');
+                const rowText = row.textContent.toLowerCase();
+
+                let matchesSearch = !searchVal || rowText.includes(searchVal);
+                let matchesParent = !parentVal || rParentName === parentVal;
+                
+                let matchesStatus = true;
+                if (statusVal === 'linked') matchesStatus = rCount > 0;
+                else if (statusVal === 'unlinked') matchesStatus = rCount === 0;
+
+                if (matchesSearch && matchesParent && matchesStatus) {
+                    row.style.display = '';
+                    matchingCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (emptyRow) {
+                emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            }
+        }
+
+        if (searchInput) searchInput.addEventListener('input', applyFilters);
+        if (filterParent) filterParent.addEventListener('change', applyFilters);
+        if (filterLinkStatus) filterLinkStatus.addEventListener('change', applyFilters);
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                if (filterParent) filterParent.value = '';
+                if (filterLinkStatus) filterLinkStatus.value = '';
+                applyFilters();
+            });
+        }
+    });
+</script>
 
 {% endblock %}

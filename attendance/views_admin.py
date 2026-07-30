@@ -3803,23 +3803,40 @@ def hr_dashboard(request):
 
 from .models import ParentProfile
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import ParentProfile, StudentProfile, User
+
 @login_required
 def link_parent_student(request):
     """Admin/Registrar links parent accounts to students."""
     if request.user.role not in [User.IS_ADMIN, User.IS_REGISTRAR]:
         return HttpResponse("Unauthorized", status=403)
 
-    parents = ParentProfile.objects.select_related('user').all()
+    # Use prefetch_related for optimal rendering of student lists in the template
+    parents = ParentProfile.objects.select_related('user').prefetch_related('students').all()
     students = StudentProfile.objects.all()
 
     if request.method == 'POST':
-        parent_id = request.POST.get('parent_id')
-        student_ids = request.POST.getlist('student_ids')
-        parent = get_object_or_404(ParentProfile, id=parent_id)
-        parent.students.set(student_ids)
-        parent.save()
-        messages.success(request, f"Students linked to {parent.name}.")
-        return redirect('attendance:link_parent_student')
+        action = request.POST.get('action', 'link')
+        
+        if action == 'unlink_all':
+            parent_id = request.POST.get('parent_id')
+            parent = get_object_or_404(ParentProfile, id=parent_id)
+            parent.students.clear()
+            messages.success(request, f"Unlinked all students from {parent.name}.")
+            return redirect('attendance:link_parent_student')
+
+        else: # Default: link / update students
+            parent_id = request.POST.get('parent_id')
+            student_ids = request.POST.getlist('student_ids')
+            parent = get_object_or_404(ParentProfile, id=parent_id)
+            parent.students.set(student_ids)
+            parent.save()
+            messages.success(request, f"Updated student links for {parent.name}.")
+            return redirect('attendance:link_parent_student')
 
     return render(request, 'attendance/link_parent_student.html', {
         'parents': parents,
@@ -3841,33 +3858,50 @@ def manage_admissions(request):
     return redirect('attendance:manage_students')
 
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from .models import StudentProfile, Stream, Course, User
+
 @login_required
 @transaction.atomic
 def manage_student_transfers(request):
-    """Transfer students between streams/courses."""
+    """Transfer students between streams/courses or delete student records."""
     if request.user.role not in [User.IS_ADMIN, User.IS_REGISTRAR]:
         return HttpResponse("Unauthorized", status=403)
 
     if request.method == 'POST':
+        action = request.POST.get('action', 'transfer')
         student_id = request.POST.get('student_id')
-        new_stream_id = request.POST.get('new_stream')
-        new_course_code = request.POST.get('new_course')
         student = get_object_or_404(StudentProfile, reg_number=student_id)
-        if new_stream_id:
-            student.stream = Stream.objects.get(id=new_stream_id)
-        if new_course_code:
-            student.course = Course.objects.get(code=new_course_code)
-        student.save()
-        messages.success(request, f"Student {student.name} transferred.")
-        return redirect('attendance:manage_student_transfers')
+
+        if action == 'delete':
+            student_name = student.name
+            student.delete()
+            messages.success(request, f"Student record for {student_name} deleted successfully.")
+            return redirect('attendance:manage_student_transfers')
+
+        else:  # Default transfer action
+            new_stream_id = request.POST.get('new_stream')
+            new_course_code = request.POST.get('new_course')
+            
+            if new_stream_id:
+                student.stream = Stream.objects.get(id=new_stream_id)
+            if new_course_code:
+                student.course = Course.objects.get(code=new_course_code)
+                
+            student.save()
+            messages.success(request, f"Student {student.name} transferred successfully.")
+            return redirect('attendance:manage_student_transfers')
 
     students = StudentProfile.objects.select_related('stream', 'course').all()
     streams = Stream.objects.all()
     courses = Course.objects.all()
+    
     return render(request, 'attendance/manage_student_transfers.html', {
         'students': students,
         'streams': streams,
         'courses': courses,
     })
-
-

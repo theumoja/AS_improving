@@ -91,7 +91,7 @@ urlpatterns = [
 
 
     # 1. Admin Role & User Management Dashboard
-    path('admin/users/', views_admin.manage_users, name='manage_users'),
+    path('admin_ui/users/', views_admin.manage_users, name='manage_users'),
     path('library/reserve/apply/<int:book_id>/', views_users.apply_reserve_book, name='apply_reserve_book'),
 
     # 2. Lodgings & Hostel Overview (Viewable by everyone based on template permissions)
@@ -201,7 +201,7 @@ urlpatterns = [
 
     # Parent Portal
     path('parent/dashboard/', views_users.parent_dashboard, name='parent_dashboard'),
-    path('admin/link-parent/', views_admin.link_parent_student, name='link_parent_student'),
+    path('admin_ui/link-parent/', views_admin.link_parent_student, name='link_parent_student'),
 
     # Online Learning
     path('online/courses/', views_users.manage_online_courses, name='manage_online_courses'),
@@ -213,6 +213,6 @@ urlpatterns = [
 
     # Registrar
     path('registrar/dashboard/', views_users.registrar_dashboard, name='registrar_dashboard'),  # define if needed
-    path('admin/admissions/', views_admin.manage_admissions, name='manage_admissions'),
-    path('admin/transfers/', views_admin.manage_student_transfers, name='manage_student_transfers'),
+    path('admin_ui/admissions/', views_admin.manage_admissions, name='manage_admissions'),
+    path('admin_ui/transfers/', views_admin.manage_student_transfers, name='manage_student_transfers'),
     ]

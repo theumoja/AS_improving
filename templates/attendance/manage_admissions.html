@@ -1,0 +1,460 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    /* Dynamic Filter Toolbar */
+    .filter-toolbar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) 100px;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        margin-bottom: 1.5rem;
+        align-items: end;
+    }
+
+    /* Admission Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: var(--radius-sm);
+        font-weight: 700;
+        font-size: 0.825rem;
+    }
+    .badge-admitted { background: rgba(16, 185, 129, 0.1); color: #059669; }
+    .badge-pending  { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+    .badge-rejected { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+
+    /* Action Icon Buttons */
+    .btn-icon {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.95rem;
+        padding: 0.35rem 0.5rem;
+        border-radius: var(--radius-sm);
+        transition: background 0.2s;
+    }
+    .btn-edit { color: #2563eb; }
+    .btn-edit:hover { background: rgba(37, 99, 235, 0.1); }
+    .btn-delete { color: #dc2626; }
+    .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
+
+    /* Modal Context Interface Components */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active { display: flex; }
+    .modal-card {
+        background: #fff;
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 550px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+</style>
+
+<!-- Messages Bar -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Header & Action Toolbar -->
+<div class="page-header-actions">
+    <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
+        <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search applicant name, reg no..." style="padding-left: 2.25rem;">
+        </div>
+    </div>
+
+    <div class="action-group">
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fas fa-user-plus"></i> New Admission Application
+        </button>
+    </div>
+</div>
+
+<!-- Dynamic Filter Toolbar (Pre-Filled based on Columns) -->
+<div class="filter-toolbar">
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterClass">Class Applied</label>
+        <select id="filterClass" class="form-control">
+            <option value="">All Classes</option>
+            {% for c in classes %}
+                <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterGender">Gender</label>
+        <select id="filterGender" class="form-control">
+            <option value="">All Genders</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterStatus">Admission Status</label>
+        <select id="filterStatus" class="form-control">
+            <option value="">All Statuses</option>
+            <option value="ADMITTED">Admitted</option>
+            <option value="PENDING">Pending</option>
+            <option value="REJECTED">Rejected</option>
+        </select>
+    </div>
+
+    <div>
+        <button type="button" id="resetFilters" class="btn btn-outline" style="width: 100%; padding: 0.65rem;">Reset</button>
+    </div>
+</div>
+
+<!-- Admissions Table Container -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Reg No.</th>
+                <th>Student Name</th>
+                <th>Class Applied</th>
+                <th>Gender</th>
+                <th>Date Applied</th>
+                <th>Status</th>
+                <th style="text-align: right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="admissionsTableBody">
+            {% for admission in admissions %}  
+            <tr class="admission-row" 
+                data-reg="{{ admission.reg_no }}" 
+                data-name="{{ admission.name }}" 
+                data-class="{{ admission.class_applied }}"
+                data-gender="{{ admission.gender }}"
+                data-status="{{ admission.status }}">
+                
+                <td style="font-weight: 600; color: var(--text-muted);">
+                    #{{ admission.reg_no }}
+                </td>
+                <td style="font-weight: 600; color: var(--text-main);">
+                    <i class="fas fa-user-graduate" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ admission.name }}
+                </td>
+                <td>
+                    <span style="font-weight: 600; color: var(--text-muted);">{{ admission.class_applied }}</span>
+                </td>
+                <td>
+                    {{ admission.gender }}
+                </td>
+                <td>
+                    <i class="far fa-calendar-alt" style="margin-right: 0.3rem; color: var(--text-muted);"></i> {{ admission.date_applied|date:"Y-m-d" }}
+                </td>
+                <td>
+                    {% if admission.status == 'ADMITTED' %}
+                        <span class="status-badge badge-admitted"><i class="fas fa-check-circle"></i> {{ admission.status }}</span>
+                    {% elif admission.status == 'REJECTED' %}
+                        <span class="status-badge badge-rejected"><i class="fas fa-times-circle"></i> {{ admission.status }}</span>
+                    {% else %}
+                        <span class="status-badge badge-pending"><i class="fas fa-hourglass-half"></i> {{ admission.status }}</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: right;">
+                    <!-- Edit Action -->
+                    <button type="button" class="btn-icon btn-edit" title="Edit Admission"
+                        onclick="openEditModal('{{ admission.id }}', '{{ admission.reg_no }}', `{{ admission.name|escapejs }}`, '{{ admission.class_applied }}', '{{ admission.gender }}', '{{ admission.status }}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <!-- Delete Action -->
+                    <button type="button" class="btn-icon btn-delete" title="Delete Admission"
+                        onclick="openDeleteModal('{{ admission.id }}', `{{ admission.name|escapejs }}`)">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-user-graduate" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No admission applications recorded.
+                </td>
+            </tr>
+            {% endfor %}
+            <tr id="searchEmptyRow" style="display: none;">
+                <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No matching admission records found for your filter criteria.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Creator / Editor Interface -->
+<div class="modal" id="singleAddModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3 id="modalTitle">New Admission Application</h3>
+            <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" action="" id="admissionForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" id="formAction" value="create">
+            <input type="hidden" name="admission_id" id="admissionIdField" value="">
+
+            <div class="form-group">
+                <label for="reg_no">Registration / Student Number</label>
+                <input type="text" id="reg_no" name="reg_no" class="form-control" required placeholder="e.g. REG-2026-001">
+            </div>
+
+            <div class="form-group">
+                <label for="name">Full Student Name</label>
+                <input type="text" id="name" name="name" class="form-control" required placeholder="e.g. Jane Doe">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="class_applied">Class / Level Applied</label>
+                    <select id="class_applied" name="class_applied" class="form-control" required>
+                        <option value="">Select Class...</option>
+                        {% for c in classes %}
+                            <option value="{{ c }}">{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="gender">Gender</label>
+                    <select id="gender" name="gender" class="form-control" required>
+                        <option value="">Select Gender...</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="status">Admission Decision Status</label>
+                <select id="status" name="status" class="form-control" required>
+                    <option value="PENDING">PENDING</option>
+                    <option value="ADMITTED">ADMITTED</option>
+                    <option value="REJECTED">REJECTED</option>
+                </select>
+            </div>
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
+                <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" id="modalSubmitBtn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Application</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Delete Confirmation Interface -->
+<div class="modal" id="deleteModal">
+    <div class="modal-card" style="max-width: 400px; text-align: center;">
+        <div style="font-size: 2.5rem; color: #dc2626; margin-bottom: 1rem;"><i class="fas fa-exclamation-triangle"></i></div>
+        <h3>Confirm Deletion</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Are you sure you want to delete the admission application for <strong id="deleteStudentName"></strong>? This action cannot be undone.</p>
+        
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="admission_id" id="deleteAdmissionId" value="">
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline" id="cancelDeleteBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: #fff;">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Global Modal Trigger Functions
+    function openEditModal(id, regNo, name, classApplied, gender, status) {
+        document.getElementById('modalTitle').textContent = 'Edit Admission Application';
+        document.getElementById('formAction').value = 'edit';
+        document.getElementById('admissionIdField').value = id;
+        document.getElementById('reg_no').value = regNo;
+        document.getElementById('name').value = name;
+        document.getElementById('class_applied').value = classApplied;
+        document.getElementById('gender').value = gender;
+        document.getElementById('status').value = status;
+        document.getElementById('modalSubmitBtn').textContent = 'Update Application';
+        document.getElementById('singleAddModal').classList.add('active');
+    }
+
+    function openDeleteModal(id, studentName) {
+        document.getElementById('deleteAdmissionId').value = id;
+        document.getElementById('deleteStudentName').textContent = studentName;
+        document.getElementById('deleteModal').classList.add('active');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('singleAddModal');
+        const deleteModal = document.getElementById('deleteModal');
+        const openBtn = document.getElementById('openModalBtn');
+        const closeBtn = document.getElementById('closeModalBtn');
+        const cancelBtn = document.getElementById('cancelModalBtn');
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+
+        if(openBtn) {
+            openBtn.addEventListener('click', () => {
+                document.getElementById('modalTitle').textContent = 'New Admission Application';
+                document.getElementById('formAction').value = 'create';
+                document.getElementById('admissionIdField').value = '';
+                document.getElementById('admissionForm').reset();
+                document.getElementById('modalSubmitBtn').textContent = 'Save Application';
+                modal.classList.add('active');
+            });
+        }
+
+        const closeModal = () => modal.classList.remove('active');
+        const closeDeleteModal = () => deleteModal.classList.remove('active');
+        
+        if(closeBtn) closeBtn.addEventListener('click', closeModal);
+        if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        if(cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+        
+        window.addEventListener('click', (e) => { 
+            if(e.target === modal) closeModal(); 
+            if(e.target === deleteModal) closeDeleteModal();
+        });
+
+        // Dynamic pre-population of Class Filter options from DOM data attributes (if not passed via view)
+        const filterClassSelect = document.getElementById('filterClass');
+        if (filterClassSelect && filterClassSelect.options.length <= 1) {
+            const classSet = new Set();
+            document.querySelectorAll('.admission-row').forEach(row => {
+                const cVal = row.getAttribute('data-class');
+                if (cVal) classSet.add(cVal);
+            });
+            Array.from(classSet).sort().forEach(cVal => {
+                const opt = document.createElement('option');
+                opt.value = cVal;
+                opt.textContent = cVal;
+                filterClassSelect.appendChild(opt);
+            });
+        }
+
+        // Filtering Matrix Logic based on Search & Column-based Filters
+        const searchInput = document.getElementById('dashboardSearch');
+        const filterClass = document.getElementById('filterClass');
+        const filterGender = document.getElementById('filterGender');
+        const filterStatus = document.getElementById('filterStatus');
+        const resetBtn = document.getElementById('resetFilters');
+        const dataRows = document.querySelectorAll('.admission-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        function applyFilters() {
+            const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const classVal = filterClass ? filterClass.value : '';
+            const genderVal = filterGender ? filterGender.value : '';
+            const statusVal = filterStatus ? filterStatus.value : '';
+
+            let matchingCount = 0;
+
+            dataRows.forEach(row => {
+                const rClass = row.getAttribute('data-class');
+                const rGender = row.getAttribute('data-gender');
+                const rStatus = row.getAttribute('data-status');
+                const rowText = row.textContent.toLowerCase();
+
+                let matchesSearch = !searchVal || rowText.includes(searchVal);
+                let matchesClass = !classVal || rClass === classVal;
+                let matchesGender = !genderVal || rGender === genderVal;
+                let matchesStatus = !statusVal || rStatus === statusVal;
+
+                if (matchesSearch && matchesClass && matchesGender && matchesStatus) {
+                    row.style.display = '';
+                    matchingCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (emptyRow) {
+                emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            }
+        }
+
+        if (searchInput) searchInput.addEventListener('input', applyFilters);
+        if (filterClass) filterClass.addEventListener('change', applyFilters);
+        if (filterGender) filterGender.addEventListener('change', applyFilters);
+        if (filterStatus) filterStatus.addEventListener('change', applyFilters);
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                if (filterClass) filterClass.value = '';
+                if (filterGender) filterGender.value = '';
+                if (filterStatus) filterStatus.value = '';
+                applyFilters();
+            });
+        }
+    });
+</script>
+
+{% endblock %}
