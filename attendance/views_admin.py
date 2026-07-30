@@ -3567,12 +3567,12 @@ def approve_leave(request, leave_id):
             leave.status = 'REJECTED'
             messages.info(request, f"Leave rejected for {leave.staff.username}.")
         leave.save()
-    return redirect('attendance:manage_leave')
+    return redirect('attendance:apply_leave')
 
 
 @login_required
 def manage_performance(request):
-    """Add/view performance evaluations."""
+    """Add/view/edit/delete performance evaluations."""
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
 
@@ -3581,18 +3581,50 @@ def manage_performance(request):
     terms = AcademicTerm.objects.all()
 
     if request.method == 'POST':
-        staff_id = request.POST.get('staff')
-        score = request.POST.get('score')
-        comments = request.POST.get('comments')
-        term_id = request.POST.get('term')
-        staff = User.objects.get(id=staff_id)
-        term = AcademicTerm.objects.get(id=term_id) if term_id else None
-        PerformanceEvaluation.objects.create(
-            staff=staff, evaluator=request.user, score=score,
-            comments=comments, term=term
-        )
-        messages.success(request, "Evaluation added.")
-        return redirect('attendance:manage_performance')
+        action = request.POST.get('action')
+        
+        # Handle Deletion
+        if action == 'delete':
+            eval_id = request.POST.get('eval_id')
+            eval_obj = get_object_or_404(PerformanceEvaluation, id=eval_id)
+            eval_obj.delete()
+            messages.success(request, "Evaluation deleted successfully.")
+            return redirect('attendance:manage_performance')
+
+        # Handle Editing
+        elif action == 'edit':
+            eval_id = request.POST.get('eval_id')
+            eval_obj = get_object_or_404(PerformanceEvaluation, id=eval_id)
+            
+            staff_id = request.POST.get('staff')
+            score = request.POST.get('score')
+            comments = request.POST.get('comments')
+            term_id = request.POST.get('term')
+            
+            eval_obj.staff = User.objects.get(id=staff_id)
+            eval_obj.score = score
+            eval_obj.comments = comments
+            eval_obj.term = AcademicTerm.objects.get(id=term_id) if term_id else None
+            eval_obj.save()
+            
+            messages.success(request, "Evaluation updated successfully.")
+            return redirect('attendance:manage_performance')
+
+        # Handle Creation (Default POST)
+        else:
+            staff_id = request.POST.get('staff')
+            score = request.POST.get('score')
+            comments = request.POST.get('comments')
+            term_id = request.POST.get('term')
+            staff = User.objects.get(id=staff_id)
+            term = AcademicTerm.objects.get(id=term_id) if term_id else None
+            
+            PerformanceEvaluation.objects.create(
+                staff=staff, evaluator=request.user, score=score,
+                comments=comments, term=term
+            )
+            messages.success(request, "Evaluation added.")
+            return redirect('attendance:manage_performance')
 
     return render(request, 'attendance/manage_performance.html', {
         'evaluations': evaluations,
@@ -3601,9 +3633,15 @@ def manage_performance(request):
     })
 
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import Qualification, User
+
 @login_required
 def manage_qualifications(request):
-    """Add/view staff qualifications."""
+    """Add, view, edit, and delete staff qualifications."""
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
 
@@ -3611,43 +3649,153 @@ def manage_qualifications(request):
     staff_users = User.objects.exclude(role=User.IS_STUDENT)
 
     if request.method == 'POST':
-        staff_id = request.POST.get('staff')
-        qual_name = request.POST.get('qualification_name')
-        institution = request.POST.get('institution')
-        year = request.POST.get('year_awarded')
-        certificate = request.FILES.get('certificate_file')
-        staff = User.objects.get(id=staff_id)
-        Qualification.objects.create(
-            staff=staff, qualification_name=qual_name,
-            institution=institution, year_awarded=year,
-            certificate_file=certificate
-        )
-        messages.success(request, "Qualification added.")
-        return redirect('attendance:manage_qualifications')
+        action = request.POST.get('action')
+
+        # Handle Deletion
+        if action == 'delete':
+            qual_id = request.POST.get('qual_id')
+            qual = get_object_or_404(Qualification, id=qual_id)
+            qual.delete()
+            messages.success(request, "Qualification deleted successfully.")
+            return redirect('attendance:manage_qualifications')
+
+        # Handle Editing
+        elif action == 'edit':
+            qual_id = request.POST.get('qual_id')
+            qual = get_object_or_404(Qualification, id=qual_id)
+
+            staff_id = request.POST.get('staff')
+            qual.staff = User.objects.get(id=staff_id)
+            qual.qualification_name = request.POST.get('qualification_name')
+            qual.institution = request.POST.get('institution')
+            qual.year_awarded = request.POST.get('year_awarded')
+
+            if 'certificate_file' in request.FILES:
+                qual.certificate_file = request.FILES['certificate_file']
+
+            qual.save()
+            messages.success(request, "Qualification updated successfully.")
+            return redirect('attendance:manage_qualifications')
+
+        # Handle Creation (Default POST)
+        else:
+            staff_id = request.POST.get('staff')
+            qual_name = request.POST.get('qualification_name')
+            institution = request.POST.get('institution')
+            year = request.POST.get('year_awarded')
+            certificate = request.FILES.get('certificate_file')
+            staff = User.objects.get(id=staff_id)
+
+            Qualification.objects.create(
+                staff=staff, qualification_name=qual_name,
+                institution=institution, year_awarded=year,
+                certificate_file=certificate
+            )
+            messages.success(request, "Qualification added.")
+            return redirect('attendance:manage_qualifications')
 
     return render(request, 'attendance/manage_qualifications.html', {
         'qualifications': qualifications,
         'staff_users': staff_users,
     })
 
+# ==================== HR MODULE (Comprehensive Dashboard View) ====================
+import json
+from django.shortcuts import render
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.db.models import Avg, Count, Q
+from django.core.serializers.json import DjangoJSONEncoder
+from .models import LeaveRequest, PerformanceEvaluation, Qualification, AcademicTerm, User
 
 @login_required
 def hr_dashboard(request):
-    """HR overview (Admin/Accountant)."""
+    """
+    Comprehensive HR Analytics & Logistics Overview.
+    Aggregates data across Staff Profiles, Leave Requests, Performance Evaluations, and Qualifications.
+    """
     if request.user.role not in [User.IS_ADMIN, User.IS_ACCOUNTANT]:
         return HttpResponse("Unauthorized", status=403)
 
-    total_staff = User.objects.exclude(role=User.IS_STUDENT).count()
+    # --- 1. STAFF METRICS ---
+    staff_qs = User.objects.exclude(role=User.IS_STUDENT)
+    total_staff = staff_qs.count()
+    
+    # --- 2. LEAVE REQUEST METRICS ---
     total_leaves = LeaveRequest.objects.count()
-    pending_leaves = LeaveRequest.objects.filter(status='PENDING').count()
-    avg_performance = PerformanceEvaluation.objects.aggregate(Avg('score'))['score__avg'] or 0
+    pending_leaves_count = LeaveRequest.objects.filter(status='PENDING').count()
+    approved_leaves_count = LeaveRequest.objects.filter(status='APPROVED').count()
+    rejected_leaves_count = LeaveRequest.objects.filter(status='REJECTED').count()
+
+    # --- 3. PERFORMANCE EVALUATION METRICS ---
+    total_evaluations = PerformanceEvaluation.objects.count()
+    avg_performance = PerformanceEvaluation.objects.aggregate(Avg('score'))['score__avg'] or 0.0
+
+    # Top performing staff members (by average score)
+    top_performers = PerformanceEvaluation.objects.values(
+        'staff__id', 'staff__username', 'staff__first_name', 'staff__last_name'
+    ).annotate(
+        avg_score=Avg('score'),
+        total_evals=Count('id')
+    ).order_by('-avg_score')[:5]
+
+    # --- 4. QUALIFICATIONS METRICS ---
+    total_qualifications = Qualification.objects.count()
+    qualified_staff_count = Qualification.objects.values('staff').distinct().count()
+    qualification_coverage = round((qualified_staff_count / total_staff * 100), 1) if total_staff > 0 else 0.0
+
+    # --- 5. ACTIONABLE & RECENT LOGS ---
+    # Pending leave requests requiring admin attention
+    pending_leave_requests = LeaveRequest.objects.filter(
+        status='PENDING'
+    ).select_related('staff').order_by('-id')[:5]
+
+    # Recent performance evaluations
+    recent_evaluations = PerformanceEvaluation.objects.select_related(
+        'staff', 'evaluator', 'term'
+    ).order_by('-id')[:5]
+
+    # Recent qualifications added
+    recent_qualifications = Qualification.objects.select_related('staff').order_by('-id')[:5]
+
+    # --- 6. CHART DATA ENCODING ---
+    # Chart 1: Leave Request Breakdown
+    leave_status_labels = ['Approved', 'Pending', 'Rejected']
+    leave_status_data = [approved_leaves_count, pending_leaves_count, rejected_leaves_count]
+
+    # Chart 2: Top Staff Performance Scores
+    top_performer_labels = [
+        f"{p['staff__first_name']} {p['staff__last_name']}".strip() or p['staff__username']
+        for p in top_performers
+    ]
+    top_performer_data = [round(p['avg_score'], 1) for p in top_performers]
 
     context = {
+        # Core KPIs
         'total_staff': total_staff,
         'total_leaves': total_leaves,
-        'pending_leaves': pending_leaves,
+        'pending_leaves_count': pending_leaves_count,
+        'approved_leaves_count': approved_leaves_count,
+        'rejected_leaves_count': rejected_leaves_count,
         'avg_performance': round(avg_performance, 1),
+        'total_evaluations': total_evaluations,
+        'total_qualifications': total_qualifications,
+        'qualified_staff_count': qualified_staff_count,
+        'qualification_coverage': qualification_coverage,
+
+        # Recent Lists & Tables
+        'pending_leave_requests': pending_leave_requests,
+        'top_performers': top_performers,
+        'recent_evaluations': recent_evaluations,
+        'recent_qualifications': recent_qualifications,
+
+        # JSON Payloads for Charts
+        'leave_status_labels_json': json.dumps(leave_status_labels, cls=DjangoJSONEncoder),
+        'leave_status_data_json': json.dumps(leave_status_data, cls=DjangoJSONEncoder),
+        'performer_labels_json': json.dumps(top_performer_labels, cls=DjangoJSONEncoder),
+        'performer_data_json': json.dumps(top_performer_data, cls=DjangoJSONEncoder),
     }
+
     return render(request, 'attendance/hr_dashboard.html', context)
 
 

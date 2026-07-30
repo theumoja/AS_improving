@@ -4,7 +4,24 @@
 {% include "attendance/sidebar.html" %}
 {% endblock %}
 
+<!-- Chart.js for Visual Analytics -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
+    :root {
+        --text-main: #1f2937;
+        --text-muted: #6b7280;
+        --border: #e5e7eb;
+        --radius-md: 10px;
+        --radius-sm: 6px;
+        --accent-blue: #2563eb;
+        --accent-green: #10b981;
+        --accent-amber: #f59e0b;
+        --accent-red: #ef4444;
+        --accent-purple: #8b5cf6;
+    }
+
+    /* Header Toolbar */
     .page-header-actions {
         display: flex;
         justify-content: space-between;
@@ -33,17 +50,36 @@
         height: 42px;
         border-radius: var(--radius-sm);
         background: rgba(37, 99, 235, 0.1);
-        color: #2563eb;
+        color: var(--accent-blue);
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 1.25rem;
     }
+    .quick-nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem 0.9rem;
+        border-radius: var(--radius-sm);
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-decoration: none;
+        background: #f3f4f6;
+        color: var(--text-main);
+        border: 1px solid var(--border);
+        transition: all 0.2s ease;
+    }
+    .quick-nav-btn:hover {
+        background: var(--accent-blue);
+        color: #ffffff;
+        border-color: var(--accent-blue);
+    }
 
     /* Metric Cards Grid */
     .metrics-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
         gap: 1.25rem;
         margin-bottom: 2rem;
     }
@@ -51,52 +87,159 @@
         background: #ffffff;
         border: 1px solid var(--border);
         border-radius: var(--radius-md);
-        padding: 1.5rem;
+        padding: 1.25rem 1.5rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        transition: var(--transition);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .metric-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
     }
     .metric-info h5 {
-        margin: 0 0 0.5rem 0;
-        font-size: 0.85rem;
-        font-weight: 600;
+        margin: 0 0 0.35rem 0;
+        font-size: 0.75rem;
+        font-weight: 700;
         color: var(--text-muted);
         text-transform: uppercase;
         letter-spacing: 0.03em;
     }
     .metric-value {
-        font-size: 2.25rem;
+        font-size: 1.85rem;
         font-weight: 800;
         color: var(--text-main);
         line-height: 1;
     }
+    .metric-subtext {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.35rem;
+    }
     .metric-icon {
-        width: 54px;
-        height: 54px;
+        width: 48px;
+        height: 48px;
         border-radius: var(--radius-md);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.5rem;
+        font-size: 1.35rem;
     }
 
-    /* Icon Color Tints */
-    .icon-staff       { background: rgba(37, 99, 235, 0.1); color: #2563eb; }
+    /* Icon Tints */
+    .icon-staff       { background: rgba(37, 99, 235, 0.1); color: var(--accent-blue); }
     .icon-leaves      { background: rgba(14, 165, 233, 0.1); color: #0ea5e9; }
-    .icon-pending     { background: rgba(245, 158, 11, 0.1); color: #d97706; }
-    .icon-performance { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+    .icon-pending     { background: rgba(245, 158, 11, 0.1); color: var(--accent-amber); }
+    .icon-performance { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); }
+    .icon-qual        { background: rgba(139, 92, 246, 0.1); color: var(--accent-purple); }
+
+    /* Layout Grids */
+    .dashboard-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .dashboard-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 1.5rem;
+    }
+    .card-header-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .card-header-title h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* Badges */
+    .badge {
+        padding: 0.25rem 0.65rem;
+        border-radius: 50px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .badge-approved { background: rgba(16, 185, 129, 0.12); color: var(--accent-green); }
+    .badge-pending  { background: rgba(245, 158, 11, 0.12); color: var(--accent-amber); }
+    .badge-rejected { background: rgba(239, 68, 68, 0.12); color: var(--accent-red); }
+    .badge-info     { background: rgba(37, 99, 235, 0.12); color: var(--accent-blue); }
+
+    /* Lists & Tables */
+    .perf-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .perf-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px dashed var(--border);
+    }
+    .perf-item:last-child {
+        border-bottom: none;
+    }
+    .perf-item-title {
+        font-weight: 600;
+        color: var(--text-main);
+        font-size: 0.88rem;
+    }
+    .perf-item-sub {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+    }
+
+    .dashboard-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+    }
+    .dashboard-table th {
+        text-align: left;
+        padding: 0.75rem 0.5rem;
+        background: #f9fafb;
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--border);
+    }
+    .dashboard-table td {
+        padding: 0.85rem 0.5rem;
+        border-bottom: 1px solid var(--border);
+        color: var(--text-main);
+    }
+    .dashboard-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .chart-container {
+        position: relative;
+        max-height: 250px;
+        width: 100%;
+    }
 </style>
 
 <!-- Messages Bar -->
 {% if messages %}
     {% for message in messages %}
         <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
-            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: var(--accent-blue);"></i>
             {{ message }}
         </div>
     {% endfor %}
@@ -106,9 +249,22 @@
 <div class="page-header-actions">
     <div class="header-title-group">
         <div class="header-icon-box">
-            <i class="fas fa-users"></i>
+            <i class="fas fa-users-cog"></i>
         </div>
-        <h2>HR Dashboard</h2>
+        <div>
+            <h2>Human Resources Overview Dashboard</h2>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">
+                Centralized summary for Leave Management, Performance Evaluations, and Staff Qualifications.
+            </div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <!-- UPDATED LINK: apply_leave -->
+        <a href="{% url 'attendance:apply_leave' %}" class="quick-nav-btn"><i class="fas fa-calendar-check"></i> Leave Requests</a>
+        <!-- LINK: manage_performance -->
+        <a href="{% url 'attendance:manage_performance' %}" class="quick-nav-btn"><i class="fas fa-chart-line"></i> Performance</a>
+        <!-- LINK: manage_qualifications -->
+        <a href="{% url 'attendance:manage_qualifications' %}" class="quick-nav-btn"><i class="fas fa-user-graduate"></i> Qualifications</a>
     </div>
 </div>
 
@@ -118,6 +274,7 @@
         <div class="metric-info">
             <h5>Total Staff</h5>
             <div class="metric-value">{{ total_staff }}</div>
+            <div class="metric-subtext">Active Employees</div>
         </div>
         <div class="metric-icon icon-staff">
             <i class="fas fa-user-tie"></i>
@@ -126,18 +283,9 @@
 
     <div class="metric-card">
         <div class="metric-info">
-            <h5>Total Leave Requests</h5>
-            <div class="metric-value">{{ total_leaves }}</div>
-        </div>
-        <div class="metric-icon icon-leaves">
-            <i class="fas fa-calendar-alt"></i>
-        </div>
-    </div>
-
-    <div class="metric-card">
-        <div class="metric-info">
             <h5>Pending Leaves</h5>
-            <div class="metric-value">{{ pending_leaves }}</div>
+            <div class="metric-value">{{ pending_leaves_count }}</div>
+            <div class="metric-subtext">{{ total_leaves }} Total Applications</div>
         </div>
         <div class="metric-icon icon-pending">
             <i class="fas fa-hourglass-half"></i>
@@ -148,11 +296,204 @@
         <div class="metric-info">
             <h5>Avg Performance</h5>
             <div class="metric-value">{{ avg_performance }}%</div>
+            <div class="metric-subtext">{{ total_evaluations }} Evaluations Logged</div>
         </div>
         <div class="metric-icon icon-performance">
             <i class="fas fa-chart-line"></i>
         </div>
     </div>
+
+    <div class="metric-card">
+        <div class="metric-info">
+            <h5>Staff Qualifications</h5>
+            <div class="metric-value">{{ total_qualifications }}</div>
+            <div class="metric-subtext">{{ qualification_coverage }}% Staff Coverage</div>
+        </div>
+        <div class="metric-icon icon-qual">
+            <i class="fas fa-graduation-cap"></i>
+        </div>
+    </div>
 </div>
 
+<!-- Analytics Charts Section -->
+<div class="dashboard-grid-2">
+    <!-- Chart 1: Leave Requests Distribution -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-pie-chart" style="color: var(--accent-blue);"></i> Leave Request Status</h3>
+            <span class="badge badge-info">{{ total_leaves }} Requests</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="leaveStatusChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Chart 2: Top Performing Staff Scores -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-award" style="color: var(--accent-green);"></i> Top Staff Performance</h3>
+            <span class="badge badge-approved">Evaluations Overview</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="performerChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Actions & Performance Highlights Grid -->
+<div class="dashboard-grid-2">
+    <!-- Actionable Pending Leaves -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-exclamation-circle" style="color: var(--accent-amber);"></i> Pending Leave Approvals</h3>
+            <!-- UPDATED LINK: apply_leave -->
+            <a href="{% url 'attendance:apply_leave' %}" style="font-size: 0.8rem; color: var(--accent-blue); text-decoration: none; font-weight: 600;">View All &rarr;</a>
+        </div>
+        <ul class="perf-list">
+            {% for leave in pending_leave_requests %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ leave.staff.get_full_name|default:leave.staff.username }}</div>
+                        <div class="perf-item-sub">Requested on {{ leave.id }}</div>
+                    </div>
+                    <!-- LINK: approve_leave -->
+                    <form method="POST" action="{% url 'attendance:approve_leave' leave.id %}" style="display: flex; gap: 0.3rem;">
+                        {% csrf_token %}
+                        <button type="submit" name="action" value="approve" class="quick-nav-btn" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.2); padding: 0.25rem 0.5rem;">
+                            Approve
+                        </button>
+                        <button type="submit" name="action" value="reject" class="quick-nav-btn" style="background: rgba(239, 68, 68, 0.1); color: var(--accent-red); border-color: rgba(239, 68, 68, 0.2); padding: 0.25rem 0.5rem;">
+                            Reject
+                        </button>
+                    </form>
+                </li>
+            {% empty %}
+                <li class="perf-item"><span class="perf-item-sub" style="color: var(--accent-green);"><i class="fas fa-check-circle"></i> No pending leave requests.</span></li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Recent Staff Qualifications Logged -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-file-alt" style="color: var(--accent-purple);"></i> Recent Qualifications Recorded</h3>
+            <!-- LINK: manage_qualifications -->
+            <a href="{% url 'attendance:manage_qualifications' %}" style="font-size: 0.8rem; color: var(--accent-blue); text-decoration: none; font-weight: 600;">View All &rarr;</a>
+        </div>
+        <ul class="perf-list">
+            {% for qual in recent_qualifications %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ qual.qualification_name }}</div>
+                        <div class="perf-item-sub">{{ qual.staff.get_full_name|default:qual.staff.username }} &bull; {{ qual.institution }} ({{ qual.year_awarded }})</div>
+                    </div>
+                    {% if qual.certificate_file %}
+                        <a href="{{ qual.certificate_file.url }}" target="_blank" class="badge badge-info" style="text-decoration: none;">View File</a>
+                    {% else %}
+                        <span class="badge badge-pending">No File</span>
+                    {% endif %}
+                </li>
+            {% empty %}
+                <li class="perf-item"><span class="perf-item-sub">No staff qualifications added yet.</span></li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<!-- Recent Performance Evaluations Table -->
+<div class="dashboard-card" style="margin-bottom: 2rem;">
+    <div class="card-header-title">
+        <h3><i class="fas fa-history" style="color: var(--accent-blue);"></i> Recent Performance Evaluations</h3>
+        <!-- LINK: manage_performance -->
+        <a href="{% url 'attendance:manage_performance' %}" style="font-size: 0.8rem; color: var(--accent-blue); text-decoration: none; font-weight: 600;">Manage Evaluations &rarr;</a>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="dashboard-table">
+            <thead>
+                <tr>
+                    <th>Staff Member</th>
+                    <th>Score</th>
+                    <th>Academic Term</th>
+                    <th>Evaluated By</th>
+                    <th>Comments</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for eval in recent_evaluations %}
+                    <tr>
+                        <td><strong>{{ eval.staff.get_full_name|default:eval.staff.username }}</strong></td>
+                        <td><span class="badge badge-approved">{{ eval.score }}%</span></td>
+                        <td>{{ eval.term|default:"N/A" }}</td>
+                        <td style="color: var(--text-muted);">{{ eval.evaluator.get_full_name|default:eval.evaluator.username }}</td>
+                        <td style="color: var(--text-muted); font-size: 0.8rem;">{{ eval.comments|default:"--"|truncatechars:40 }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No evaluations logged yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Chart.js Script Initialization -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const leaveStatusLabels = JSON.parse('{{ leave_status_labels_json|escapejs }}');
+        const leaveStatusData = JSON.parse('{{ leave_status_data_json|escapejs }}');
+
+        const performerLabels = JSON.parse('{{ performer_labels_json|escapejs }}');
+        const performerData = JSON.parse('{{ performer_data_json|escapejs }}');
+
+        // 1. Leave Requests Doughnut Chart
+        const leaveCtx = document.getElementById('leaveStatusChart').getContext('2d');
+        new Chart(leaveCtx, {
+            type: 'doughnut',
+            data: {
+                labels: leaveStatusLabels,
+                datasets: [{
+                    data: leaveStatusData,
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+
+        // 2. Top Performers Bar Chart
+        const perfCtx = document.getElementById('performerChart').getContext('2d');
+        new Chart(perfCtx, {
+            type: 'bar',
+            data: {
+                labels: performerLabels,
+                datasets: [{
+                    label: 'Average Score (%)',
+                    data: performerData,
+                    backgroundColor: 'rgba(37, 99, 235, 0.8)',
+                    borderColor: '#2563eb',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, max: 100 }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    });
+</script>
 {% endblock %}

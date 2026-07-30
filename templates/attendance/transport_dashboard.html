@@ -4,7 +4,23 @@
 {% include "attendance/sidebar.html" %}
 {% endblock %}
 
+<!-- Chart.js for Interactive Dashboard Visualizations -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
+    :root {
+        --bg-card: #ffffff;
+        --border-color: #e5e7eb;
+        --text-dark: #1f2937;
+        --text-sub: #6b7280;
+        --accent-green: #10b981;
+        --accent-red: #ef4444;
+        --accent-blue: #2563eb;
+        --accent-amber: #f59e0b;
+        --accent-purple: #8b5cf6;
+    }
+
+    /* Header Bar */
     .page-header-actions {
         display: flex;
         justify-content: space-between;
@@ -14,8 +30,8 @@
         gap: 1rem;
         background: #ffffff;
         padding: 1.25rem 1.5rem;
-        border-radius: var(--radius-md);
-        border: 1px solid var(--border);
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
     }
     .header-title-group {
         display: flex;
@@ -26,77 +42,204 @@
         margin: 0;
         font-size: 1.35rem;
         font-weight: 700;
-        color: var(--text-main);
+        color: var(--text-dark);
     }
     .header-icon-box {
-        width: 42px;
-        height: 42px;
-        border-radius: var(--radius-sm);
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
         background: rgba(37, 99, 235, 0.1);
-        color: #2563eb;
+        color: var(--accent-blue);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.25rem;
+        font-size: 1.35rem;
+    }
+    .quick-nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem 0.9rem;
+        border-radius: 6px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-decoration: none;
+        background: #f3f4f6;
+        color: var(--text-dark);
+        border: 1px solid var(--border-color);
+        transition: all 0.2s ease;
+    }
+    .quick-nav-btn:hover {
+        background: var(--accent-blue);
+        color: #ffffff;
+        border-color: var(--accent-blue);
     }
 
     /* Metric Cards Grid */
     .metrics-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
         gap: 1.25rem;
         margin-bottom: 2rem;
     }
     .metric-card {
         background: #ffffff;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
-        padding: 1.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 1.25rem 1.5rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        transition: var(--transition);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .metric-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
     }
     .metric-info h5 {
-        margin: 0 0 0.5rem 0;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--text-muted);
+        margin: 0 0 0.35rem 0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-sub);
         text-transform: uppercase;
-        letter-spacing: 0.03em;
+        letter-spacing: 0.04em;
     }
     .metric-value {
-        font-size: 2.25rem;
+        font-size: 1.85rem;
         font-weight: 800;
-        color: var(--text-main);
+        color: var(--text-dark);
         line-height: 1;
     }
+    .metric-subtext {
+        font-size: 0.75rem;
+        color: var(--text-sub);
+        margin-top: 0.35rem;
+    }
     .metric-icon {
-        width: 54px;
-        height: 54px;
-        border-radius: var(--radius-md);
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.5rem;
+        font-size: 1.35rem;
     }
 
-    /* Icon Color Tints */
-    .icon-vehicles    { background: rgba(37, 99, 235, 0.1); color: #2563eb; }
-    .icon-active      { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+    /* Icon Tints */
+    .icon-vehicles    { background: rgba(37, 99, 235, 0.1); color: var(--accent-blue); }
+    .icon-active      { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); }
     .icon-routes      { background: rgba(14, 165, 233, 0.1); color: #0ea5e9; }
-    .icon-allocations { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+    .icon-allocations { background: rgba(245, 158, 11, 0.1); color: var(--accent-amber); }
+    .icon-distance    { background: rgba(139, 92, 246, 0.1); color: var(--accent-purple); }
+
+    /* Layout Grids */
+    .dashboard-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .dashboard-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 1.5rem;
+    }
+    .card-header-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .card-header-title h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-dark);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* Badges */
+    .badge {
+        padding: 0.25rem 0.65rem;
+        border-radius: 50px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .badge-win { background: rgba(16, 185, 129, 0.12); color: var(--accent-green); }
+    .badge-loss { background: rgba(239, 68, 68, 0.12); color: var(--accent-red); }
+    .badge-warning { background: rgba(245, 158, 11, 0.12); color: var(--accent-amber); }
+    .badge-info { background: rgba(37, 99, 235, 0.12); color: var(--accent-blue); }
+
+    /* Item Lists */
+    .perf-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .perf-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 0;
+        border-bottom: 1px dashed var(--border-color);
+    }
+    .perf-item:last-child {
+        border-bottom: none;
+    }
+    .perf-item-title {
+        font-weight: 600;
+        color: var(--text-dark);
+        font-size: 0.88rem;
+    }
+    .perf-item-sub {
+        font-size: 0.78rem;
+        color: var(--text-sub);
+    }
+
+    /* Tables */
+    .dashboard-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+    }
+    .dashboard-table th {
+        text-align: left;
+        padding: 0.75rem 0.5rem;
+        background: #f9fafb;
+        color: var(--text-sub);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .dashboard-table td {
+        padding: 0.85rem 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-dark);
+    }
+    .dashboard-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .chart-container {
+        position: relative;
+        max-height: 260px;
+        width: 100%;
+    }
 </style>
 
 <!-- Messages Bar -->
 {% if messages %}
     {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); background: #ffffff; border: 1px solid var(--border);">
-            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: #2563eb;"></i>
+        <div class="alert alert-{{ message.tags }}" style="margin-bottom: 1.5rem; padding: 0.85rem 1.25rem; border-radius: 8px; background: #ffffff; border: 1px solid var(--border-color);">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem; color: var(--accent-blue);"></i>
             {{ message }}
         </div>
     {% endfor %}
@@ -106,9 +249,19 @@
 <div class="page-header-actions">
     <div class="header-title-group">
         <div class="header-icon-box">
-            <i class="fas fa-tachometer-alt"></i>
+            <i class="fas fa-bus-alt"></i>
         </div>
-        <h2>Transport Dashboard</h2>
+        <div>
+            <h2>Transport Operations & Logistics Dashboard</h2>
+            <div style="font-size: 0.8rem; color: var(--text-sub);">
+                Executive summary of fleet maintenance, student allocations{% if current_term %} ({{ current_term }}){% endif %}, and trip execution logs.
+            </div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <a href="{% url 'attendance:manage_vehicles' %}" class="quick-nav-btn"><i class="fas fa-bus"></i> Vehicles & Routes</a>
+        <a href="{% url 'attendance:allocate_transport' %}" class="quick-nav-btn"><i class="fas fa-user-check"></i> Allocations</a>
+        <a href="{% url 'attendance:trip_log' %}" class="quick-nav-btn"><i class="fas fa-clipboard-list"></i> Trip Logs</a>
     </div>
 </div>
 
@@ -116,8 +269,9 @@
 <div class="metrics-grid">
     <div class="metric-card">
         <div class="metric-info">
-            <h5>Total Vehicles</h5>
+            <h5>Total Fleet</h5>
             <div class="metric-value">{{ total_vehicles }}</div>
+            <div class="metric-subtext">{{ active_vehicles }} Active | {{ maintenance_vehicles }} Maintenance</div>
         </div>
         <div class="metric-icon icon-vehicles">
             <i class="fas fa-bus"></i>
@@ -126,11 +280,23 @@
 
     <div class="metric-card">
         <div class="metric-info">
-            <h5>Active Vehicles</h5>
-            <div class="metric-value">{{ active_vehicles }}</div>
+            <h5>Capacity Utilization</h5>
+            <div class="metric-value">{{ capacity_utilization }}%</div>
+            <div class="metric-subtext">{{ active_allocations }} / {{ total_fleet_capacity }} Active Seats</div>
         </div>
         <div class="metric-icon icon-active">
-            <i class="fas fa-check-circle"></i>
+            <i class="fas fa-users-slash"></i>
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-info">
+            <h5>Active Allocations</h5>
+            <div class="metric-value">{{ active_allocations }}</div>
+            <div class="metric-subtext">{{ unallocated_students }} Unassigned Students</div>
+        </div>
+        <div class="metric-icon icon-allocations">
+            <i class="fas fa-ticket-alt"></i>
         </div>
     </div>
 
@@ -138,6 +304,7 @@
         <div class="metric-info">
             <h5>Total Routes</h5>
             <div class="metric-value">{{ total_routes }}</div>
+            <div class="metric-subtext">{{ assigned_routes_count }} Assigned | {{ unassigned_routes_count }} Unassigned</div>
         </div>
         <div class="metric-icon icon-routes">
             <i class="fas fa-route"></i>
@@ -146,13 +313,341 @@
 
     <div class="metric-card">
         <div class="metric-info">
-            <h5>Active Allocations</h5>
-            <div class="metric-value">{{ total_allocations }}</div>
+            <h5>Total Distance Travelled</h5>
+            <div class="metric-value">{{ total_distance_km }} <span style="font-size: 0.9rem; font-weight: 600;">km</span></div>
+            <div class="metric-subtext">{{ total_trips }} Logs | Avg {{ avg_trip_distance }} km/trip</div>
         </div>
-        <div class="metric-icon icon-allocations">
-            <i class="fas fa-clipboard-list"></i>
+        <div class="metric-icon icon-distance">
+            <i class="fas fa-tachometer-alt"></i>
         </div>
     </div>
 </div>
 
+<!-- Charts Section -->
+<div class="dashboard-grid-2">
+    <!-- Chart 1: Fleet Operational Status -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-chart-pie" style="color: var(--accent-blue);"></i> Fleet Status Distribution</h3>
+            <span class="badge badge-info">Vehicles Summary</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="fleetStatusChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Chart 2: Route Subscription Demand -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-chart-bar" style="color: var(--accent-green);"></i> Top Route Demand</h3>
+            <span class="badge badge-win">Student Allocations</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="routeDemandChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Operational Performance: Top Wins vs Top Losses & Risks -->
+<div class="dashboard-grid-2">
+    <!-- Column 1: Top Wins & Operational Highlights -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-trophy" style="color: #eab308;"></i> Operational Wins & High Performance</h3>
+            <span class="badge badge-win">Top Performers</span>
+        </div>
+
+        <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.6rem;">Most Subscribed Routes (Demand)</h4>
+        <ul class="perf-list" style="margin-bottom: 1.5rem;">
+            {% for route in top_routes %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ route.name }}</div>
+                        <div class="perf-item-sub">{{ route.start_location }} &rarr; {{ route.end_location }}</div>
+                    </div>
+                    <span class="badge badge-win">{{ route.active_students }} Active Students</span>
+                </li>
+            {% empty %}
+                <li class="perf-item"><span class="perf-item-sub">No route allocation data available.</span></li>
+            {% endfor %}
+        </ul>
+
+        <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.6rem;">Top Active Vehicles (Completed Trips)</h4>
+        <ul class="perf-list" style="margin-bottom: 1.5rem;">
+            {% for vehicle in top_vehicles %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ vehicle.registration_number }} ({{ vehicle.model }})</div>
+                        <div class="perf-item-sub">Driver: {{ vehicle.driver_name }}</div>
+                    </div>
+                    <span class="badge badge-info">{{ vehicle.trip_count }} Completed Trips</span>
+                </li>
+            {% empty %}
+                <li class="perf-item"><span class="perf-item-sub">No vehicle trip logs available.</span></li>
+            {% endfor %}
+        </ul>
+
+        <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.6rem;">Most Active Drivers (Logs Executed)</h4>
+        <ul class="perf-list">
+            {% for driver in top_drivers %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ driver.driver_name }}</div>
+                        <div class="perf-item-sub">Assigned Driver</div>
+                    </div>
+                    <span class="badge badge-info">{{ driver.trip_count }} Trips</span>
+                </li>
+            {% empty %}
+                <li class="perf-item"><span class="perf-item-sub">No driver trip logs recorded.</span></li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Column 2: Top Losses & Operational Risks -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-exclamation-triangle" style="color: var(--accent-red);"></i> Operational Risks & Bottlenecks</h3>
+            <span class="badge badge-loss">Risks & Loss Exposure</span>
+        </div>
+
+        <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.6rem;">Underutilized Routes (Low Demand Risk)</h4>
+        <ul class="perf-list" style="margin-bottom: 1.5rem;">
+            {% for route in underutilized_routes %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ route.name }}</div>
+                        <div class="perf-item-sub">Departure: {{ route.departure_time|time:"H:i" }}</div>
+                    </div>
+                    <span class="badge badge-loss">{{ route.active_students }} Subscribed</span>
+                </li>
+            {% empty %}
+                <li class="perf-item"><span class="perf-item-sub">No underutilized route risks identified.</span></li>
+            {% endfor %}
+        </ul>
+
+        <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.6rem;">Grounded / Maintenance Vehicles</h4>
+        <ul class="perf-list" style="margin-bottom: 1.5rem;">
+            {% for v in maintenance_vehicles_list %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ v.registration_number }} - {{ v.model }}</div>
+                        <div class="perf-item-sub">Driver: {{ v.driver_name }} ({{ v.driver_contact }})</div>
+                    </div>
+                    <span class="badge badge-warning">IN MAINTENANCE</span>
+                </li>
+            {% empty %}
+                <li class="perf-item"><span class="perf-item-sub" style="color: var(--accent-green);"><i class="fas fa-check-circle"></i> All vehicles are operational.</span></li>
+            {% endfor %}
+        </ul>
+
+        <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-sub); margin-bottom: 0.6rem;">Unassigned Routes (Missing Vehicle)</h4>
+        <ul class="perf-list">
+            {% for r in unassigned_routes_list %}
+                <li class="perf-item">
+                    <div>
+                        <div class="perf-item-title">{{ r.name }}</div>
+                        <div class="perf-item-sub">{{ r.start_location }} &rarr; {{ r.end_location }}</div>
+                    </div>
+                    <span class="badge badge-loss">NO VEHICLE</span>
+                </li>
+            {% empty %}
+                <li class="perf-item"><span class="perf-item-sub" style="color: var(--accent-green);"><i class="fas fa-check-circle"></i> All routes have assigned vehicles.</span></li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<!-- Secondary Analytics Grid -->
+<div class="dashboard-grid-2">
+    <!-- Mileage Accumulation & Wear-and-Tear Chart -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-tools" style="color: var(--accent-amber);"></i> Vehicle Mileage & Wear Exposure</h3>
+            <span class="badge badge-warning">Kilometres Logged</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="mileageExposureChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Trips Completion Status Breakdown -->
+    <div class="dashboard-card">
+        <div class="card-header-title">
+            <h3><i class="fas fa-route" style="color: var(--accent-purple);"></i> Trip Operations Breakdown</h3>
+            <span class="badge badge-info">{{ total_trips }} Total Trips</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="tripStatusChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Trip Logs Table -->
+<div class="dashboard-card" style="margin-bottom: 2rem;">
+    <div class="card-header-title">
+        <h3><i class="fas fa-history" style="color: var(--accent-blue);"></i> Recent Trip Operations Log</h3>
+        <a href="{% url 'attendance:trip_log' %}" style="font-size: 0.8rem; color: var(--accent-blue); text-decoration: none; font-weight: 600;">View All Logs &rarr;</a>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="dashboard-table">
+            <thead>
+                <tr>
+                    <th>Vehicle</th>
+                    <th>Route</th>
+                    <th>Driver</th>
+                    <th>Departure</th>
+                    <th>Distance</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for trip in recent_trips %}
+                    <tr>
+                        <td><strong>{{ trip.vehicle.registration_number }}</strong></td>
+                        <td>{{ trip.route.name }}</td>
+                        <td>{{ trip.driver_name|default:trip.vehicle.driver_name }}</td>
+                        <td>{{ trip.departure_time|date:"d M, H:i" }}</td>
+                        <td>
+                            {% if trip.mileage_end and trip.mileage_start %}
+                                {{ trip.mileage_end|add:"-"|add:trip.mileage_start }} km
+                            {% else %}
+                                --
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if trip.arrival_time %}
+                                <span class="badge badge-win">COMPLETED</span>
+                            {% else %}
+                                <span class="badge badge-warning">IN-TRANSIT</span>
+                            {% endif %}
+                        </td>
+                        <td style="color: var(--text-sub); font-size: 0.8rem;">{{ trip.remarks|default:"--"|truncatechars:35 }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--text-sub); padding: 1.5rem;">No recent trips recorded.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Chart.js Script Initialization -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Safe JSON encoding from Django context
+        const fleetStatusLabels = JSON.parse('{{ fleet_status_labels_json|escapejs }}');
+        const fleetStatusData = JSON.parse('{{ fleet_status_data_json|escapejs }}');
+
+        const routeLabels = JSON.parse('{{ route_labels_json|escapejs }}');
+        const routeData = JSON.parse('{{ route_data_json|escapejs }}');
+
+        const mileageLabels = JSON.parse('{{ mileage_labels_json|escapejs }}');
+        const mileageData = JSON.parse('{{ mileage_data_json|escapejs }}');
+
+        const tripStatusLabels = JSON.parse('{{ trip_status_labels_json|escapejs }}');
+        const tripStatusData = JSON.parse('{{ trip_status_data_json|escapejs }}');
+
+        // 1. Fleet Status Doughnut Chart
+        const fleetCtx = document.getElementById('fleetStatusChart').getContext('2d');
+        new Chart(fleetCtx, {
+            type: 'doughnut',
+            data: {
+                labels: fleetStatusLabels,
+                datasets: [{
+                    data: fleetStatusData,
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+
+        // 2. Route Allocation Demand Bar Chart
+        const routeCtx = document.getElementById('routeDemandChart').getContext('2d');
+        new Chart(routeCtx, {
+            type: 'bar',
+            data: {
+                labels: routeLabels,
+                datasets: [{
+                    label: 'Subscribed Students',
+                    data: routeData,
+                    backgroundColor: 'rgba(37, 99, 235, 0.8)',
+                    borderColor: '#2563eb',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // 3. Mileage Accumulation Horizontal Bar Chart
+        const mileageCtx = document.getElementById('mileageExposureChart').getContext('2d');
+        new Chart(mileageCtx, {
+            type: 'bar',
+            data: {
+                labels: mileageLabels,
+                datasets: [{
+                    label: 'Total Mileage (km)',
+                    data: mileageData,
+                    backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                    borderColor: '#f59e0b',
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { beginAtZero: true }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // 4. Trip Status Doughnut Chart
+        const tripCtx = document.getElementById('tripStatusChart').getContext('2d');
+        new Chart(tripCtx, {
+            type: 'doughnut',
+            data: {
+                labels: tripStatusLabels,
+                datasets: [{
+                    data: tripStatusData,
+                    backgroundColor: ['#10b981', '#3b82f6'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    });
+</script>
 {% endblock %}

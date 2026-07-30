@@ -2615,40 +2615,57 @@ def generate_report_card(request, student_id, term_id):
 
 # ==================== TRANSPORT MODULE (Dashboard for Transport Officer) ====================
 # ==================== TRANSPORT MODULE (Dashboard View) ====================
+# ==================== TRANSPORT MODULE (Comprehensive Dashboard View) ====================
 import json
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum, F, Q, ExpressionWrapper, FloatField
 from django.core.serializers.json import DjangoJSONEncoder
-from .models import Vehicle, Route, TransportAllocation, TripLog, StudentProfile, User
+from .models import Vehicle, Route, TransportAllocation, TripLog, StudentProfile, AcademicTerm, User
 
 @login_required
 def transport_dashboard(request):
     """
-    Comprehensive Transport Analytics Dashboard.
-    Provides Fleet KPI Metrics, Demand Analytics, Operational Risks/Losses, and Chart.js payloads.
+    Comprehensive Transport Analytics & Logistics Dashboard View.
+    Aggregates data across Vehicles, Routes, Student Allocations, Term Schedules, and Trip Logs.
     """
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
 
-    # --- 1. CORE FLEET & ALLOCATION METRICS ---
+    # --- 1. FLEET & CAPACITY METRICS (manage_vehicles) ---
     total_vehicles = Vehicle.objects.count()
     active_vehicles = Vehicle.objects.filter(status='ACTIVE').count()
     maintenance_vehicles = Vehicle.objects.filter(status='MAINTENANCE').count()
     inactive_vehicles = Vehicle.objects.filter(status='INACTIVE').count()
 
-    total_routes = Route.objects.count()
-    active_allocations = TransportAllocation.objects.filter(is_active=True).count()
-    
-    total_students = StudentProfile.objects.count()
-    unallocated_students = max(0, total_students - active_allocations)
+    total_fleet_capacity = Vehicle.objects.filter(status='ACTIVE').aggregate(cap=Sum('capacity'))['cap'] or 0
 
+    # --- 2. ROUTE INFRASTRUCTURE METRICS (manage_vehicles) ---
+    total_routes = Route.objects.count()
+    unassigned_routes_count = Route.objects.filter(vehicle__isnull=True).count()
+    assigned_routes_count = total_routes - unassigned_routes_count
+
+    # --- 3. TRANSPORT ALLOCATION METRICS (allocate_transport) ---
+    total_allocations = TransportAllocation.objects.count()
+    active_allocations = TransportAllocation.objects.filter(is_active=True).count()
+    inactive_allocations = total_allocations - active_allocations
+
+    current_term = AcademicTerm.objects.filter(is_current=True).first()
+    term_active_allocations = TransportAllocation.objects.filter(term=current_term, is_active=True).count() if current_term else active_allocations
+
+    total_students = StudentProfile.objects.count()
+    allocated_student_ids = TransportAllocation.objects.filter(is_active=True).values_list('student_id', flat=True).distinct()
+    unallocated_students = max(0, total_students - len(allocated_student_ids))
+
+    capacity_utilization = round((active_allocations / total_fleet_capacity * 100), 1) if total_fleet_capacity > 0 else 0.0
+
+    # --- 4. TRIP & OPERATIONS LOG METRICS (trip_log) ---
     total_trips = TripLog.objects.count()
     completed_trips = TripLog.objects.filter(arrival_time__isnull=False).count()
     ongoing_trips = TripLog.objects.filter(arrival_time__isnull=True).count()
 
-    # Calculate total cumulative distance across all trips (km)
+    # Cumulative Distance Logged (km)
     distance_expr = ExpressionWrapper(
         F('mileage_end') - F('mileage_start'), 
         output_field=FloatField()
@@ -2659,28 +2676,32 @@ def transport_dashboard(request):
         mileage_end__gte=F('mileage_start')
     ).aggregate(total_km=Sum(distance_expr))['total_km'] or 0.0
 
-    # Total Seat Capacity & Fleet Capacity Utilization Rate (%)
-    total_fleet_capacity = Vehicle.objects.filter(status='ACTIVE').aggregate(cap=Sum('capacity'))['cap'] or 0
-    capacity_utilization = round((active_allocations / total_fleet_capacity * 100), 1) if total_fleet_capacity > 0 else 0.0
+    avg_trip_distance = round((total_distance_km / completed_trips), 1) if completed_trips > 0 else 0.0
 
-    # --- 2. TOP WINS (High Demand & Asset Efficiency) ---
-    # Top 5 routes by active student allocations (Route Demand)
+    # --- 5. TOP WINS (High Efficiency & Demand Assets) ---
+    # Top routes by student allocations
     top_routes = Route.objects.annotate(
         active_students=Count('allocations', filter=Q(allocations__is_active=True))
     ).order_by('-active_students')[:5]
 
-    # Top 5 vehicles with highest trip activity
+    # Top vehicles by completed trip frequency
     top_vehicles = Vehicle.objects.annotate(
         trip_count=Count('trips')
     ).order_by('-trip_count')[:5]
 
-    # --- 3. TOP LOSSES & OPERATIONAL RISKS ---
-    # Underutilized routes (Routes with low active allocations wasting operational capacity)
+    # Active drivers logged in trips
+    top_drivers = TripLog.objects.exclude(driver_name__isnull=True).exclude(driver_name__exact='')\
+        .values('driver_name')\
+        .annotate(trip_count=Count('id'))\
+        .order_by('-trip_count')[:5]
+
+    # --- 6. TOP LOSSES & OPERATIONAL RISKS ---
+    # Underutilized routes (Low active allocation)
     underutilized_routes = Route.objects.annotate(
         active_students=Count('allocations', filter=Q(allocations__is_active=True))
     ).order_by('active_students')[:5]
 
-    # High Mileage Exposure (Vehicles incurring highest wear-and-tear / fuel burn)
+    # Highest mileage vehicles (Wear-and-tear & fuel exposure)
     high_mileage_vehicles = Vehicle.objects.annotate(
         accumulated_km=Sum(
             ExpressionWrapper(F('trips__mileage_end') - F('trips__mileage_start'), output_field=FloatField()),
@@ -2688,85 +2709,164 @@ def transport_dashboard(request):
         )
     ).exclude(accumulated_km__isnull=True).order_by('-accumulated_km')[:5]
 
-    # Grounded / Maintenance Vehicles Risk
-    maintenance_list = Vehicle.objects.filter(status='MAINTENANCE')
+    # Operational bottlenecks
+    maintenance_vehicles_list = Vehicle.objects.filter(status='MAINTENANCE')
+    unassigned_routes_list = Route.objects.filter(vehicle__isnull=True)
 
-    # --- 4. RECENT ACTIVITY ---
+    # --- 7. RECENT OPERATIONS ---
     recent_trips = TripLog.objects.select_related('vehicle', 'route').order_by('-departure_time')[:7]
 
-    # --- 5. CHART DATA ENCODING (Chart.js Payloads) ---
-    # Chart 1: Fleet Status Distribution
-    fleet_status_labels = ['Active', 'Maintenance', 'Inactive']
+    # --- 8. CHART DATA ENCODING ---
+    fleet_status_labels = ['Active Vehicles', 'In Maintenance', 'Inactive']
     fleet_status_data = [active_vehicles, maintenance_vehicles, inactive_vehicles]
 
-    # Chart 2: Top Route Student Allocations
     route_labels = [r.name for r in top_routes]
     route_data = [r.active_students for r in top_routes]
 
-    # Chart 3: Vehicle Wear & Mileage Exposure
     mileage_labels = [v.registration_number for v in high_mileage_vehicles]
     mileage_data = [round(v.accumulated_km or 0, 1) for v in high_mileage_vehicles]
 
+    trip_status_labels = ['Completed Trips', 'In-Transit Trips']
+    trip_status_data = [completed_trips, ongoing_trips]
+
     context = {
-        # Core Metrics
+        # Fleet KPIs
         'total_vehicles': total_vehicles,
         'active_vehicles': active_vehicles,
         'maintenance_vehicles': maintenance_vehicles,
         'inactive_vehicles': inactive_vehicles,
+        'total_fleet_capacity': total_fleet_capacity,
+        'capacity_utilization': capacity_utilization,
+
+        # Route KPIs
         'total_routes': total_routes,
+        'assigned_routes_count': assigned_routes_count,
+        'unassigned_routes_count': unassigned_routes_count,
+
+        # Allocation KPIs
+        'total_allocations': total_allocations,
         'active_allocations': active_allocations,
+        'inactive_allocations': inactive_allocations,
+        'term_active_allocations': term_active_allocations,
         'total_students': total_students,
         'unallocated_students': unallocated_students,
+
+        # Operations Logs KPIs
         'total_trips': total_trips,
         'completed_trips': completed_trips,
         'ongoing_trips': ongoing_trips,
         'total_distance_km': round(total_distance_km, 1),
-        'total_fleet_capacity': total_fleet_capacity,
-        'capacity_utilization': capacity_utilization,
+        'avg_trip_distance': avg_trip_distance,
 
-        # Analytics Lists
+        # Content Object Lists
+        'current_term': current_term,
         'top_routes': top_routes,
         'top_vehicles': top_vehicles,
+        'top_drivers': top_drivers,
         'underutilized_routes': underutilized_routes,
         'high_mileage_vehicles': high_mileage_vehicles,
-        'maintenance_list': maintenance_list,
+        'maintenance_vehicles_list': maintenance_vehicles_list,
+        'unassigned_routes_list': unassigned_routes_list,
         'recent_trips': recent_trips,
 
-        # Chart JSON Payloads
+        # JSON Chart Payloads
         'fleet_status_labels_json': json.dumps(fleet_status_labels, cls=DjangoJSONEncoder),
         'fleet_status_data_json': json.dumps(fleet_status_data, cls=DjangoJSONEncoder),
         'route_labels_json': json.dumps(route_labels, cls=DjangoJSONEncoder),
         'route_data_json': json.dumps(route_data, cls=DjangoJSONEncoder),
         'mileage_labels_json': json.dumps(mileage_labels, cls=DjangoJSONEncoder),
         'mileage_data_json': json.dumps(mileage_data, cls=DjangoJSONEncoder),
+        'trip_status_labels_json': json.dumps(trip_status_labels, cls=DjangoJSONEncoder),
+        'trip_status_data_json': json.dumps(trip_status_data, cls=DjangoJSONEncoder),
     }
 
     return render(request, 'attendance/transport_dashboard.html', context)
+
+
 # ==================== HUMAN RESOURCE MODULE (Staff) ====================
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import LeaveRequest, User
 
 @login_required
 def apply_leave(request):
-    """Apply for leave (staff)."""
+    """Apply, edit, approve, and delete leave requests."""
     if request.user.role == User.IS_STUDENT:
         return HttpResponse("Unauthorized", status=403)
 
     if request.method == 'POST':
-        leave_type = request.POST.get('leave_type')
-        start_date = request.POST.get('start_date')
-        end_date = request.POST.get('end_date')
-        reason = request.POST.get('reason')
-        LeaveRequest.objects.create(
-            staff=request.user,
-            leave_type=leave_type,
-            start_date=start_date,
-            end_date=end_date,
-            reason=reason,
-            status='PENDING'
-        )
-        messages.success(request, "Leave request submitted.")
-        return redirect('attendance:apply_leave')
+        action = request.POST.get('action')
 
-    leaves = LeaveRequest.objects.filter(staff=request.user).order_by('-date_applied')
+        # Handle Leave Editing (Applicant & Admin)
+        if action == 'edit':
+            leave_id = request.POST.get('leave_id')
+            leave = get_object_or_404(LeaveRequest, id=leave_id)
+
+            # Permission check: Owner or Admin
+            if leave.staff != request.user and request.user.role != User.IS_ADMIN:
+                return HttpResponse("Unauthorized", status=403)
+
+            leave.leave_type = request.POST.get('leave_type')
+            leave.start_date = request.POST.get('start_date')
+            leave.end_date = request.POST.get('end_date')
+            leave.reason = request.POST.get('reason')
+            leave.save()
+            messages.success(request, "Leave request updated successfully.")
+            return redirect('attendance:apply_leave')
+
+        # Handle Leave Deletion (Applicant & Admin)
+        elif action == 'delete':
+            leave_id = request.POST.get('leave_id')
+            leave = get_object_or_404(LeaveRequest, id=leave_id)
+
+            # Permission check: Owner or Admin
+            if leave.staff != request.user and request.user.role != User.IS_ADMIN:
+                return HttpResponse("Unauthorized", status=403)
+
+            leave.delete()
+            messages.success(request, "Leave request deleted successfully.")
+            return redirect('attendance:apply_leave')
+
+        # Handle Leave Approval/Rejection (Admin Only)
+        elif action == 'approve':
+            if request.user.role != User.IS_ADMIN:
+                return HttpResponse("Unauthorized", status=403)
+
+            leave_id = request.POST.get('leave_id')
+            new_status = request.POST.get('status', 'APPROVED')
+            leave = get_object_or_404(LeaveRequest, id=leave_id)
+            leave.status = new_status
+            leave.save()
+            messages.success(request, f"Leave request marked as {new_status}.")
+            return redirect('attendance:apply_leave')
+
+        # Default POST: Create Leave Request
+        else:
+            leave_type = request.POST.get('leave_type')
+            start_date = request.POST.get('start_date')
+            end_date = request.POST.get('end_date')
+            reason = request.POST.get('reason')
+
+            LeaveRequest.objects.create(
+                staff=request.user,
+                leave_type=leave_type,
+                start_date=start_date,
+                end_date=end_date,
+                reason=reason,
+                status='PENDING'
+            )
+            messages.success(request, "Leave request submitted.")
+            return redirect('attendance:apply_leave')
+
+    # Admins view all leaves; Staff users view their own
+    if request.user.role == User.IS_ADMIN:
+        leaves = LeaveRequest.objects.select_related('staff').all().order_by('-date_applied')
+    else:
+        leaves = LeaveRequest.objects.filter(staff=request.user).order_by('-date_applied')
+
     return render(request, 'attendance/apply_leave.html', {
         'leaves': leaves,
         'leave_types': LeaveRequest.LEAVE_TYPES,

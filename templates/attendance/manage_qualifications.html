@@ -23,6 +23,19 @@
         align-items: center;
     }
 
+    /* Filter Toolbar Styles */
+    .filter-toolbar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) 90px;
+        gap: 0.85rem;
+        background: #ffffff;
+        padding: 1.25rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        margin-bottom: 1.5rem;
+        align-items: end;
+    }
+
     /* Certificate Link Style */
     .cert-link {
         display: inline-flex;
@@ -42,6 +55,21 @@
         background: #2563eb;
         color: #ffffff;
     }
+
+    /* Action Icon Buttons */
+    .btn-icon {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.95rem;
+        padding: 0.35rem 0.5rem;
+        border-radius: var(--radius-sm);
+        transition: background 0.2s;
+    }
+    .btn-edit { color: #2563eb; }
+    .btn-edit:hover { background: rgba(37, 99, 235, 0.1); }
+    .btn-delete { color: #dc2626; }
+    .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
 
     /* Modal Context Interface Components */
     .modal {
@@ -128,6 +156,53 @@
     </div>
 </div>
 
+<!-- Pre-Filled Dynamic Filter Toolbar -->
+<div class="filter-toolbar">
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterStaff">Staff Member</label>
+        <select id="filterStaff" class="form-control">
+            <option value="">All Staff</option>
+            {% for u in staff_users %}
+                <option value="{{ u.username }}">{{ u.username }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterQualification">Qualification</label>
+        <select id="filterQualification" class="form-control">
+            <option value="">All Qualifications</option>
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterInstitution">Institution</label>
+        <select id="filterInstitution" class="form-control">
+            <option value="">All Institutions</option>
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterYear">Year</label>
+        <select id="filterYear" class="form-control">
+            <option value="">All Years</option>
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterCert">Certificate</label>
+        <select id="filterCert" class="form-control">
+            <option value="">All</option>
+            <option value="yes">Uploaded</option>
+            <option value="no">Missing</option>
+        </select>
+    </div>
+
+    <div>
+        <button type="button" id="resetFilters" class="btn btn-outline" style="width: 100%; padding: 0.65rem;">Reset</button>
+    </div>
+</div>
+
 <!-- Main Qualifications Table Container -->
 <div class="card" style="padding:0; overflow:hidden;">
     <table class="table">
@@ -138,11 +213,18 @@
                 <th>Institution</th>
                 <th>Year</th>
                 <th>Certificate Document</th>
+                <th style="text-align: right;">Actions</th>
             </tr>
         </thead>
         <tbody id="qualificationsTableBody">
             {% for q in qualifications %}  
-            <tr class="qualification-row">
+            <tr class="qualification-row"
+                data-staff="{{ q.staff.username }}"
+                data-qualification="{{ q.qualification_name }}"
+                data-institution="{{ q.institution }}"
+                data-year="{{ q.year_awarded }}"
+                data-cert="{% if q.certificate_file %}yes{% else %}no{% endif %}">
+                
                 <td style="font-weight: 600; color: var(--text-main);">
                     <i class="fas fa-user-tie" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ q.staff.username }}
                 </td>
@@ -164,17 +246,27 @@
                         <span style="color: var(--text-muted); font-size: 0.85rem;">None</span>
                     {% endif %}
                 </td>
+                <td style="text-align: right;">
+                    <button type="button" class="btn-icon btn-edit" title="Edit Qualification"
+                        onclick="openEditModal('{{ q.id }}', '{{ q.staff.id }}', `{{ q.qualification_name|escapejs }}`, `{{ q.institution|escapejs }}`, '{{ q.year_awarded }}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn-icon btn-delete" title="Delete Qualification"
+                        onclick="openDeleteModal('{{ q.id }}', `{{ q.qualification_name|escapejs }}`)">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-certificate" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No staff qualifications recorded.
                 </td>
             </tr>
             {% endfor %}
             <tr id="searchEmptyRow" style="display: none;">
-                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No matching qualifications discovered for your filter criteria.
                 </td>
@@ -183,15 +275,17 @@
     </table>
 </div>
 
-<!-- Modal Creator Interface -->
+<!-- Modal Creator / Editor Interface -->
 <div class="modal" id="singleAddModal">
     <div class="modal-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-            <h3>Add Staff Qualification</h3>
+            <h3 id="modalTitle">Add Staff Qualification</h3>
             <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
-        <form method="POST" enctype="multipart/form-data" action="">
+        <form method="POST" enctype="multipart/form-data" action="" id="qualificationForm">
             {% csrf_token %}
+            <input type="hidden" name="action" id="formAction" value="create">
+            <input type="hidden" name="qual_id" id="qualIdField" value="">
 
             <div class="form-group">
                 <label for="staff">Staff Member</label>
@@ -219,55 +313,186 @@
             </div>
 
             <div class="form-group">
-                <label for="certificate_file">Certificate File (Optional)</label>
+                <label for="certificate_file">Certificate File <span id="certHelpText" style="font-weight: normal; color: var(--text-muted);">(Optional)</span></label>
                 <input type="file" id="certificate_file" name="certificate_file" class="form-control-file">
             </div>
 
             <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
                 <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
-                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Add Qualification</button>
+                <button type="submit" class="btn" id="modalSubmitBtn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Add Qualification</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Delete Confirmation Interface -->
+<div class="modal" id="deleteModal">
+    <div class="modal-card" style="max-width: 400px; text-align: center;">
+        <div style="font-size: 2.5rem; color: #dc2626; margin-bottom: 1rem;"><i class="fas fa-exclamation-triangle"></i></div>
+        <h3>Confirm Deletion</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Are you sure you want to delete <strong id="deleteQualName"></strong>? This action cannot be undone.</p>
+        
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="qual_id" id="deleteQualId" value="">
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline" id="cancelDeleteBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: #fff;">Delete</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
+    // Global Modal Trigger Functions
+    function openEditModal(id, staffId, qualName, institution, year) {
+        document.getElementById('modalTitle').textContent = 'Edit Qualification';
+        document.getElementById('formAction').value = 'edit';
+        document.getElementById('qualIdField').value = id;
+        document.getElementById('staff').value = staffId;
+        document.getElementById('qualification_name').value = qualName;
+        document.getElementById('institution').value = institution;
+        document.getElementById('year_awarded').value = year;
+        document.getElementById('certHelpText').textContent = '(Leave empty to keep current certificate)';
+        document.getElementById('modalSubmitBtn').textContent = 'Update Qualification';
+        document.getElementById('singleAddModal').classList.add('active');
+    }
+
+    function openDeleteModal(id, qualName) {
+        document.getElementById('deleteQualId').value = id;
+        document.getElementById('deleteQualName').textContent = qualName;
+        document.getElementById('deleteModal').classList.add('active');
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const modal = document.getElementById('singleAddModal');
+        const deleteModal = document.getElementById('deleteModal');
         const openBtn = document.getElementById('openModalBtn');
         const closeBtn = document.getElementById('closeModalBtn');
         const cancelBtn = document.getElementById('cancelModalBtn');
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 
-        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
+        if(openBtn) {
+            openBtn.addEventListener('click', () => {
+                document.getElementById('modalTitle').textContent = 'Add Staff Qualification';
+                document.getElementById('formAction').value = 'create';
+                document.getElementById('qualIdField').value = '';
+                document.getElementById('qualificationForm').reset();
+                document.getElementById('certHelpText').textContent = '(Optional)';
+                document.getElementById('modalSubmitBtn').textContent = 'Add Qualification';
+                modal.classList.add('active');
+            });
+        }
+
         const closeModal = () => modal.classList.remove('active');
+        const closeDeleteModal = () => deleteModal.classList.remove('active');
         
         if(closeBtn) closeBtn.addEventListener('click', closeModal);
         if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
-        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+        if(cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+        
+        window.addEventListener('click', (e) => { 
+            if(e.target === modal) closeModal(); 
+            if(e.target === deleteModal) closeDeleteModal();
+        });
 
-        // Automated Frontend Search Matrix
+        // Dynamic Pre-Filling of Filters based on existing table records
+        const filterQualSelect = document.getElementById('filterQualification');
+        const filterInstSelect = document.getElementById('filterInstitution');
+        const filterYearSelect = document.getElementById('filterYear');
+
+        const qualificationsSet = new Set();
+        const institutionsSet = new Set();
+        const yearsSet = new Set();
+
+        document.querySelectorAll('.qualification-row').forEach(row => {
+            const qVal = row.getAttribute('data-qualification');
+            const iVal = row.getAttribute('data-institution');
+            const yVal = row.getAttribute('data-year');
+
+            if (qVal) qualificationsSet.add(qVal);
+            if (iVal) institutionsSet.add(iVal);
+            if (yVal) yearsSet.add(yVal);
+        });
+
+        // Helper function to populate select elements
+        function populateDropdown(selectEl, dataSet) {
+            Array.from(dataSet).sort().forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                selectEl.appendChild(option);
+            });
+        }
+
+        populateDropdown(filterQualSelect, qualificationsSet);
+        populateDropdown(filterInstSelect, institutionsSet);
+        populateDropdown(filterYearSelect, yearsSet);
+
+        // Combined Search & Filter Execution Function
         const searchInput = document.getElementById('dashboardSearch');
+        const filterStaff = document.getElementById('filterStaff');
+        const filterCert = document.getElementById('filterCert');
+        const resetBtn = document.getElementById('resetFilters');
         const dataRows = document.querySelectorAll('.qualification-row');
         const emptyRow = document.getElementById('searchEmptyRow');
 
-        if (searchInput) {
-            searchInput.addEventListener('input', function() {
-                const criteria = this.value.toLowerCase().trim();
-                let matchingCount = 0;
+        function applyFilters() {
+            const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const staffVal = filterStaff.value;
+            const qualVal = filterQualSelect.value;
+            const instVal = filterInstSelect.value;
+            const yearVal = filterYearSelect.value;
+            const certVal = filterCert.value;
 
-                dataRows.forEach(row => {
-                    const searchableText = row.textContent.toLowerCase();
-                    if (searchableText.includes(criteria)) {
-                        row.style.display = '';
-                        matchingCount++;
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
+            let matchingCount = 0;
 
-                if (emptyRow) {
-                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            dataRows.forEach(row => {
+                const rStaff = row.getAttribute('data-staff');
+                const rQual = row.getAttribute('data-qualification');
+                const rInst = row.getAttribute('data-institution');
+                const rYear = row.getAttribute('data-year');
+                const rCert = row.getAttribute('data-cert');
+                const rowText = row.textContent.toLowerCase();
+
+                let matchesSearch = !searchVal || rowText.includes(searchVal);
+                let matchesStaff = !staffVal || rStaff === staffVal;
+                let matchesQual = !qualVal || rQual === qualVal;
+                let matchesInst = !instVal || rInst === instVal;
+                let matchesYear = !yearVal || rYear === yearVal;
+                let matchesCert = !certVal || rCert === certVal;
+
+                if (matchesSearch && matchesStaff && matchesQual && matchesInst && matchesYear && matchesCert) {
+                    row.style.display = '';
+                    matchingCount++;
+                } else {
+                    row.style.display = 'none';
                 }
+            });
+
+            if (emptyRow) {
+                emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            }
+        }
+
+        // Attach listeners
+        if (searchInput) searchInput.addEventListener('input', applyFilters);
+        if (filterStaff) filterStaff.addEventListener('change', applyFilters);
+        if (filterQualSelect) filterQualSelect.addEventListener('change', applyFilters);
+        if (filterInstSelect) filterInstSelect.addEventListener('change', applyFilters);
+        if (filterYearSelect) filterYearSelect.addEventListener('change', applyFilters);
+        if (filterCert) filterCert.addEventListener('change', applyFilters);
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                if (filterStaff) filterStaff.value = '';
+                if (filterQualSelect) filterQualSelect.value = '';
+                if (filterInstSelect) filterInstSelect.value = '';
+                if (filterYearSelect) filterYearSelect.value = '';
+                if (filterCert) filterCert.value = '';
+                applyFilters();
             });
         }
     });

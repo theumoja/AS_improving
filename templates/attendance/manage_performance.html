@@ -23,6 +23,19 @@
         align-items: center;
     }
 
+    /* Filter Toolbar Styles */
+    .filter-toolbar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) 100px;
+        gap: 1rem;
+        background: #ffffff;
+        padding: 1.25rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        margin-bottom: 1.5rem;
+        align-items: end;
+    }
+
     /* Score Badge Styling */
     .score-badge {
         display: inline-flex;
@@ -36,6 +49,21 @@
     .score-high { background: rgba(16, 185, 129, 0.1); color: #059669; }
     .score-mid { background: rgba(245, 158, 11, 0.1); color: #d97706; }
     .score-low { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+
+    /* Action Icon Buttons */
+    .btn-icon {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.95rem;
+        padding: 0.35rem 0.5rem;
+        border-radius: var(--radius-sm);
+        transition: background 0.2s;
+    }
+    .btn-edit { color: #2563eb; }
+    .btn-edit:hover { background: rgba(37, 99, 235, 0.1); }
+    .btn-delete { color: #dc2626; }
+    .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
 
     /* Modal Context Interface Components */
     .modal {
@@ -97,7 +125,7 @@
     <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
         <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
             <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search staff, evaluator, comments..." style="padding-left: 2.25rem;">
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search comments or keywords..." style="padding-left: 2.25rem;">
         </div>
     </div>
 
@@ -105,6 +133,50 @@
         <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
             <i class="fas fa-plus-circle"></i> Add Evaluation
         </button>
+    </div>
+</div>
+
+<!-- Pre-Filled Dynamic Filter Toolbar -->
+<div class="filter-toolbar">
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterStaff">Staff Member</label>
+        <select id="filterStaff" class="form-control">
+            <option value="">All Staff</option>
+            {% for u in staff_users %}
+                <option value="{{ u.username }}">{{ u.username }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterTerm">Term</label>
+        <select id="filterTerm" class="form-control">
+            <option value="">All Terms</option>
+            {% for t in terms %}
+                <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterEvaluator">Evaluator</label>
+        <select id="filterEvaluator" class="form-control">
+            <option value="">All Evaluators</option>
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+        <label for="filterScore">Score Range</label>
+        <select id="filterScore" class="form-control">
+            <option value="">All Scores</option>
+            <option value="high">High (75% - 100%)</option>
+            <option value="mid">Medium (50% - 74%)</option>
+            <option value="low">Low (0% - 49%)</option>
+        </select>
+    </div>
+
+    <div>
+        <button type="button" id="resetFilters" class="btn btn-outline" style="width: 100%; padding: 0.65rem;">Reset</button>
     </div>
 </div>
 
@@ -118,12 +190,17 @@
                 <th>Comments</th>
                 <th>Term</th>
                 <th>Evaluator</th>
+                <th style="text-align: right;">Actions</th>
             </tr>
         </thead>
         <tbody id="evaluationsTableBody">
             {% for eval in evaluations %}  
-            <tr class="eval-row">
-                <td style="font-weight: 600; color: var(--text-main);">
+            <tr class="eval-row" 
+                data-staff="{{ eval.staff.username }}" 
+                data-term="{{ eval.term|default:'' }}" 
+                data-evaluator="{{ eval.evaluator.username|default:'' }}"
+                data-score="{{ eval.score }}">
+                <td style="font-weight: 600; color: var(--text-main);" class="row-staff">
                     <i class="fas fa-user-tie" style="margin-right: 0.35rem; color: var(--text-muted);"></i> {{ eval.staff.username }}
                 </td>
                 <td>
@@ -135,26 +212,36 @@
                         <span class="score-badge score-low"><i class="far fa-star"></i> {{ eval.score }}%</span>
                     {% endif %}
                 </td>
-                <td style="max-width: 300px; color: var(--text-main);">
+                <td style="max-width: 300px; color: var(--text-main);" class="row-comments">
                     {{ eval.comments|default:"-" }}
                 </td>
-                <td>
+                <td class="row-term">
                     <span style="font-weight: 600; color: var(--text-muted);">{{ eval.term|default:"-" }}</span>
                 </td>
-                <td>
+                <td class="row-evaluator">
                     <i class="fas fa-user-check" style="margin-right: 0.3rem; color: var(--text-muted);"></i> {{ eval.evaluator.username|default:"-" }}
+                </td>
+                <td style="text-align: right;">
+                    <button type="button" class="btn-icon btn-edit" title="Edit"
+                        onclick="openEditModal('{{ eval.id }}', '{{ eval.staff.id }}', '{{ eval.score }}', '{{ eval.term.id|default:'' }}', `{{ eval.comments|escapejs }}`)">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn-icon btn-delete" title="Delete"
+                        onclick="openDeleteModal('{{ eval.id }}', '{{ eval.staff.username }}')">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-star" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No performance evaluations recorded.
                 </td>
             </tr>
             {% endfor %}
             <tr id="searchEmptyRow" style="display: none;">
-                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No matching evaluations discovered for your filter criteria.
                 </td>
@@ -163,15 +250,17 @@
     </table>
 </div>
 
-<!-- Modal Creator Interface -->
+<!-- Modal Creator / Editor Interface -->
 <div class="modal" id="singleAddModal">
     <div class="modal-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-            <h3>Add Evaluation</h3>
+            <h3 id="modalTitle">Add Evaluation</h3>
             <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
-        <form method="POST" action="">
+        <form method="POST" action="" id="evaluationForm">
             {% csrf_token %}
+            <input type="hidden" name="action" id="formAction" value="create">
+            <input type="hidden" name="eval_id" id="evalIdField" value="">
 
             <div class="form-group">
                 <label for="staff">Staff Member</label>
@@ -205,49 +294,159 @@
 
             <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
                 <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
-                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Evaluation</button>
+                <button type="submit" class="btn" id="modalSubmitBtn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Evaluation</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Delete Confirmation Interface -->
+<div class="modal" id="deleteModal">
+    <div class="modal-card" style="max-width: 400px; text-align: center;">
+        <div style="font-size: 2.5rem; color: #dc2626; margin-bottom: 1rem;"><i class="fas fa-exclamation-triangle"></i></div>
+        <h3>Confirm Deletion</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Are you sure you want to delete the evaluation for <strong id="deleteStaffName"></strong>? This action cannot be undone.</p>
+        
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="eval_id" id="deleteEvalId" value="">
+            <div style="display:flex; gap:0.75rem;">
+                <button type="button" class="btn btn-outline" id="cancelDeleteBtn" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn" style="flex:1; background: #dc2626; color: #fff;">Delete</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
+    // Global Modal Functions for Inline Handlers
+    function openEditModal(id, staffId, score, termId, comments) {
+        document.getElementById('modalTitle').textContent = 'Edit Evaluation';
+        document.getElementById('formAction').value = 'edit';
+        document.getElementById('evalIdField').value = id;
+        document.getElementById('staff').value = staffId;
+        document.getElementById('score').value = score;
+        document.getElementById('term').value = termId;
+        document.getElementById('comments').value = comments === '-' ? '' : comments;
+        document.getElementById('modalSubmitBtn').textContent = 'Update Evaluation';
+        document.getElementById('singleAddModal').classList.add('active');
+    }
+
+    function openDeleteModal(id, staffUsername) {
+        document.getElementById('deleteEvalId').value = id;
+        document.getElementById('deleteStaffName').textContent = staffUsername;
+        document.getElementById('deleteModal').classList.add('active');
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const modal = document.getElementById('singleAddModal');
+        const deleteModal = document.getElementById('deleteModal');
         const openBtn = document.getElementById('openModalBtn');
         const closeBtn = document.getElementById('closeModalBtn');
         const cancelBtn = document.getElementById('cancelModalBtn');
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 
-        if(openBtn) openBtn.addEventListener('click', () => modal.classList.add('active'));
+        if(openBtn) {
+            openBtn.addEventListener('click', () => {
+                document.getElementById('modalTitle').textContent = 'Add Evaluation';
+                document.getElementById('formAction').value = 'create';
+                document.getElementById('evalIdField').value = '';
+                document.getElementById('evaluationForm').reset();
+                document.getElementById('modalSubmitBtn').textContent = 'Save Evaluation';
+                modal.classList.add('active');
+            });
+        }
+
         const closeModal = () => modal.classList.remove('active');
+        const closeDeleteModal = () => deleteModal.classList.remove('active');
         
         if(closeBtn) closeBtn.addEventListener('click', closeModal);
         if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
-        window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+        if(cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+        
+        window.addEventListener('click', (e) => { 
+            if(e.target === modal) closeModal(); 
+            if(e.target === deleteModal) closeDeleteModal();
+        });
 
-        // Automated Frontend Search Matrix
+        // Populate Evaluator Filter Dropdown dynamically from table records
+        const evaluatorSelect = document.getElementById('filterEvaluator');
+        const evaluatorsSet = new Set();
+        document.querySelectorAll('.eval-row').forEach(row => {
+            const ev = row.getAttribute('data-evaluator');
+            if(ev && ev !== '-') evaluatorsSet.add(ev);
+        });
+        evaluatorsSet.forEach(ev => {
+            const opt = document.createElement('option');
+            opt.value = ev;
+            opt.textContent = ev;
+            evaluatorSelect.appendChild(opt);
+        });
+
+        // Filter & Search Matrix Logic
         const searchInput = document.getElementById('dashboardSearch');
+        const filterStaff = document.getElementById('filterStaff');
+        const filterTerm = document.getElementById('filterTerm');
+        const filterEvaluator = document.getElementById('filterEvaluator');
+        const filterScore = document.getElementById('filterScore');
+        const resetBtn = document.getElementById('resetFilters');
         const dataRows = document.querySelectorAll('.eval-row');
         const emptyRow = document.getElementById('searchEmptyRow');
 
-        if (searchInput) {
-            searchInput.addEventListener('input', function() {
-                const criteria = this.value.toLowerCase().trim();
-                let matchingCount = 0;
+        function applyFilters() {
+            const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const staffVal = filterStaff.value;
+            const termVal = filterTerm.value;
+            const evaluatorVal = filterEvaluator.value;
+            const scoreVal = filterScore.value;
 
-                dataRows.forEach(row => {
-                    const searchableText = row.textContent.toLowerCase();
-                    if (searchableText.includes(criteria)) {
-                        row.style.display = '';
-                        matchingCount++;
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
+            let matchingCount = 0;
 
-                if (emptyRow) {
-                    emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            dataRows.forEach(row => {
+                const rStaff = row.getAttribute('data-staff');
+                const rTerm = row.getAttribute('data-term');
+                const rEvaluator = row.getAttribute('data-evaluator');
+                const rScore = parseFloat(row.getAttribute('data-score'));
+                const rowText = row.textContent.toLowerCase();
+
+                let matchesSearch = !searchVal || rowText.includes(searchVal);
+                let matchesStaff = !staffVal || rStaff === staffVal;
+                let matchesTerm = !termVal || rTerm === termVal;
+                let matchesEvaluator = !evaluatorVal || rEvaluator === evaluatorVal;
+                
+                let matchesScore = true;
+                if (scoreVal === 'high') matchesScore = rScore >= 75;
+                else if (scoreVal === 'mid') matchesScore = rScore >= 50 && rScore < 75;
+                else if (scoreVal === 'low') matchesScore = rScore < 50;
+
+                if (matchesSearch && matchesStaff && matchesTerm && matchesEvaluator && matchesScore) {
+                    row.style.display = '';
+                    matchingCount++;
+                } else {
+                    row.style.display = 'none';
                 }
+            });
+
+            if (emptyRow) {
+                emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            }
+        }
+
+        if (searchInput) searchInput.addEventListener('input', applyFilters);
+        if (filterStaff) filterStaff.addEventListener('change', applyFilters);
+        if (filterTerm) filterTerm.addEventListener('change', applyFilters);
+        if (filterEvaluator) filterEvaluator.addEventListener('change', applyFilters);
+        if (filterScore) filterScore.addEventListener('change', applyFilters);
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                if (filterStaff) filterStaff.value = '';
+                if (filterTerm) filterTerm.value = '';
+                if (filterEvaluator) filterEvaluator.value = '';
+                if (filterScore) filterScore.value = '';
+                applyFilters();
             });
         }
     });
