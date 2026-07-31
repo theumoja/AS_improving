@@ -161,7 +161,6 @@
         <a href="{% url 'attendance:manage_departments' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_departments' %}active{% endif %}">
             <i class="fas fa-building"></i> Manage Departments
         </a>
-        
 
     {# ========================================================================= #}
     {# 4. CONTEXT: COURSES & COURSE UNITS MANAGEMENT                            #}
@@ -174,7 +173,6 @@
         <a href="{% url 'attendance:manage_courses' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_courses' %}active{% endif %}">
             <i class="fas fa-book"></i> Manage Courses
         </a>
-        
 
     {# ========================================================================= #}
     {# 5. CONTEXT: STREAMS MANAGEMENT                                           #}
@@ -187,7 +185,6 @@
         <a href="{% url 'attendance:manage_streams' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_streams' %}active{% endif %}">
             <i class="fas fa-stream"></i> Manage Streams
         </a>
-
 
     {# ========================================================================= #}
     {# 6. CONTEXT: LIBRARY MODULE                                               #}
@@ -215,15 +212,15 @@
             </a>
         {% endif %}
         {% if user.role == 'STUDENT' %}
-        <a href="{% url 'attendance:library_reader_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'library_reader_dashboard' %}active{% endif %}">
-            <i class="fas fa-book-open"></i> Reader Catalog
-        </a>
+            <a href="{% url 'attendance:library_reader_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'library_reader_dashboard' %}active{% endif %}">
+                <i class="fas fa-book-open"></i> Reader Catalog
+            </a>
         {% endif %}
 
     {# ========================================================================= #}
     {# 7. CONTEXT: ACCOUNTING & FINANCE MODULE                                  #}
     {# ========================================================================= #}
-    {% elif 'finance' in request.path or 'fees' in request.path or 'staff-payments' in request.path or request.resolver_match.url_name in 'accountant_dashboard,fees_dashboard,staff_payments_dashboard,record_payment_attempt,disburse_payment,confirm_student_payment,edit_fee_transaction,delete_fee_transaction,edit_staff_payment,delete_staff_payment' %}
+    {% elif 'finance' in request.path or 'fees' in request.path or 'staff-payments' in request.path or 'accountant' in request.path or request.resolver_match.url_name in 'accountant_dashboard,fees_dashboard,staff_payments_dashboard,record_payment_attempt,disburse_payment,confirm_student_payment,edit_fee_transaction,delete_fee_transaction,edit_staff_payment,delete_staff_payment' %}
         
         <span class="sidebar-divider"></span>
         <div class="sidebar-heading">Accounting Operations</div>
@@ -242,7 +239,7 @@
         </a>
         
         {% if user.role == 'ACCOUNTANT' or user.role == 'ADMIN' or user.is_staff %}
-            {% if user.role == 'ACCOUNTANT'  %}
+            {% if user.role == 'ACCOUNTANT' %}
             <a href="{% url 'attendance:record_payment_attempt' %}" class="sidebar-link {% if request.resolver_match.url_name == 'record_payment_attempt' %}active{% endif %}">
                 <i class="fas fa-plus-square"></i> Record Student Payment
             </a>
@@ -260,7 +257,7 @@
         <span class="sidebar-divider"></span>
         <div class="sidebar-heading">Warden / Lodging Operations</div>
 
-        {% if user.role == 'WARDEN'  %}
+        {% if user.role == 'WARDEN' or user.role == 'ADMIN' or user.is_staff %}
             <a href="{% url 'attendance:warden_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'warden_dashboard' %}active{% endif %}">
                 <i class="fas fa-bed"></i> Warden Dashboard
             </a>
@@ -298,9 +295,160 @@
         </a>
 
     {# ========================================================================= #}
-    {# 11. DEFAULT TOP-LEVEL DASHBOARD VIEW (Admin / High-Level Directories)     #}
+    {# 11. CONTEXT: EXAMINATIONS MODULE (NEW)                                   #}
+    {# ========================================================================= #}
+    {% elif 'exams' in request.path or request.resolver_match.url_name in 'manage_exams,edit_exam,save_single_mark,delete_exam,manage_marks,delete_mark,view_grades,generate_report_card,generate_transcript,exam_ranking' %}
+
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Examination Operations</div>
+
+        <a href="{% url 'attendance:manage_exams' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_exams' %}active{% endif %}">
+            <i class="fas fa-file-signature"></i> Manage Exams
+        </a>
+        <a href="{% url 'attendance:view_grades' %}" class="sidebar-link {% if request.resolver_match.url_name == 'view_grades' %}active{% endif %}">
+            <i class="fas fa-graduation-cap"></i> Grades & Scales
+        </a>
+        <a href="{% url 'attendance:exam_ranking' %}" class="sidebar-link {% if request.resolver_match.url_name == 'exam_ranking' %}active{% endif %}">
+            <i class="fas fa-poll"></i> Exam Rankings
+        </a>
+
+    {# ========================================================================= #}
+    {# 12. CONTEXT: INVENTORY MODULE (NEW)                                      #}
+    {# ========================================================================= #}
+    {% elif 'inventory' in request.path or request.resolver_match.url_name in 'manage_inventory,manage_procurement,asset_tracking,stock_report' %}
+
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Inventory Operations</div>
+
+        <a href="{% url 'attendance:manage_inventory' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_inventory' %}active{% endif %}">
+            <i class="fas fa-boxes"></i> Manage Inventory
+        </a>
+        <a href="{% url 'attendance:manage_procurement' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_procurement' %}active{% endif %}">
+            <i class="fas fa-truck-loading"></i> Procurement
+        </a>
+        <a href="{% url 'attendance:asset_tracking' %}" class="sidebar-link {% if request.resolver_match.url_name == 'asset_tracking' %}active{% endif %}">
+            <i class="fas fa-tags"></i> Asset Tracking
+        </a>
+        <a href="{% url 'attendance:stock_report' %}" class="sidebar-link {% if request.resolver_match.url_name == 'stock_report' %}active{% endif %}">
+            <i class="fas fa-clipboard-list"></i> Stock Report
+        </a>
+
+    {# ========================================================================= #}
+    {# 13. CONTEXT: TRANSPORT MODULE (NEW)                                       #}
+    {# ========================================================================= #}
+    {% elif 'transport' in request.path or 'allocate/transport' in request.path or request.resolver_match.url_name in 'manage_vehicles,allocate_transport,edit_transport_allocation,delete_transport_allocation,trip_log,transport_dashboard' %}
+
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Transport Operations</div>
+
+        <a href="{% url 'attendance:transport_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'transport_dashboard' %}active{% endif %}">
+            <i class="fas fa-bus"></i> Transport Dashboard
+        </a>
+        <a href="{% url 'attendance:manage_vehicles' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_vehicles' %}active{% endif %}">
+            <i class="fas fa-car"></i> Manage Vehicles
+        </a>
+        <a href="{% url 'attendance:allocate_transport' %}" class="sidebar-link {% if request.resolver_match.url_name == 'allocate_transport' %}active{% endif %}">
+            <i class="fas fa-route"></i> Route Allocations
+        </a>
+        <a href="{% url 'attendance:trip_log' %}" class="sidebar-link {% if request.resolver_match.url_name == 'trip_log' %}active{% endif %}">
+            <i class="fas fa-clipboard-check"></i> Trip Logs
+        </a>
+
+    {# ========================================================================= #}
+    {# 14. CONTEXT: HUMAN RESOURCES (HR) MODULE (NEW)                            #}
+    {# ========================================================================= #}
+    {% elif 'hr' in request.path or request.resolver_match.url_name in 'apply_leave,approve_leave,manage_performance,manage_qualifications,hr_dashboard' %}
+
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Human Resources</div>
+
+        <a href="{% url 'attendance:hr_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'hr_dashboard' %}active{% endif %}">
+            <i class="fas fa-user-tie"></i> HR Dashboard
+        </a>
+        <a href="{% url 'attendance:apply_leave' %}" class="sidebar-link {% if request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
+            <i class="fas fa-calendar-minus"></i> Apply / View Leave
+        </a>
+        <a href="{% url 'attendance:manage_performance' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_performance' %}active{% endif %}">
+            <i class="fas fa-award"></i> Performance Reviews
+        </a>
+        <a href="{% url 'attendance:manage_qualifications' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_qualifications' %}active{% endif %}">
+            <i class="fas fa-id-card"></i> Staff Qualifications
+        </a>
+
+    {# ========================================================================= #}
+    {# 15. CONTEXT: PARENT PORTAL MODULE (NEW)                                   #}
+    {# ========================================================================= #}
+    {% elif 'parent' in request.path or request.resolver_match.url_name in 'parent_dashboard,link_parent_student' %}
+
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Parent Portal</div>
+
+        <a href="{% url 'attendance:parent_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'parent_dashboard' %}active{% endif %}">
+            <i class="fas fa-user-friends"></i> Parent Dashboard
+        </a>
+        {% if user.is_staff or user.role == 'ADMIN' %}
+            <a href="{% url 'attendance:link_parent_student' %}" class="sidebar-link {% if request.resolver_match.url_name == 'link_parent_student' %}active{% endif %}">
+                <i class="fas fa-link"></i> Link Parent & Student
+            </a>
+        {% endif %}
+
+    {# ========================================================================= #}
+    {# 16. CONTEXT: ONLINE LEARNING MODULE (NEW)                                 #}
+    {# ========================================================================= #}
+    {% elif 'online' in request.path or request.resolver_match.url_name in 'manage_online_courses,view_course_materials,submit_assignment,grade_assignment,take_online_exam,manage_online_exams' %}
+
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">E-Learning Operations</div>
+
+        <a href="{% url 'attendance:manage_online_courses' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_online_courses' %}active{% endif %}">
+            <i class="fas fa-laptop-code"></i> Online Courses
+        </a>
+        <a href="{% url 'attendance:manage_online_exams' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_online_exams' %}active{% endif %}">
+            <i class="fas fa-tasks"></i> Online Exams
+        </a>
+
+    {# ========================================================================= #}
+    {# 17. CONTEXT: ACADEMIC REGISTRAR MODULE (NEW)                             #}
+    {# ========================================================================= #}
+    {% elif 'registrar' in request.path or 'admissions' in request.path or 'transfers' in request.path or request.resolver_match.url_name in 'registrar_dashboard,manage_admissions,manage_student_transfers' %}
+
+        <span class="sidebar-divider"></span>
+        <div class="sidebar-heading">Registrar Operations</div>
+
+        <a href="{% url 'attendance:registrar_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'registrar_dashboard' %}active{% endif %}">
+            <i class="fas fa-user-shield"></i> Registrar Dashboard
+        </a>
+        <a href="{% url 'attendance:manage_admissions' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_admissions' %}active{% endif %}">
+            <i class="fas fa-user-plus"></i> Admissions
+        </a>
+        <a href="{% url 'attendance:manage_student_transfers' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_student_transfers' %}active{% endif %}">
+            <i class="fas fa-exchange-alt"></i> Student Transfers
+        </a>
+
+    {# ========================================================================= #}
+    {# 18. DEFAULT TOP-LEVEL DASHBOARD VIEW (Admin / High-Level Directories)     #}
     {# ========================================================================= #}
     {% else %}
+
+        {% if user.role == 'REGISTRAR' %}
+            <span class="sidebar-divider"></span>
+            <div class="sidebar-heading">Registrar</div>
+            <a href="{% url 'attendance:registrar_dashboard' %}" class="sidebar-link">
+                <i class="fas fa-user-shield"></i> Registrar Dashboard
+            </a>
+            <a href="{% url 'attendance:manage_admissions' %}" class="sidebar-link">
+                <i class="fas fa-user-plus"></i> Admissions
+            </a>
+            <a href="{% url 'attendance:manage_student_transfers' %}" class="sidebar-link">
+                <i class="fas fa-exchange-alt"></i> Transfers
+            </a>
+        {% elif user.role == 'PARENT' %}
+            <span class="sidebar-divider"></span>
+            <div class="sidebar-heading">Parent Portal</div>
+            <a href="{% url 'attendance:parent_dashboard' %}" class="sidebar-link">
+                <i class="fas fa-user-friends"></i> Parent Dashboard
+            </a>
+        {% endif %}
 
         {% if user.is_staff or user.role == 'ADMIN' %}
             <span class="sidebar-divider"></span>
@@ -310,7 +458,7 @@
                 <i class="fas fa-chart-pie"></i> Admin Dashboard
             </a>
 
-            <div class="sidebar-heading">Directories</div>
+            <div class="sidebar-heading">Core Directories</div>
             <a href="{% url 'attendance:manage_students' %}" class="sidebar-link">
                 <i class="fas fa-user-graduate"></i> Students
             </a>
@@ -327,6 +475,25 @@
                 <i class="fas fa-stream"></i> Streams
             </a>
 
+            <div class="sidebar-heading">System Modules</div>
+            <a href="{% url 'attendance:manage_exams' %}" class="sidebar-link">
+                <i class="fas fa-file-signature"></i> Examinations
+            </a>
+            <a href="{% url 'attendance:manage_inventory' %}" class="sidebar-link">
+                <i class="fas fa-boxes"></i> Inventory
+            </a>
+            <a href="{% url 'attendance:transport_dashboard' %}" class="sidebar-link">
+                <i class="fas fa-bus"></i> Transport
+            </a>
+            <a href="{% url 'attendance:hr_dashboard' %}" class="sidebar-link">
+                <i class="fas fa-user-tie"></i> Human Resources
+            </a>
+            <a href="{% url 'attendance:registrar_dashboard' %}" class="sidebar-link">
+                <i class="fas fa-user-shield"></i> Registrar & Admissions
+            </a>
+            <a href="{% url 'attendance:manage_online_courses' %}" class="sidebar-link">
+                <i class="fas fa-laptop-code"></i> E-Learning
+            </a>
             <a href="{% url 'attendance:analytics_dashboard' %}" class="sidebar-link">
                 <i class="fas fa-chart-line"></i> Global Analytics
             </a>
