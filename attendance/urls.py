@@ -54,6 +54,9 @@ urlpatterns = [
     # =========================================================================
     # CRITICAL RECORD EDIT / DELETE ROUTING ENGINE
     # =========================================================================
+
+    # generate_report_card
+    #path('generate_report_card/', views_users.generate_report_card, name='generate_report_card'),
     
     # Teachers CRUD Extensions (Standard Auto-Increment Integer Keys)
     path('user-admin/manage-teachers/edit/<int:pk>/', views_admin.edit_teacher, name='edit_teacher'),
@@ -174,8 +177,9 @@ urlpatterns = [
     path('exams/marks/<int:exam_id>/', views_users.manage_marks, name='manage_marks'),
     path('exams/marks/delete/<int:mark_id>/', views_users.delete_mark, name='delete_mark'),
     path('exams/grades/', views_admin.view_grades, name='view_grades'),
-    path('exams/report-card/<str:student_id>/<int:term_id>/', views_users.generate_report_card, name='generate_report_card'),
-    path('exams/transcript/<str:student_id>/<int:term_id>/', views_admin.generate_transcript, name='generate_transcript'),
+    # Updated lines in urls.py:
+    path('exams/report-card/<path:student_id>/<int:term_id>/', views_users.generate_report_card, name='generate_report_card'),
+    path('exams/transcript/<path:student_id>/<int:term_id>/', views_admin.generate_transcript, name='generate_transcript'),
     path('exams/ranking/', views_admin.exam_ranking, name='exam_ranking'),
 
     # Inventory
@@ -216,4 +220,11 @@ urlpatterns = [
     path('registrar/dashboard/', views_users.registrar_dashboard, name='registrar_dashboard'),  # define if needed
     path('admin_ui/admissions/', views_admin.manage_admissions, name='manage_admissions'),
     path('admin_ui/transfers/', views_admin.manage_student_transfers, name='manage_student_transfers'),
+
+
+
+    path('course-documents/', views_users.manage_course_documents, name='manage_course_documents'),
+
+
+    
     ]

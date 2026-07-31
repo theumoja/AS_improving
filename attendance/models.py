@@ -673,3 +673,18 @@ class Note(models.Model):
 
     def __str__(self):
         return f"{self.online_course.name} - {self.title}"
+
+
+class CourseUnitDocument(models.Model):
+    course_unit = models.ForeignKey(CourseUnit, on_delete=models.CASCADE, related_name='documents')
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    file = models.FileField(upload_to='course_unit_documents/')
+    uploaded_by = models.ForeignKey(TeacherProfile, on_delete=models.CASCADE, related_name='uploaded_documents')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f"{self.course_unit.code} - {self.title}"

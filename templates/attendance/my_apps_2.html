@@ -19,7 +19,6 @@
     <a href="{% url 'attendance:my_apps' %}" class="btn btn-outline" style="padding: 0.5rem 1rem;">
         <i class="fas fa-arrow-left"></i> Back to Main Apps
     </a>
-    <!-- AFTER (Fixed) -->
     <h2 style="margin: 0;">
         {{ module_title }} Sub-Modules
     </h2>
@@ -37,25 +36,9 @@
                 <i class="fas fa-chart-pie"></i>
                 <span class="card-label">Admin Dashboard</span>
             </a>
-            <a href="{% url 'attendance:manage_departments' %}" class="nav-card">
-                <i class="fas fa-building"></i>
-                <span class="card-label">Departments</span>
-            </a>
             <a href="{% url 'attendance:manage_teachers' %}" class="nav-card">
                 <i class="fas fa-chalkboard-teacher"></i>
                 <span class="card-label">Teachers</span>
-            </a>
-            <a href="{% url 'attendance:manage_students' %}" class="nav-card">
-                <i class="fas fa-user-graduate"></i>
-                <span class="card-label">Students</span>
-            </a>
-            <a href="{% url 'attendance:manage_courses' %}" class="nav-card">
-                <i class="fas fa-book"></i>
-                <span class="card-label">Courses</span>
-            </a>
-            <a href="{% url 'attendance:manage_streams' %}" class="nav-card">
-                <i class="fas fa-stream"></i>
-                <span class="card-label">Class Streams</span>
             </a>
             <a href="{% url 'attendance:analytics_dashboard' %}" class="nav-card">
                 <i class="fas fa-chart-line"></i>
@@ -163,6 +146,22 @@
             <a href="{% url 'attendance:registrar_dashboard' %}" class="nav-card">
                 <i class="fas fa-user-graduate"></i>
                 <span class="card-label">Registrar Dashboard</span>
+            </a>
+            <a href="{% url 'attendance:manage_departments' %}" class="nav-card">
+                <i class="fas fa-building"></i>
+                <span class="card-label">Departments</span>
+            </a>
+            <a href="{% url 'attendance:manage_courses' %}" class="nav-card">
+                <i class="fas fa-book"></i>
+                <span class="card-label">Courses</span>
+            </a>
+            <a href="{% url 'attendance:manage_students' %}" class="nav-card">
+                <i class="fas fa-user-graduate"></i>
+                <span class="card-label">Students</span>
+            </a>
+            <a href="{% url 'attendance:manage_streams' %}" class="nav-card">
+                <i class="fas fa-stream"></i>
+                <span class="card-label">Class Streams</span>
             </a>
             <a href="{% url 'attendance:manage_admissions' %}" class="nav-card">
                 <i class="fas fa-user-plus"></i>

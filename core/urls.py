@@ -10,6 +10,15 @@ urlpatterns = [
     
 ]
 
+
+
+from django.conf import settings
+from django.conf.urls.static import static
+
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    
 # LINK CUSTOM ERROR HANDLERS TO CORE VIEWS
 handler404 = 'attendance.views_users.custom_page_not_found'
 handler403 = 'attendance.views_users.custom_permission_denied'

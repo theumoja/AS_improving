@@ -2942,6 +2942,7 @@ from .models import (
     OnlineCourse, Lesson, CourseUnit, TeacherProfile, User
 )
 
+
 @login_required
 @transaction.atomic
 def manage_online_courses(request):
@@ -3047,6 +3048,88 @@ def manage_online_courses(request):
         'courses': courses,
         'course_units': course_units,
         'teachers': teachers,
+    })
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+from django.contrib import messages
+from .models import User, CourseUnit, CourseUnitDocument
+
+@login_required
+def manage_course_documents(request):
+    """View course unit documents (Admin, Student, Parent, Teacher) and handle uploads (Teacher only)."""
+    user = request.user
+
+    # 1. Role-based Document and Course Unit Filtering
+    if user.role == User.IS_TEACHER:
+        teacher = user.teacher_profile
+        # Course units from courses assigned to this teacher
+        course_units = CourseUnit.objects.filter(course__in=teacher.courses.all())
+        documents = CourseUnitDocument.objects.filter(course_unit__in=course_units)
+
+    elif user.role == User.IS_STUDENT:
+        student = user.student_profile
+        course_units = CourseUnit.objects.filter(course=student.course)
+        documents = CourseUnitDocument.objects.filter(course_unit__in=course_units)
+
+    elif user.role == User.IS_PARENT:
+        parent = user.parent_profile
+        # Course units for courses taken by any of the parent's linked students
+        student_courses = parent.students.values_list('course_id', flat=True)
+        course_units = CourseUnit.objects.filter(course_id__in=student_courses)
+        documents = CourseUnitDocument.objects.filter(course_unit__in=course_units)
+
+    elif user.role == User.IS_ADMIN:
+        course_units = CourseUnit.objects.all()
+        documents = CourseUnitDocument.objects.all()
+
+    else:
+        return HttpResponse("Unauthorized", status=403)
+
+    # 2. Handle Upload/Delete (Teachers ONLY)
+    if request.method == 'POST':
+        if user.role != User.IS_TEACHER:
+            return HttpResponse("Unauthorized: View only access allowed.", status=403)
+
+        action = request.POST.get('action')
+        teacher = user.teacher_profile
+
+        if action == 'upload_document':
+            title = request.POST.get('title')
+            description = request.POST.get('description', '')
+            course_unit_code = request.POST.get('course_unit')
+            doc_file = request.FILES.get('document_file')
+
+            course_unit = get_object_or_404(CourseUnit, code=course_unit_code)
+
+            # Security check: Ensure teacher actually teaches this course
+            if course_unit.course not in teacher.courses.all():
+                messages.error(request, "You can only upload documents for course units assigned to you.")
+                return redirect('attendance:manage_course_documents')
+
+            if doc_file:
+                CourseUnitDocument.objects.create(
+                    course_unit=course_unit,
+                    title=title,
+                    description=description,
+                    file=doc_file,
+                    uploaded_by=teacher
+                )
+                messages.success(request, f"Document '{title}' uploaded successfully.")
+
+        elif action == 'delete_document':
+            doc_id = request.POST.get('document_id')
+            doc = get_object_or_404(CourseUnitDocument, id=doc_id, uploaded_by=teacher)
+            doc.file.delete(save=False)  # Remove physical file from media storage
+            doc.delete()
+            messages.success(request, "Document deleted successfully.")
+
+        return redirect('attendance:manage_course_documents')
+
+    return render(request, 'attendance/course_documents.html', {
+        'documents': documents,
+        'course_units': course_units,
     })
 
 

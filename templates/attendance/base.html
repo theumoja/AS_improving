@@ -118,7 +118,7 @@
             border-color: rgba(255,255,255,0.4);
         }
 
-        /* ----- Mobile Drawer – dark silk gray (unchanged) ----- */
+        /* ----- Mobile Drawer ----- */
         .drawer-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 999; opacity: 0; transition: opacity 0.3s ease;
@@ -141,6 +141,7 @@
 
         .drawer .drawer-links { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; }
         .drawer .drawer-heading { font-size: 0.7rem; font-weight: 700; color: #2c3e50; text-transform: uppercase; letter-spacing: 0.08em; padding: 1rem 0.75rem 0.25rem 0.75rem; opacity: 0.7; }
+        .drawer .drawer-heading:first-of-type { padding-top: 0.25rem; }
         .drawer .drawer-links a { padding: 0.65rem 0.75rem; border-radius: var(--radius-sm); color: #1e293b; font-weight: 500; font-size: 0.9rem; transition: var(--transition); display: flex; align-items: center; gap: 0.85rem; }
         .drawer .drawer-links a:hover { background: rgba(30, 58, 138, 0.15); color: #0f2a4a; }
         .drawer .drawer-links a i { width: 1.25rem; text-align: center; color: #2a4a6a; font-size: 1rem; }
@@ -149,10 +150,9 @@
 
         .drawer .drawer-user { border-top: 1px solid rgba(0,0,0,0.12); padding-top: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
         .drawer .drawer-user .user-info { font-weight: 500; color: #1a2a3a; }
-        .drawer .drawer-user .logout-btn { padding: 0.4rem 1.2rem; border-radius: 50px; font-weight: 600; font-size: 0.85rem; background: var(--danger); color: #fff; border: none; transition: var(--transition); cursor: pointer; }
+        .drawer .drawer-user .logout-btn { padding: 0.4rem 1.2rem; border-radius: 50px; font-weight: 600; font-size: 0.85rem; background: var(--danger); color: #fff; border: none; transition: var(--transition); cursor: pointer; text-decoration: none; }
 
-        /* ----- App Layout – Flexbox row with sidebar ----- */
-        /* ----- App Layout – Flexbox row with sidebar ----- */
+        /* ----- App Layout ----- */
         .app-layout {
             display: flex;
             width: 100%;
@@ -162,18 +162,29 @@
             position: relative;
             overflow-x: hidden;
             margin-top: var(--nav-height);
-
-            /* 1. Reserve 320px space on the left for the fixed sidebar */
             padding-left: 320px; 
-
             transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             min-height: calc(100vh - var(--nav-height));
         }
 
-        /* 2. Expand main content to full width when sidebar is collapsed */
+        /* Large Screen Collapsed State */
         .app-layout.sidebar-collapsed {
-            padding-left: 0;
+            padding-left: 0 !important;
         }
+
+        .app-layout .sidebar, 
+        .app-layout aside {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .app-layout.sidebar-collapsed .sidebar,
+        .app-layout.sidebar-collapsed aside {
+            transform: translateX(-100%);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
         /* ----- Main Content ----- */
         .main-content {
             flex: 1;
@@ -183,7 +194,7 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* ----- Navigation Cards Grid (styles remain because myapp.html uses them) ----- */
+        /* ----- Navigation Cards Grid ----- */
         .nav-cards {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -246,7 +257,7 @@
             margin-top: 0;
         }
 
-        /* ----- Shared Components – all blue now ----- */
+        /* ----- Shared Components ----- */
         .card { background: var(--surface); border-radius: var(--radius); padding: 2rem; box-shadow: var(--shadow); border: 1px solid var(--border); transition: var(--transition); }
         .card:hover { box-shadow: var(--shadow-lg); border-color: #cbd5e1; }
 
@@ -314,115 +325,315 @@
 
         <div class="drawer-links">
             {% if user.is_authenticated %}
-                {# --- MAIN HUB LINK for all users --- #}
-                <div class="drawer-heading">Main</div>
+                {# --- UNIVERSAL BASE LINK --- #}
                 <a href="{% url 'attendance:my_apps' %}" class="{% if request.resolver_match.url_name == 'my_apps' %}active{% endif %}">
                     <i class="fas fa-th-large"></i> My Apps
                 </a>
 
-                {# --- ADMIN & STAFF --- #}
-                {% if user.role == 'ADMIN' or user.is_staff %}
-                    <div class="drawer-heading">Administration</div>
-                    <a href="{% url 'attendance:admin_dashboard' %}" class="{% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
-                        <i class="fas fa-chart-pie"></i> Dashboard
+                {# ========================================================================= #}
+                {# 1. CONTEXT: STUDENTS MANAGEMENT                                           #}
+                {# ========================================================================= #}
+                {% if 'students' in request.path or 'student' in request.path or request.resolver_match.url_name in 'manage_students,edit_student,delete_student,bulk_upload_students,student_dashboard,download_student_report,download_attendance_card' %}
+                    <div class="drawer-heading">Student Operations</div>
+                    <a href="{% url 'attendance:manage_students' %}" class="{% if request.resolver_match.url_name == 'manage_students' %}active{% endif %}">
+                        <i class="fas fa-users"></i> All Students List
                     </a>
-                    <div class="drawer-heading">Academic Records</div>
-                    <a href="{% url 'attendance:manage_departments' %}"><i class="fas fa-building"></i> Departments</a>
-                    <a href="{% url 'attendance:manage_teachers' %}"><i class="fas fa-chalkboard-teacher"></i> Teachers</a>
-                    <a href="{% url 'attendance:manage_students' %}"><i class="fas fa-user-graduate"></i> Students</a>
-                    <a href="{% url 'attendance:manage_courses' %}"><i class="fas fa-book"></i> Courses</a>
-                    <a href="{% url 'attendance:manage_course_units' %}"><i class="fas fa-layer-group"></i> Course Units</a>
-                    <a href="{% url 'attendance:manage_streams' %}"><i class="fas fa-stream"></i> Streams</a>
-                    <a href="{% url 'attendance:analytics_dashboard' %}"><i class="fas fa-chart-line"></i> Reports & Analytics</a>
-                    <div class="drawer-heading">Scheduling</div>
-                    <a href="{% url 'attendance:manage_timetable' %}"><i class="fas fa-calendar-alt"></i> Timetable</a>
-                    <div class="drawer-heading">Library</div>
-                    <a href="{% url 'attendance:librarian_dashboard' %}"><i class="fas fa-chart-pie"></i> Librarian Dashboard</a>
-                    <a href="{% url 'attendance:manage_library' %}"><i class="fas fa-book-reader"></i> Library Management</a>
-                    <a href="{% url 'attendance:issue_book' %}"><i class="fas fa-plus-circle"></i> Issue Book</a>
-                    <a href="{% url 'attendance:upload_books' %}"><i class="fas fa-upload"></i> Upload Books</a>
-                {% endif %}
 
-                {# --- TEACHER --- #}
-                {% if user.role == 'TEACHER' %}
-                    <div class="drawer-heading">Teacher Console</div>
-                    <a href="{% url 'attendance:teacher_dashboard' %}" class="{% if request.resolver_match.url_name == 'teacher_dashboard' %}active{% endif %}">
-                        <i class="fas fa-chalkboard-teacher"></i> Dashboard
-                    </a>
-                    <a href="{% url 'attendance:library_reader_dashboard' %}" class="{% if request.resolver_match.url_name == 'library_reader_dashboard' %}active{% endif %}">
-                        <i class="fas fa-book"></i> My Library
-                    </a>
-                {% endif %}
+                {# ========================================================================= #}
+                {# 2. CONTEXT: TEACHERS MANAGEMENT                                           #}
+                {# ========================================================================= #}
+                {% elif 'teachers' in request.path or 'teacher' in request.path or request.resolver_match.url_name in 'manage_teachers,edit_teacher,delete_teacher,bulk_upload_teachers,teacher_dashboard,mark_attendance' %}
+                    <div class="drawer-heading">Teacher Operations</div>
+                    {% if user.is_staff or user.role == 'ADMIN' %}
+                        <a href="{% url 'attendance:manage_teachers' %}" class="{% if request.resolver_match.url_name == 'manage_teachers' %}active{% endif %}">
+                            <i class="fas fa-chalkboard-teacher"></i> All Teachers List
+                        </a>
+                        <a href="{% url 'attendance:bulk_upload_teachers' %}" class="{% if request.resolver_match.url_name == 'bulk_upload_teachers' %}active{% endif %}">
+                            <i class="fas fa-file-upload"></i> Bulk Upload Teachers
+                        </a>
+                    {% endif %}
+                    {% if user.role == 'TEACHER' %}
+                        <a href="{% url 'attendance:teacher_dashboard' %}" class="{% if request.resolver_match.url_name == 'teacher_dashboard' %}active{% endif %}">
+                            <i class="fas fa-tachometer-alt"></i> Teacher Dashboard
+                        </a>
+                    {% endif %}
 
-                {# --- STUDENT --- #}
-                {% if user.role == 'STUDENT' %}
-                    <div class="drawer-heading">Student Portal</div>
-                    <a href="{% url 'attendance:student_dashboard' %}" class="{% if request.resolver_match.url_name == 'student_dashboard' %}active{% endif %}">
-                        <i class="fas fa-user-graduate"></i> Dashboard
+                {# ========================================================================= #}
+                {# 3. CONTEXT: DEPARTMENTS MANAGEMENT                                        #}
+                {# ========================================================================= #}
+                {% elif 'departments' in request.path or request.resolver_match.url_name in 'manage_departments,add_department,edit_department,delete_department,admin_report_page' %}
+                    <div class="drawer-heading">Department Operations</div>
+                    <a href="{% url 'attendance:admin_report_page' %}" class="{% if request.resolver_match.url_name == 'admin_report_page' %}active{% endif %}">
+                        <i class="fas fa-chart-bar"></i> Department Reports
                     </a>
-                    <a href="{% url 'attendance:library_reader_dashboard' %}" class="{% if request.resolver_match.url_name == 'library_reader_dashboard' %}active{% endif %}">
-                        <i class="fas fa-book"></i> My Library
+                    <a href="{% url 'attendance:manage_departments' %}" class="{% if request.resolver_match.url_name == 'manage_departments' %}active{% endif %}">
+                        <i class="fas fa-building"></i> Manage Departments
                     </a>
-                {% endif %}
 
-                {# --- WARDEN --- #}
-                {% if user.role == 'WARDEN' %}
-                    <div class="drawer-heading">Warden Console</div>
-                    <a href="{% url 'attendance:warden_dashboard' %}" class="{% if request.resolver_match.url_name == 'warden_dashboard' %}active{% endif %}">
-                        <i class="fas fa-bed"></i> Dashboard
+                {# ========================================================================= #}
+                {# 4. CONTEXT: COURSES MANAGEMENT                                            #}
+                {# ========================================================================= #}
+                {% elif 'courses' in request.path or 'course-units' in request.path or request.resolver_match.url_name in 'manage_courses,edit_course,delete_course,manage_course_units,edit_course_unit,delete_course_unit,bulk_upload_courses' %}
+                    <div class="drawer-heading">Course Operations</div>
+                    <a href="{% url 'attendance:manage_courses' %}" class="{% if request.resolver_match.url_name == 'manage_courses' %}active{% endif %}">
+                        <i class="fas fa-book"></i> Manage Courses
                     </a>
-                {% endif %}
 
-                {# --- LIBRARIAN --- #}
-                {% if user.role == 'LIBRARIAN' %}
-                    <div class="drawer-heading">Librarian Console</div>
-                    <a href="{% url 'attendance:librarian_dashboard' %}" class="{% if request.resolver_match.url_name == 'librarian_dashboard' %}active{% endif %}">
-                        <i class="fas fa-chart-pie"></i> Dashboard
+                {# ========================================================================= #}
+                {# 5. CONTEXT: STREAMS MANAGEMENT                                            #}
+                {# ========================================================================= #}
+                {% elif 'streams' in request.path or request.resolver_match.url_name in 'manage_streams,edit_stream,delete_stream,bulk_upload_streams' %}
+                    <div class="drawer-heading">Stream Operations</div>
+                    <a href="{% url 'attendance:manage_streams' %}" class="{% if request.resolver_match.url_name == 'manage_streams' %}active{% endif %}">
+                        <i class="fas fa-stream"></i> Manage Streams
                     </a>
-                    <a href="{% url 'attendance:manage_library' %}" class="{% if request.resolver_match.url_name == 'manage_library' %}active{% endif %}">
-                        <i class="fas fa-book-reader"></i> Library Management
-                    </a>
-                    <a href="{% url 'attendance:issue_book' %}" class="{% if request.resolver_match.url_name == 'issue_book' %}active{% endif %}">
-                        <i class="fas fa-plus-circle"></i> Issue Book
-                    </a>
-                    <a href="{% url 'attendance:upload_books' %}" class="{% if request.resolver_match.url_name == 'upload_books' %}active{% endif %}">
-                        <i class="fas fa-upload"></i> Upload Books
-                    </a>
-                {% endif %}
 
-                {# --- ACCOUNTANT --- #}
-                {% if user.role == 'ACCOUNTANT' %}
-                    <div class="drawer-heading">Accounting Console</div>
-                    <a href="{% url 'attendance:accountant_dashboard' %}" class="{% if request.resolver_match.url_name == 'accountant_dashboard' %}active{% endif %}">
-                        <i class="fas fa-chart-pie"></i> Dashboard
-                    </a>
-                {% endif %}
+                {# ========================================================================= #}
+                {# 6. CONTEXT: LIBRARY MODULE                                                #}
+                {# ========================================================================= #}
+                {% elif 'library' in request.path or request.resolver_match.url_name in 'librarian_dashboard,manage_library,issue_book,add_book,upload_books,return_book,library_reader_dashboard,apply_reserve_book' %}
+                    <div class="drawer-heading">Library Operations</div>
+                    {% if user.role == 'LIBRARIAN' or user.role == 'ADMIN' or user.is_staff %}
+                        <a href="{% url 'attendance:librarian_dashboard' %}" class="{% if request.resolver_match.url_name == 'librarian_dashboard' %}active{% endif %}">
+                            <i class="fas fa-chart-pie"></i> Librarian Dashboard
+                        </a>
+                        <a href="{% url 'attendance:manage_library' %}" class="{% if request.resolver_match.url_name == 'manage_library' %}active{% endif %}">
+                            <i class="fas fa-books"></i> Manage Catalog
+                        </a>
+                        <a href="{% url 'attendance:issue_book' %}" class="{% if request.resolver_match.url_name == 'issue_book' %}active{% endif %}">
+                            <i class="fas fa-hand-holding"></i> Issue Book
+                        </a>
+                        <a href="{% url 'attendance:add_book' %}" class="{% if request.resolver_match.url_name == 'add_book' %}active{% endif %}">
+                            <i class="fas fa-plus-circle"></i> Add Single Book
+                        </a>
+                        <a href="{% url 'attendance:upload_books' %}" class="{% if request.resolver_match.url_name == 'upload_books' %}active{% endif %}">
+                            <i class="fas fa-file-upload"></i> Bulk Upload Books
+                        </a>
+                    {% endif %}
+                    {% if user.role == 'STUDENT' %}
+                        <a href="{% url 'attendance:library_reader_dashboard' %}" class="{% if request.resolver_match.url_name == 'library_reader_dashboard' %}active{% endif %}">
+                            <i class="fas fa-book-open"></i> Reader Catalog
+                        </a>
+                    {% endif %}
 
-                {# --- CAMPUS OPERATIONS --- #}
-                {% if user.role in 'ADMIN,WARDEN,LIBRARIAN,TEACHER' or user.is_staff %}
-                    <div class="drawer-heading">Campus Operations</div>
-                    {% if user.role == 'ADMIN' or user.role == 'WARDEN' or user.is_staff %}
-                        <a href="{% url 'attendance:disciplinary_dashboard' %}"><i class="fas fa-gavel"></i> Disciplinary Board</a>
-                        <a href="{% url 'attendance:view_lodgings' %}"><i class="fas fa-bed"></i> Lodgings & Hostels</a>
+                {# ========================================================================= #}
+                {# 7. CONTEXT: ACCOUNTING & FINANCE MODULE                                   #}
+                {# ========================================================================= #}
+                {% elif 'finance' in request.path or 'fees' in request.path or 'staff-payments' in request.path or 'accountant' in request.path or request.resolver_match.url_name in 'accountant_dashboard,fees_dashboard,staff_payments_dashboard,record_payment_attempt,disburse_payment,confirm_student_payment,edit_fee_transaction,delete_fee_transaction,edit_staff_payment,delete_staff_payment' %}
+                    <div class="drawer-heading">Accounting Operations</div>
+                    {% if user.role == 'ACCOUNTANT' or user.role == 'ADMIN' or user.is_staff %}
+                        <a href="{% url 'attendance:accountant_dashboard' %}" class="{% if request.resolver_match.url_name == 'accountant_dashboard' %}active{% endif %}">
+                            <i class="fas fa-chart-pie"></i> Finance Dashboard
+                        </a>
+                    {% endif %}
+                    <a href="{% url 'attendance:fees_dashboard' %}" class="{% if request.resolver_match.url_name == 'fees_dashboard' %}active{% endif %}">
+                        <i class="fas fa-wallet"></i> Student Fees & Bursary
+                    </a>
+                    <a href="{% url 'attendance:staff_payments_dashboard' %}" class="{% if request.resolver_match.url_name == 'staff_payments_dashboard' %}active{% endif %}">
+                        <i class="fas fa-credit-card"></i> Staff Payroll / Payments
+                    </a>
+                    {% if user.role == 'ACCOUNTANT' or user.role == 'ADMIN' or user.is_staff %}
+                        {% if user.role == 'ACCOUNTANT' %}
+                        <a href="{% url 'attendance:record_payment_attempt' %}" class="{% if request.resolver_match.url_name == 'record_payment_attempt' %}active{% endif %}">
+                            <i class="fas fa-plus-square"></i> Record Student Payment
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'attendance:disburse_payment' %}" class="{% if request.resolver_match.url_name == 'disburse_payment' %}active{% endif %}">
+                            <i class="fas fa-hand-holding-usd"></i> Disburse Staff Payment
+                        </a>
+                    {% endif %}
+
+                {# ========================================================================= #}
+                {# 8. CONTEXT: WARDEN & HOSTEL LODGINGS MODULE                               #}
+                {# ========================================================================= #}
+                {% elif 'warden' in request.path or 'lodgings' in request.path or request.resolver_match.url_name in 'warden_dashboard,view_lodgings,allocate_or_reallocate' %}
+                    <div class="drawer-heading">Warden / Lodging Operations</div>
+                    {% if user.role == 'WARDEN' or user.role == 'ADMIN' or user.is_staff %}
+                        <a href="{% url 'attendance:warden_dashboard' %}" class="{% if request.resolver_match.url_name == 'warden_dashboard' %}active{% endif %}">
+                            <i class="fas fa-bed"></i> Warden Dashboard
+                        </a>
+                    {% endif %}
+                    <a href="{% url 'attendance:view_lodgings' %}" class="{% if request.resolver_match.url_name == 'view_lodgings' %}active{% endif %}">
+                        <i class="fas fa-hotel"></i> Lodgings & Hostels Directory
+                    </a>
+
+                {# ========================================================================= #}
+                {# 9. CONTEXT: DISCIPLINARY BOARD MODULE                                     #}
+                {# ========================================================================= #}
+                {% elif 'disciplinary' in request.path or 'complaint' in request.path or request.resolver_match.url_name in 'disciplinary_dashboard,add_complaint,delete_complaint,edit_complaint' %}
+                    <div class="drawer-heading">Disciplinary Operations</div>
+                    <a href="{% url 'attendance:disciplinary_dashboard' %}" class="{% if request.resolver_match.url_name == 'disciplinary_dashboard' %}active{% endif %}">
+                        <i class="fas fa-gavel"></i> Disciplinary Dashboard
+                    </a>
+                    <a href="{% url 'attendance:add_complaint' %}" class="{% if request.resolver_match.url_name == 'add_complaint' %}active{% endif %}">
+                        <i class="fas fa-plus-circle"></i> File New Complaint
+                    </a>
+
+                {# ========================================================================= #}
+                {# 10. CONTEXT: TIMETABLE & SCHEDULING MODULE                                #}
+                {# ========================================================================= #}
+                {% elif 'timetable' in request.path or request.resolver_match.url_name in 'manage_timetable,upload_timetable,export_timetable_pdf' %}
+                    <div class="drawer-heading">Timetable Operations</div>
+                    <a href="{% url 'attendance:manage_timetable' %}" class="{% if request.resolver_match.url_name == 'manage_timetable' %}active{% endif %}">
+                        <i class="fas fa-calendar-alt"></i> Manage Timetables
+                    </a>
+
+                {# ========================================================================= #}
+                {# 11. CONTEXT: EXAMINATIONS MODULE                                          #}
+                {# ========================================================================= #}
+                {% elif 'exams' in request.path or request.resolver_match.url_name in 'manage_exams,edit_exam,save_single_mark,delete_exam,manage_marks,delete_mark,view_grades,generate_report_card,generate_transcript,exam_ranking' %}
+                    <div class="drawer-heading">Examination Operations</div>
+                    <a href="{% url 'attendance:manage_exams' %}" class="{% if request.resolver_match.url_name == 'manage_exams' %}active{% endif %}">
+                        <i class="fas fa-file-signature"></i> Manage Exams
+                    </a>
+                    <a href="{% url 'attendance:view_grades' %}" class="{% if request.resolver_match.url_name == 'view_grades' %}active{% endif %}">
+                        <i class="fas fa-graduation-cap"></i> Grades & Scales
+                    </a>
+                    <a href="{% url 'attendance:exam_ranking' %}" class="{% if request.resolver_match.url_name == 'exam_ranking' %}active{% endif %}">
+                        <i class="fas fa-poll"></i> Exam Rankings
+                    </a>
+
+                {# ========================================================================= #}
+                {# 12. CONTEXT: INVENTORY MODULE                                             #}
+                {# ========================================================================= #}
+                {% elif 'inventory' in request.path or request.resolver_match.url_name in 'manage_inventory,manage_procurement,asset_tracking,stock_report' %}
+                    <div class="drawer-heading">Inventory Operations</div>
+                    <a href="{% url 'attendance:manage_inventory' %}" class="{% if request.resolver_match.url_name == 'manage_inventory' %}active{% endif %}">
+                        <i class="fas fa-boxes"></i> Manage Inventory
+                    </a>
+                    <a href="{% url 'attendance:manage_procurement' %}" class="{% if request.resolver_match.url_name == 'manage_procurement' %}active{% endif %}">
+                        <i class="fas fa-truck-loading"></i> Procurement
+                    </a>
+                    <a href="{% url 'attendance:asset_tracking' %}" class="{% if request.resolver_match.url_name == 'asset_tracking' %}active{% endif %}">
+                        <i class="fas fa-tags"></i> Asset Tracking
+                    </a>
+                    <a href="{% url 'attendance:stock_report' %}" class="{% if request.resolver_match.url_name == 'stock_report' %}active{% endif %}">
+                        <i class="fas fa-clipboard-list"></i> Stock Report
+                    </a>
+
+                {# ========================================================================= #}
+                {# 13. CONTEXT: TRANSPORT MODULE                                             #}
+                {# ========================================================================= #}
+                {% elif 'transport' in request.path or 'allocate/transport' in request.path or request.resolver_match.url_name in 'manage_vehicles,allocate_transport,edit_transport_allocation,delete_transport_allocation,trip_log,transport_dashboard' %}
+                    <div class="drawer-heading">Transport Operations</div>
+                    <a href="{% url 'attendance:transport_dashboard' %}" class="{% if request.resolver_match.url_name == 'transport_dashboard' %}active{% endif %}">
+                        <i class="fas fa-bus"></i> Transport Dashboard
+                    </a>
+                    <a href="{% url 'attendance:manage_vehicles' %}" class="{% if request.resolver_match.url_name == 'manage_vehicles' %}active{% endif %}">
+                        <i class="fas fa-car"></i> Manage Vehicles
+                    </a>
+                    <a href="{% url 'attendance:allocate_transport' %}" class="{% if request.resolver_match.url_name == 'allocate_transport' %}active{% endif %}">
+                        <i class="fas fa-route"></i> Route Allocations
+                    </a>
+                    <a href="{% url 'attendance:trip_log' %}" class="{% if request.resolver_match.url_name == 'trip_log' %}active{% endif %}">
+                        <i class="fas fa-clipboard-check"></i> Trip Logs
+                    </a>
+
+                {# ========================================================================= #}
+                {# 14. CONTEXT: HUMAN RESOURCES (HR) MODULE                                  #}
+                {# ========================================================================= #}
+                {% elif 'hr' in request.path or request.resolver_match.url_name in 'apply_leave,approve_leave,manage_performance,manage_qualifications,hr_dashboard' %}
+                    <div class="drawer-heading">Human Resources</div>
+                    <a href="{% url 'attendance:hr_dashboard' %}" class="{% if request.resolver_match.url_name == 'hr_dashboard' %}active{% endif %}">
+                        <i class="fas fa-user-tie"></i> HR Dashboard
+                    </a>
+                    <a href="{% url 'attendance:apply_leave' %}" class="{% if request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
+                        <i class="fas fa-calendar-minus"></i> Apply / View Leave
+                    </a>
+                    <a href="{% url 'attendance:manage_performance' %}" class="{% if request.resolver_match.url_name == 'manage_performance' %}active{% endif %}">
+                        <i class="fas fa-award"></i> Performance Reviews
+                    </a>
+                    <a href="{% url 'attendance:manage_qualifications' %}" class="{% if request.resolver_match.url_name == 'manage_qualifications' %}active{% endif %}">
+                        <i class="fas fa-id-card"></i> Staff Qualifications
+                    </a>
+
+                {# ========================================================================= #}
+                {# 15. CONTEXT: PARENT PORTAL MODULE                                         #}
+                {# ========================================================================= #}
+                {% elif 'parent' in request.path or request.resolver_match.url_name in 'parent_dashboard,link_parent_student' %}
+                    <div class="drawer-heading">Parent Portal</div>
+                    <a href="{% url 'attendance:parent_dashboard' %}" class="{% if request.resolver_match.url_name == 'parent_dashboard' %}active{% endif %}">
+                        <i class="fas fa-user-friends"></i> Parent Dashboard
+                    </a>
+                    {% if user.is_staff or user.role == 'ADMIN' %}
+                        <a href="{% url 'attendance:link_parent_student' %}" class="{% if request.resolver_match.url_name == 'link_parent_student' %}active{% endif %}">
+                            <i class="fas fa-link"></i> Link Parent & Student
+                        </a>
+                    {% endif %}
+
+                {# ========================================================================= #}
+                {# 16. CONTEXT: ONLINE LEARNING MODULE                                       #}
+                {# ========================================================================= #}
+                {% elif 'online' in request.path or request.resolver_match.url_name in 'manage_online_courses,view_course_materials,submit_assignment,grade_assignment,take_online_exam,manage_online_exams' %}
+                    <div class="drawer-heading">E-Learning Operations</div>
+                    <a href="{% url 'attendance:manage_online_courses' %}" class="{% if request.resolver_match.url_name == 'manage_online_courses' %}active{% endif %}">
+                        <i class="fas fa-laptop-code"></i> Online Courses
+                    </a>
+                    <a href="{% url 'attendance:manage_online_exams' %}" class="{% if request.resolver_match.url_name == 'manage_online_exams' %}active{% endif %}">
+                        <i class="fas fa-tasks"></i> Online Exams
+                    </a>
+
+                {# ========================================================================= #}
+                {# 17. CONTEXT: ACADEMIC REGISTRAR MODULE                                   #}
+                {# ========================================================================= #}
+                {% elif 'registrar' in request.path or 'admissions' in request.path or 'transfers' in request.path or request.resolver_match.url_name in 'registrar_dashboard,manage_admissions,manage_student_transfers' %}
+                    <div class="drawer-heading">Registrar Operations</div>
+                    <a href="{% url 'attendance:registrar_dashboard' %}" class="{% if request.resolver_match.url_name == 'registrar_dashboard' %}active{% endif %}">
+                        <i class="fas fa-user-shield"></i> Registrar Dashboard
+                    </a>
+                    <a href="{% url 'attendance:manage_admissions' %}" class="{% if request.resolver_match.url_name == 'manage_admissions' %}active{% endif %}">
+                        <i class="fas fa-user-plus"></i> Admissions
+                    </a>
+                    <a href="{% url 'attendance:manage_student_transfers' %}" class="{% if request.resolver_match.url_name == 'manage_student_transfers' %}active{% endif %}">
+                        <i class="fas fa-exchange-alt"></i> Student Transfers
+                    </a>
+
+                {# ========================================================================= #}
+                {# 18. DEFAULT TOP-LEVEL DASHBOARD VIEW                                      #}
+                {# ========================================================================= #}
+                {% else %}
+                    {% if user.role == 'REGISTRAR' %}
+                        <div class="drawer-heading">Registrar</div>
+                        <a href="{% url 'attendance:registrar_dashboard' %}"><i class="fas fa-user-shield"></i> Registrar Dashboard</a>
+                        <a href="{% url 'attendance:manage_admissions' %}"><i class="fas fa-user-plus"></i> Admissions</a>
+                        <a href="{% url 'attendance:manage_student_transfers' %}"><i class="fas fa-exchange-alt"></i> Transfers</a>
+                    {% elif user.role == 'PARENT' %}
+                        <div class="drawer-heading">Parent Portal</div>
+                        <a href="{% url 'attendance:parent_dashboard' %}"><i class="fas fa-user-friends"></i> Parent Dashboard</a>
+                    {% endif %}
+
+                    {% if user.is_staff or user.role == 'ADMIN' %}
+                        <div class="drawer-heading">Main Administration</div>
+                        <a href="{% url 'attendance:admin_dashboard' %}" class="{% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                            <i class="fas fa-chart-pie"></i> Admin Dashboard
+                        </a>
+
+                        <div class="drawer-heading">Core Directories</div>
+                        <a href="{% url 'attendance:manage_students' %}"><i class="fas fa-user-graduate"></i> Students</a>
+                        <a href="{% url 'attendance:manage_teachers' %}"><i class="fas fa-chalkboard-teacher"></i> Teachers</a>
+                        <a href="{% url 'attendance:manage_departments' %}"><i class="fas fa-building"></i> Departments</a>
+                        <a href="{% url 'attendance:manage_courses' %}"><i class="fas fa-book"></i> Courses</a>
+                        <a href="{% url 'attendance:manage_streams' %}"><i class="fas fa-stream"></i> Streams</a>
+
+                        <div class="drawer-heading">System Modules</div>
+                        <a href="{% url 'attendance:manage_exams' %}"><i class="fas fa-file-signature"></i> Examinations</a>
+                        <a href="{% url 'attendance:manage_inventory' %}"><i class="fas fa-boxes"></i> Inventory</a>
+                        <a href="{% url 'attendance:transport_dashboard' %}"><i class="fas fa-bus"></i> Transport</a>
+                        <a href="{% url 'attendance:hr_dashboard' %}"><i class="fas fa-user-tie"></i> Human Resources</a>
+                        <a href="{% url 'attendance:registrar_dashboard' %}"><i class="fas fa-user-shield"></i> Registrar & Admissions</a>
+                        <a href="{% url 'attendance:manage_online_courses' %}"><i class="fas fa-laptop-code"></i> E-Learning</a>
+                        <a href="{% url 'attendance:analytics_dashboard' %}"><i class="fas fa-chart-line"></i> Global Analytics</a>
                     {% endif %}
                 {% endif %}
 
-                {# --- FINANCE & PAYROLL --- #}
-                {% if user.role in 'ADMIN,ACCOUNTANT,STUDENT' or user.is_staff %}
-                    <div class="drawer-heading">Finance</div>
-                    {% if user.role in 'ADMIN,ACCOUNTANT,STUDENT' or user.is_staff %}
-                        <a href="{% url 'attendance:fees_dashboard' %}"><i class="fas fa-wallet"></i> Bursary & Accounting</a>
-                    {% endif %}
-                {% endif %}
-
-                {% if user.role in 'ADMIN,ACCOUNTANT,TEACHER,LIBRARIAN,WARDEN' or user.is_staff %}
-                    <a href="{% url 'attendance:staff_payments_dashboard' %}"><i class="fas fa-credit-card"></i> Staff Payments</a>
-                {% endif %}
-
-                {# --- SECURITY & SETTINGS --- #}
+                {# --- ALWAYS VISIBLE: ACCOUNT CONTROL --- #}
                 <div class="drawer-heading">Account</div>
-                <a href="{% url 'attendance:change_password' %}"><i class="fas fa-key"></i> Change Password</a>
-                <a href="{% url 'attendance:logout' %}" style="color:var(--danger);"><i class="fas fa-sign-out-alt" style="color:var(--danger);"></i> Logout</a>
+                <a href="{% url 'attendance:change_password' %}" class="{% if request.resolver_match.url_name == 'change_password' %}active{% endif %}">
+                    <i class="fas fa-key"></i> Change Password
+                </a>
+                <a href="{% url 'attendance:logout' %}" style="color:var(--danger);">
+                    <i class="fas fa-sign-out-alt" style="color:var(--danger);"></i> Logout
+                </a>
 
             {% else %}
                 <a href="{% url 'attendance:login' %}" style="background:var(--primary);color:#fff;justify-content:center;margin-top:1rem;border-radius: var(--radius-sm);display: flex;align-items: center;gap: 0.5rem;padding:0.75rem;">
@@ -442,7 +653,6 @@
     <!-- ====== APP LAYOUT ====== -->
     <div class="app-layout" id="appLayout">
         {% block sidebar %}
-
         {% include "attendance/sidebar.html" %}
         {% endblock %}
 
@@ -459,7 +669,6 @@
                 &copy; 2026 UTC Bushenyi Attendance System &bull; <i class="fas fa-copyright" style="color:#ef4444;"></i> All Rights Reserved
             </div>
         </main>
-
     </div>
 
     <!-- ====== SCROLL TO TOP ====== -->
@@ -477,13 +686,28 @@
             const drawer = document.getElementById('drawer');
             const overlay = document.getElementById('drawerOverlay');
             const closeBtn = document.getElementById('drawerCloseBtn');
+            const appLayout = document.getElementById('appLayout');
 
-            // Open drawer on mobile
+            // Responsive menu click behavior logic
             if (universalMenuBtn) {
                 universalMenuBtn.addEventListener('click', function() {
-                    drawer.classList.add('open');
-                    overlay.classList.add('active');
-                    document.body.style.overflow = 'hidden';
+                    const isLargeScreen = window.innerWidth > 768;
+
+                    if (isLargeScreen) {
+                        // On large screens: toggle the desktop sidebar
+                        if (appLayout) {
+                            appLayout.classList.toggle('sidebar-collapsed');
+                        }
+                    } else {
+                        // On small screens: toggle the mobile drawer
+                        if (drawer.classList.contains('open')) {
+                            closeDrawer();
+                        } else {
+                            drawer.classList.add('open');
+                            overlay.classList.add('active');
+                            document.body.style.overflow = 'hidden';
+                        }
+                    }
                 });
             }
 
