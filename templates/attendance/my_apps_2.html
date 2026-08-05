@@ -51,7 +51,7 @@
         {% endif %}
 
         {# ========================================================= #}
-        {# 2. ACADEMIC MANAGEMENT                                   #}
+        {# 2. ACADEMIC MANAGEMENT (ADMIN / STAFF)                    #}
         {# ========================================================= #}
         {% if selected_module == 'academic' and user.role == 'ADMIN' or selected_module == 'academic' and user.is_staff %}
             <div class="nav-section-title">Academic Management</div>
@@ -66,6 +66,11 @@
             <a href="{% url 'attendance:view_grades' %}" class="nav-card">
                 <i class="fas fa-graduation-cap"></i>
                 <span class="card-label">Grade Scales</span>
+            </a>
+            <!-- ADDED: Course Documents for Admin -->
+            <a href="{% url 'attendance:manage_course_documents' %}" class="nav-card">
+                <i class="fas fa-folder-open"></i>
+                <span class="card-label">Course Documents</span>
             </a>
         {% endif %}
 
@@ -204,6 +209,11 @@
                 <i class="fas fa-video"></i>
                 <span class="card-label">Online Exams</span>
             </a>
+            <!-- ADDED: Course Documents for Online Learning module -->
+            <a href="{% url 'attendance:manage_course_documents' %}" class="nav-card">
+                <i class="fas fa-folder-open"></i>
+                <span class="card-label">Course Documents</span>
+            </a>
         {% endif %}
 
         {# ========================================================= #}
@@ -214,6 +224,11 @@
             <a href="{% url 'attendance:teacher_dashboard' %}" class="nav-card">
                 <i class="fas fa-chalkboard-teacher"></i>
                 <span class="card-label">Dashboard</span>
+            </a>
+            <!-- ADDED: Course Documents for Teacher -->
+            <a href="{% url 'attendance:manage_course_documents' %}" class="nav-card">
+                <i class="fas fa-folder-open"></i>
+                <span class="card-label">Course Documents</span>
             </a>
             <a href="{% url 'attendance:library_reader_dashboard' %}" class="nav-card">
                 <i class="fas fa-book"></i>
@@ -241,6 +256,11 @@
             <a href="{% url 'attendance:student_dashboard' %}" class="nav-card">
                 <i class="fas fa-user-graduate"></i>
                 <span class="card-label">Dashboard</span>
+            </a>
+            <!-- ADDED: Course Documents for Student -->
+            <a href="{% url 'attendance:manage_course_documents' %}" class="nav-card">
+                <i class="fas fa-folder-open"></i>
+                <span class="card-label">Course Documents</span>
             </a>
             <a href="{% url 'attendance:library_reader_dashboard' %}" class="nav-card">
                 <i class="fas fa-book"></i>
@@ -272,6 +292,11 @@
             <a href="{% url 'attendance:parent_dashboard' %}" class="nav-card">
                 <i class="fas fa-child"></i>
                 <span class="card-label">Dashboard</span>
+            </a>
+            <!-- ADDED: Course Documents for Parent -->
+            <a href="{% url 'attendance:manage_course_documents' %}" class="nav-card">
+                <i class="fas fa-folder-open"></i>
+                <span class="card-label">Course Documents</span>
             </a>
         {% endif %}
 
