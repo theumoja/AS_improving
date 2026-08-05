@@ -87,14 +87,28 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/3.2/ref/settings/#databases
-
+"""
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+"""
+
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        # IMPORTANT: Append your project ref to the username when using the pooler!
+        'USER': 'postgres.vibxnyijbnwwjkgrjmah',
+        'PASSWORD': '3_v3RZ@2T+g@%/Z',
+        'HOST': 'aws-1-eu-west-1.pooler.supabase.com',
+        'PORT': '5432',  # Session Pooler port (Best for Django)
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
     }
 }
 
