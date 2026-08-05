@@ -3089,7 +3089,10 @@ from .models import User, CourseUnit, CourseUnitDocument
 
 @login_required
 def manage_course_documents(request):
-    """View course unit documents (Admin, Student, Parent, Teacher) and handle uploads (Teacher only)."""
+    """
+    View course unit documents (Admin, Student, Parent, Teacher),
+    Upload (Teacher only), Edit/Delete (Teacher for assigned units & Admin for all).
+    """
     user = request.user
 
     # 1. Role-based Document and Course Unit Filtering
@@ -3118,15 +3121,18 @@ def manage_course_documents(request):
     else:
         return HttpResponse("Unauthorized", status=403)
 
-    # 2. Handle Upload/Delete (Teachers ONLY)
+    # 2. Handle Actions (POST)
     if request.method == 'POST':
-        if user.role != User.IS_TEACHER:
-            return HttpResponse("Unauthorized: View only access allowed.", status=403)
-
         action = request.POST.get('action')
-        teacher = user.teacher_profile
 
+        # ==========================================
+        # ACTION: UPLOAD (Teachers Only)
+        # ==========================================
         if action == 'upload_document':
+            if user.role != User.IS_TEACHER:
+                return HttpResponse("Unauthorized: Only teachers can upload documents.", status=403)
+
+            teacher = user.teacher_profile
             title = request.POST.get('title')
             description = request.POST.get('description', '')
             course_unit_code = request.POST.get('course_unit')
@@ -3149,10 +3155,63 @@ def manage_course_documents(request):
                 )
                 messages.success(request, f"Document '{title}' uploaded successfully.")
 
+        # ==========================================
+        # ACTION: EDIT (Teachers for own units, Admin for all)
+        # ==========================================
+        elif action == 'edit_document':
+            doc_id = request.POST.get('document_id')
+            doc = get_object_or_404(CourseUnitDocument, id=doc_id)
+
+            # Permission Check
+            if user.role == User.IS_TEACHER:
+                teacher = user.teacher_profile
+                if doc.course_unit.course not in teacher.courses.all():
+                    messages.error(request, "You can only edit documents for your assigned course units.")
+                    return redirect('attendance:manage_course_documents')
+            elif user.role != User.IS_ADMIN:
+                return HttpResponse("Unauthorized: You do not have permission to edit.", status=403)
+
+            title = request.POST.get('title')
+            description = request.POST.get('description', '')
+            course_unit_code = request.POST.get('course_unit')
+            doc_file = request.FILES.get('document_file')
+
+            course_unit = get_object_or_404(CourseUnit, code=course_unit_code)
+            
+            if user.role == User.IS_TEACHER and course_unit.course not in user.teacher_profile.courses.all():
+                messages.error(request, "Cannot assign document to a course unit you do not teach.")
+                return redirect('attendance:manage_course_documents')
+
+            doc.course_unit = course_unit
+            doc.title = title
+            doc.description = description
+
+            # If a new file is uploaded, replace the existing physical file
+            if doc_file:
+                doc.file.delete(save=False)
+                doc.file = doc_file
+
+            doc.save()
+            messages.success(request, f"Document '{title}' updated successfully.")
+
+        # ==========================================
+        # ACTION: DELETE (Teachers for own units, Admin for all)
+        # ==========================================
         elif action == 'delete_document':
             doc_id = request.POST.get('document_id')
-            doc = get_object_or_404(CourseUnitDocument, id=doc_id, uploaded_by=teacher)
-            doc.file.delete(save=False)  # Remove physical file from media storage
+            doc = get_object_or_404(CourseUnitDocument, id=doc_id)
+
+            # Permission Check
+            if user.role == User.IS_TEACHER:
+                teacher = user.teacher_profile
+                if doc.course_unit.course not in teacher.courses.all():
+                    messages.error(request, "You can only delete documents for your assigned course units.")
+                    return redirect('attendance:manage_course_documents')
+            elif user.role != User.IS_ADMIN:
+                return HttpResponse("Unauthorized: You do not have permission to delete.", status=403)
+
+            # Remove physical file from storage and delete object
+            doc.file.delete(save=False)
             doc.delete()
             messages.success(request, "Document deleted successfully.")
 
@@ -3162,7 +3221,6 @@ def manage_course_documents(request):
         'documents': documents,
         'course_units': course_units,
     })
-
 
 
 @login_required
