@@ -706,7 +706,7 @@ class Command(BaseCommand):
                 online_exam=oe,
                 question_text=f"Explain core concepts regarding practical scenario #{i:02d}?",
                 defaults={'marks': 10}
-            )
+            )  
             online_questions.append(oeq)
 
             oea, _ = OnlineExamAnswer.objects.get_or_create(
