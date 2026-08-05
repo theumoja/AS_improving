@@ -951,11 +951,25 @@ def add_book(request):
     return redirect('attendance:manage_library')
 
 
+import csv
+import json
+from datetime import datetime, timedelta
+from django.shortcuts import render
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+
+from .models import (
+    User, Course, Stream, CourseUnit, TeacherProfile,
+    StudentProfile, TimetableEntry, AttendanceSession,
+    AttendanceRecord, OnlineCourse, CourseUnitDocument
+)
+
 @login_required
 def teacher_dashboard(request):
     """
     Comprehensive Teacher Dashboard processing live operational summaries,
-    geospatial session distributions, activity matrices, and dynamic tracking feeds.
+    geospatial session distributions, activity matrices, dynamic tracking feeds,
+    and course unit metrics.
     """
     # 1. Structural Role Verification
     if request.user.role != User.IS_TEACHER:
@@ -969,7 +983,7 @@ def teacher_dashboard(request):
     # 2. Base Domain Querysets (Scoped to Active Batch)
     timetable = TimetableEntry.objects.filter(
         batch__is_active=True, teacher=teacher
-    ).select_related('course_unit__course__department', 'batch', 'stream')
+    ).select_related('course_unit__course__department', 'batch', 'stream').order_by('day', 'start_time')
     
     course_units = CourseUnit.objects.filter(timetableentry__teacher=teacher).distinct()
     
@@ -993,7 +1007,7 @@ def teacher_dashboard(request):
     
     distinct_courses = set()
     distinct_depts = set()
-    for cu in course_units:
+    for cu in course_units.select_related('course__department'):
         if hasattr(cu, 'course') and cu.course:
             distinct_courses.add(cu.course)
             if hasattr(cu.course, 'department') and cu.course.department:
@@ -1003,7 +1017,9 @@ def teacher_dashboard(request):
     courses = list(distinct_courses)
     
     # 4. Apply Context Criteria Filters on Assigned Student Roster
-    students = StudentProfile.objects.filter(course__units__in=course_units).distinct()
+    students = StudentProfile.objects.filter(
+        course__units__in=course_units
+    ).distinct().select_related('course__department', 'stream')
     
     if filter_dept:
         students = students.filter(course__department_id=filter_dept)
@@ -1021,7 +1037,7 @@ def teacher_dashboard(request):
         writer.writerow(['Registration Identification', 'Full Name', 'Department Scope', 'Academic Program Track', 'Class Stream'])
         
         for s in students:
-            dept_name = s.course.department.name if s.course.department else "General Academics"
+            dept_name = s.course.department.name if s.course and s.course.department else "General Academics"
             stream_name = s.stream.name if s.stream else "Unassigned"
             writer.writerow([s.reg_number, s.name, dept_name, s.course.name, stream_name])
             
@@ -1054,7 +1070,6 @@ def teacher_dashboard(request):
     if quick_range == 'today':
         base_records = base_records.filter(session__date_marked=today)
     elif quick_range == 'week':
-        from datetime import timedelta
         start_of_week = today - timedelta(days=today.weekday())
         end_of_week = start_of_week + timedelta(days=6)
         base_records = base_records.filter(session__date_marked__range=[start_of_week, end_of_week])
@@ -1083,8 +1098,11 @@ def teacher_dashboard(request):
         day_rate = round((day_present / day_total) * 100, 1) if day_total > 0 else 0
         weekly_trend_rates.append(day_rate)
 
-    # 7. Compile Distribution Analytics Dataset
+    # 7. Compile Distribution Analytics Dataset (With Absolute Counts Included)
     distribution_metrics = {
+        'present_count': present_records_count,
+        'absent_count': absent_records_count,
+        'total_count': total_records_count,
         'present_pct': round((present_records_count / total_records_count) * 100, 1) if total_records_count > 0 else 0,
         'absent_pct': round((absent_records_count / total_records_count) * 100, 1) if total_records_count > 0 else 0,
         'late_pct': 0,
@@ -1092,14 +1110,17 @@ def teacher_dashboard(request):
     }
     
     # 8. Build Recent Timeline Activity Stream
-    recent_sessions = AttendanceSession.objects.filter(timetable_entry__teacher=teacher).select_related('timetable_entry__stream').order_by('-id')[:5]
+    recent_sessions = AttendanceSession.objects.filter(
+        timetable_entry__teacher=teacher
+    ).select_related('timetable_entry__stream', 'timetable_entry__course_unit').order_by('-id')[:5]
+    
     recent_activity_feed = []
     for session in recent_sessions:
         p_count = session.records.filter(status='PRESENT').count()
         a_count = session.records.filter(status='ABSENT').count()
         recent_activity_feed.append({
             'stream_name': session.timetable_entry.stream.name if session.timetable_entry.stream else "Unknown Session",
-            'course_code': session.timetable_entry.course_unit.code,
+            'course_code': session.timetable_entry.course_unit.code if session.timetable_entry.course_unit else "",
             'present': p_count,
             'absent': a_count,
             'time': session.date_marked.strftime("%b %d, %Y")
@@ -1110,10 +1131,14 @@ def teacher_dashboard(request):
         p = AttendanceRecord.objects.filter(session__timetable_entry__course_unit=cu, session__timetable_entry__teacher=teacher, status='PRESENT').count()
         t = AttendanceRecord.objects.filter(session__timetable_entry__course_unit=cu, session__timetable_entry__teacher=teacher).count()
         r = round((p / t) * 100, 1) if t > 0 else 0
-        unit_stats.append({'name': cu.name, 'rate': r})
+        unit_stats.append({'name': cu.name, 'code': cu.code, 'rate': r})
         
     unit_names = [u['name'] for u in unit_stats]
     unit_rates = [u['rate'] for u in unit_stats]
+
+    # Integrated Modules
+    online_courses_count = OnlineCourse.objects.filter(instructor=teacher, is_active=True).count()
+    documents_count = CourseUnitDocument.objects.filter(uploaded_by=teacher).count()
 
     week_start = None
     base_timetable = TimetableEntry.objects.filter(batch__is_active=True, teacher=teacher)
@@ -1130,14 +1155,18 @@ def teacher_dashboard(request):
     )
 
     context = {
+        'teacher_profile': teacher,
         'timetable': timetable,
         'students': students,
         'course_units': course_units,
         'departments': departments,
         'courses': courses,
         'selectable_streams': selectable_streams,
+        'unit_stats': unit_stats,
         'unit_names': json.dumps(unit_names),
         'unit_rates': json.dumps(unit_rates),
+        'online_courses_count': online_courses_count,
+        'documents_count': documents_count,
         'week_start': week_start,
         
         # Duplicate Prevention State Tracker
@@ -1168,6 +1197,8 @@ def teacher_dashboard(request):
         'recent_activity_feed': recent_activity_feed
     }
     return render(request, 'attendance/teacher_dashboard.html', context)
+
+
 @login_required
 def mark_attendance(request, entry_id):
     """
