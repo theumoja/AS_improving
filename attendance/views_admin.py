@@ -4937,11 +4937,90 @@ def manage_affiliates(request):
     affiliates = Affiliate.objects.all()
     return render(request, 'attendance/manage_affiliates.html', {'affiliates': affiliates, 'active_tab': 'affiliates'})
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from decimal import Decimal
+from .models import GraduationFee, StudentProfile, AcademicTerm, FeeElement, OtherFee
+
 @login_required
 def graduation_fees(request):
-    grad_fees = GraduationFee.objects.select_related('student').all()
-    return render(request, 'attendance/graduation_fees.html', {'grad_fees': grad_fees, 'active_tab': 'graduation'})
+    if request.method == 'POST':
+        action = request.POST.get('action', 'add')
+        fee_id = request.POST.get('fee_id')
 
+        # ================= ADD GRADUATION FEE =================
+        if action == 'add':
+            student_id = request.POST.get('student')
+            academic_year = request.POST.get('academic_year', '').strip()
+            amount = request.POST.get('amount', '0.00')
+            is_paid = request.POST.get('is_paid') in ['true', 'on', '1']
+            clearance_status = request.POST.get('clearance_status', 'PENDING')
+
+            if not student_id or not academic_year or not amount:
+                messages.error(request, "Student, Academic Year, and Amount are required fields.")
+            else:
+                student = get_object_or_404(StudentProfile, pk=student_id)
+                GraduationFee.objects.create(
+                    student=student,
+                    academic_year=academic_year,
+                    amount=Decimal(amount),
+                    is_paid=is_paid,
+                    clearance_status=clearance_status
+                )
+                messages.success(request, f"Graduation fee record created for {student.name}.")
+            return redirect(request.path)
+
+        # ================= EDIT GRADUATION FEE =================
+        elif action == 'edit':
+            grad_fee = get_object_or_404(GraduationFee, pk=fee_id)
+            student_id = request.POST.get('student')
+            academic_year = request.POST.get('academic_year', '').strip()
+            amount = request.POST.get('amount', '0.00')
+            is_paid = request.POST.get('is_paid') in ['true', 'on', '1']
+            clearance_status = request.POST.get('clearance_status', 'PENDING')
+
+            if not student_id or not academic_year or not amount:
+                messages.error(request, "Please fill in all required fields.")
+            else:
+                student = get_object_or_404(StudentProfile, pk=student_id)
+                grad_fee.student = student
+                grad_fee.academic_year = academic_year
+                grad_fee.amount = Decimal(amount)
+                grad_fee.is_paid = is_paid
+                grad_fee.clearance_status = clearance_status
+                grad_fee.save()
+                messages.success(request, f"Graduation fee record for {student.name} updated successfully.")
+            return redirect(request.path)
+
+        # ================= DELETE GRADUATION FEE =================
+        elif action == 'delete':
+            grad_fee = get_object_or_404(GraduationFee, pk=fee_id)
+            student_name = grad_fee.student.name
+            grad_fee.delete()
+            messages.success(request, f"Graduation fee record for {student_name} deleted successfully.")
+            return redirect(request.path)
+
+    grad_fees = GraduationFee.objects.select_related('student').all().order_by('-id')
+    students = StudentProfile.objects.all().order_by('name')
+
+    # Fetch unique Academic Years from AcademicTerm model
+    academic_years = AcademicTerm.objects.values_list('academic_year', flat=True).distinct().order_by('-academic_year')
+    current_term = AcademicTerm.objects.filter(is_current=True).first()
+    default_academic_year = current_term.academic_year if current_term else (academic_years.first() if academic_years else '')
+
+    # Fetch default Graduation Fee amount from OtherFee/FeeElement or set fallback default value
+    grad_fee_config = OtherFee.objects.filter(element__fee_type='GRADUATION').first()
+    default_amount = grad_fee_config.amount if grad_fee_config else Decimal('150000.00')
+
+    return render(request, 'attendance/graduation_fees.html', {
+        'grad_fees': grad_fees,
+        'students': students,
+        'academic_years': academic_years,
+        'default_academic_year': default_academic_year,
+        'default_amount': default_amount,
+        'active_tab': 'graduation'
+    })
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages

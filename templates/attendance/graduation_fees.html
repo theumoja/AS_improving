@@ -4,38 +4,282 @@
 {% include "attendance/sidebar.html" %}
 {% endblock %}
 
+<style>
+    select, select option, input {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+    
+    .dropdown {
+        position: relative;
+        display: inline-block;
+    }
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        right: 0;
+        background-color: #ffffff;
+        min-width: 130px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.15);
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 6px;
+        z-index: 100;
+    }
+    .dropdown-content.show {
+        display: block;
+    }
+    .dropdown-content button {
+        color: #333;
+        padding: 8px 12px;
+        text-decoration: none;
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.875rem;
+    }
+    .dropdown-content button:hover {
+        background-color: #f1f5f9;
+    }
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+        background-color: #fff;
+        margin: 5% auto;
+        padding: 20px;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+    }
+    .btn {
+        padding: 8px 14px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .btn-primary { background: #2b3e85; color: white; }
+    .btn-secondary { background: #e2e8f0; color: #333; }
+    .btn-danger { background: #dc2626; color: white; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+    .form-group select, .form-group input {
+        width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;
+    }
+    .badge {
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .badge-success { background: #d1fae5; color: #065f46; }
+    .badge-danger { background: #fee2e2; color: #991b1b; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+</style>
+
 <div style="display: flex; gap: 1.5rem;">
     <div style="flex: 1; padding: 1rem;">
         <h2><i class="fas fa-user-graduate"></i> Graduation Fees Ledger</h2>
-        <p style="color: var(--text-muted);">Track graduation mandatory fees, clearances, and candidate payments.</p>
+        <p style="color: var(--text-muted, #64748b);">Track graduation mandatory fees, clearances, and candidate payments.</p>
 
-        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 1rem;">
+        {% if messages %}
+        <div style="margin-top: 1rem;">
+            {% for message in messages %}
+            <div style="padding: 10px; border-radius: 6px; margin-bottom: 8px; {% if message.tags == 'success' %}background: #d1fae5; color: #065f46;{% else %}background: #fee2e2; color: #991b1b;{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- ADD GRADUATION FEE RECORD FORM -->
+        <div style="margin-top: 1rem; margin-bottom: 1.5rem; background: #ffffff; padding: 1.2rem; border-radius: 8px; border: 1px solid var(--border, #e2e8f0);">
+            <h3><i class="fas fa-plus-circle"></i> Add Graduation Fee Entry</h3>
+            <form method="POST" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin-top: 10px;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add">
+
+                <div style="flex: 2; min-width: 200px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Student Candidate</label>
+                    <select name="student" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1;">
+                        <option value="">-- Select Student --</option>
+                        {% for s in students %}
+                        <option value="{{ s.reg_number }}">{{ s.reg_number }} - {{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- PREFILLED ACADEMIC YEAR SELECT OPTION -->
+                <div style="flex: 1; min-width: 140px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Academic Year</label>
+                    <select name="academic_year" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1;">
+                        <option value="">-- Select Year --</option>
+                        {% for year in academic_years %}
+                        <option value="{{ year }}" {% if year == default_academic_year %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- PREFILLED GRADUATION FEE AMOUNT -->
+                <div style="flex: 1; min-width: 120px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Amount Due</label>
+                    <input type="number" step="0.01" name="amount" value="{{ default_amount }}" placeholder="0.00" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1;">
+                </div>
+
+                <div style="flex: 1; min-width: 130px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Clearance Status</label>
+                    <select name="clearance_status" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1;">
+                        <option value="PENDING">Pending</option>
+                        <option value="CLEARED">Cleared</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 5px; height: 38px; padding-bottom: 4px;">
+                    <input type="checkbox" id="is_paid_add" name="is_paid">
+                    <label for="is_paid_add" style="font-size: 0.85rem; font-weight: 600; cursor: pointer;">Paid</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="height: 38px;">
+                    <i class="fas fa-save"></i> Save Record
+                </button>
+            </form>
+        </div>
+
+        <!-- GRADUATION FEES LEDGER TABLE -->
+        <div style="background: #ffffff; border: 1px solid var(--border, #e2e8f0); border-radius: 8px; overflow: visible;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: #2b3e85; color: white; text-align: left;">
                         <th style="padding: 10px;">Reg Number</th>
                         <th style="padding: 10px;">Graduating Student</th>
-                        <th style="padding: 10px;">Amount Due</th>
-                        <th style="padding: 10px;">Status</th>
+                        <th style="padding: 10px;">Academic Year</th>
+                        <th style="padding: 10px;">Amount</th>
+                        <th style="padding: 10px;">Payment Status</th>
+                        <th style="padding: 10px;">Clearance</th>
+                        <th style="padding: 10px; text-align: center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for g in grad_fees %}
                     <tr style="border-bottom: 1px solid #e2e8f0;">
                         <td style="padding: 10px; font-weight: bold;">{{ g.student.reg_number }}</td>
-                        <td style="padding: 10px;">{{ g.student.get_full_name }}</td>
-                        <td style="padding: 10px;">{{ g.amount }}</td>
+                        <td style="padding: 10px;">{{ g.student.name }}</td>
+                        <td style="padding: 10px;">{{ g.academic_year }}</td>
+                        <td style="padding: 10px; font-weight: 600;">{{ g.amount }}</td>
                         <td style="padding: 10px;">
                             {% if g.is_paid %}
-                                <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #d1fae5; color: #065f46;">Cleared</span>
+                                <span class="badge badge-success">Paid</span>
                             {% else %}
-                                <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #fee2e2; color: #991b1b;">Pending Payment</span>
+                                <span class="badge badge-danger">Unpaid</span>
                             {% endif %}
                         </td>
+                        <td style="padding: 10px;">
+                            {% if g.clearance_status == 'CLEARED' %}
+                                <span class="badge badge-success">Cleared</span>
+                            {% else %}
+                                <span class="badge badge-warning">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px; text-align: center;">
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-secondary" style="padding: 4px 10px;" onclick="toggleDropdown(event, 'dropdown-{{ g.id }}')">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <div id="dropdown-{{ g.id }}" class="dropdown-content">
+                                    <button type="button" onclick="openModal('editModal{{ g.id }}')"><i class="fas fa-edit"></i> Edit</button>
+                                    <button type="button" onclick="openModal('deleteModal{{ g.id }}')" style="color: #dc2626;"><i class="fas fa-trash"></i> Delete</button>
+                                </div>
+                            </div>
+                        </td>
                     </tr>
+
+                    <!-- EDIT MODAL -->
+                    <div id="editModal{{ g.id }}" class="modal">
+                        <div class="modal-content">
+                            <h3>Edit Graduation Fee</h3>
+                            <form method="POST">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="edit">
+                                <input type="hidden" name="fee_id" value="{{ g.id }}">
+
+                                <div class="form-group">
+                                    <label>Student</label>
+                                    <select name="student" required>
+                                        {% for s in students %}
+                                        <option value="{{ s.reg_number }}" {% if s.reg_number == g.student.reg_number %}selected{% endif %}>
+                                            {{ s.reg_number }} - {{ s.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- EDIT MODAL ACADEMIC YEAR SELECT -->
+                                <div class="form-group">
+                                    <label>Academic Year</label>
+                                    <select name="academic_year" required>
+                                        {% for year in academic_years %}
+                                        <option value="{{ year }}" {% if year == g.academic_year %}selected{% endif %}>{{ year }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Amount</label>
+                                    <input type="number" step="0.01" name="amount" value="{{ g.amount }}" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Clearance Status</label>
+                                    <select name="clearance_status">
+                                        <option value="PENDING" {% if g.clearance_status == 'PENDING' %}selected{% endif %}>Pending</option>
+                                        <option value="CLEARED" {% if g.clearance_status == 'CLEARED' %}selected{% endif %}>Cleared</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" id="is_paid_{{ g.id }}" name="is_paid" {% if g.is_paid %}checked{% endif %}>
+                                    <label for="is_paid_{{ g.id }}" style="margin: 0; cursor: pointer;">Is Paid</label>
+                                </div>
+
+                                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
+                                    <button type="button" class="btn btn-secondary" onclick="closeModal('editModal{{ g.id }}')">Cancel</button>
+                                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- DELETE MODAL -->
+                    <div id="deleteModal{{ g.id }}" class="modal">
+                        <div class="modal-content">
+                            <h3>Delete Record</h3>
+                            <p>Are you sure you want to delete the graduation fee entry for <strong>{{ g.student.name }}</strong> ({{ g.student.reg_number }})?</p>
+                            <form method="POST">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="fee_id" value="{{ g.id }}">
+                                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
+                                    <button type="button" class="btn btn-secondary" onclick="closeModal('deleteModal{{ g.id }}')">Cancel</button>
+                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
                     {% empty %}
                     <tr>
-                        <td colspan="4" style="padding: 20px; text-align: center; color: #64748b;">No graduation fee records created yet.</td>
+                        <td colspan="7" style="padding: 20px; text-align: center; color: #64748b;">No graduation fee records created yet.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -43,4 +287,35 @@
         </div>
     </div>
 </div>
+
+<script>
+function toggleDropdown(event, id) {
+    event.stopPropagation();
+    document.querySelectorAll('.dropdown-content').forEach(el => {
+        if (el.id !== id) el.classList.remove('show');
+    });
+    const target = document.getElementById(id);
+    if (target) {
+        target.classList.toggle('show');
+    }
+}
+
+function openModal(id) {
+    document.querySelectorAll('.dropdown-content').forEach(el => el.classList.remove('show'));
+    document.getElementById(id).style.display = 'block';
+}
+
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
+    if (!event.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown-content').forEach(el => el.classList.remove('show'));
+    }
+}
+</script>
 {% endblock %}
