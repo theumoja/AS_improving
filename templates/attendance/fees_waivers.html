@@ -1,0 +1,297 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .dropdown {
+        position: relative;
+        display: inline-block;
+    }
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        right: 0;
+        background-color: #ffffff;
+        min-width: 130px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.15);
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 6px;
+        z-index: 100;
+    }
+    .dropdown-content.show {
+        display: block;
+    }
+    .dropdown-content button {
+        color: #333;
+        padding: 8px 12px;
+        text-decoration: none;
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.875rem;
+    }
+    .dropdown-content button:hover {
+        background-color: #f1f5f9;
+    }
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+        background-color: #fff;
+        margin: 5% auto;
+        padding: 20px;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+    }
+    .btn {
+        padding: 8px 14px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .btn-primary { background: #2b3e85; color: white; }
+    .btn-secondary { background: #e2e8f0; color: #333; }
+    .btn-danger { background: #dc2626; color: white; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+    .form-group input, .form-group select, .form-group textarea {
+        width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;
+    }
+</style>
+
+<div style="display: flex; gap: 1.5rem;">
+    <div style="flex: 1; padding: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2><i class="fas fa-hand-holding-usd"></i> Fee Waivers & Scholarships</h2>
+                <p style="color: var(--text-muted, #64748b);">View and authorize student fee exemptions and discounts.</p>
+            </div>
+            <button class="btn btn-primary" onclick="openModal('addWaiverModal')">
+                <i class="fas fa-plus"></i> Add Waiver
+            </button>
+        </div>
+
+        {% if messages %}
+        <div style="margin-top: 1rem;">
+            {% for message in messages %}
+            <div style="padding: 10px; border-radius: 6px; margin-bottom: 8px; {% if message.tags == 'success' %}background: #d1fae5; color: #065f46;{% else %}background: #fee2e2; color: #991b1b;{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div style="background: #ffffff; border: 1px solid var(--border, #e2e8f0); border-radius: 8px; overflow: visible; margin-top: 1rem;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #2b3e85; color: white; text-align: left;">
+                        <th style="padding: 10px;">Student</th>
+                        <th style="padding: 10px;">Term</th>
+                        <th style="padding: 10px;">Type</th>
+                        <th style="padding: 10px;">Waiver Amount</th>
+                        <th style="padding: 10px;">Authorized By</th>
+                        <th style="padding: 10px; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for w in waivers %}
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 10px; font-weight: bold;">{{ w.student.name }} ({{ w.student.reg_number }})</td>
+                        <td style="padding: 10px;">{{ w.term.academic_year }} - {{ w.term.get_term_display }}</td>
+                        <td style="padding: 10px;">{{ w.get_waiver_type_display }}</td>
+                        <td style="padding: 10px; color: #047857; font-weight: bold;">
+                            {% if w.waiver_type == 'PERCENTAGE' %}{{ w.value }}%{% else %}-{{ w.value }}{% endif %}
+                        </td>
+                        <td style="padding: 10px;">{{ w.approved_by.username|default:"System Admin" }}</td>
+                        <td style="padding: 10px; text-align: center;">
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-secondary" style="padding: 4px 10px;" onclick="toggleDropdown(event, 'dropdown-{{ w.id }}')">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <div id="dropdown-{{ w.id }}" class="dropdown-content">
+                                    <button type="button" onclick="openModal('editModal{{ w.id }}')"><i class="fas fa-edit"></i> Edit</button>
+                                    <button type="button" onclick="openModal('deleteModal{{ w.id }}')" style="color: #dc2626;"><i class="fas fa-trash"></i> Delete</button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Edit Modal -->
+                    <div id="editModal{{ w.id }}" class="modal">
+                        <div class="modal-content">
+                            <h3>Edit Fee Waiver</h3>
+                            <form method="POST">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="edit">
+                                <input type="hidden" name="waiver_id" value="{{ w.id }}">
+                                
+                                <div class="form-group">
+                                    <label>Student</label>
+                                    <select name="student" required>
+                                        {% for s in students %}
+                                        <option value="{{ s.reg_number }}" {% if s.reg_number == w.student.reg_number %}selected{% endif %}>
+                                            {{ s.name }} ({{ s.reg_number }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Term</label>
+                                    <select name="term" required>
+                                        {% for t in terms %}
+                                        <option value="{{ t.id }}" {% if t.id == w.term.id %}selected{% endif %}>
+                                            {{ t.academic_year }} - {{ t.get_term_display }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Waiver Type</label>
+                                    <select name="waiver_type">
+                                        <option value="PERCENTAGE" {% if w.waiver_type == 'PERCENTAGE' %}selected{% endif %}>Percentage Discount (%)</option>
+                                        <option value="FIXED" {% if w.waiver_type == 'FIXED' %}selected{% endif %}>Fixed Amount Discount</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Value</label>
+                                    <input type="number" step="0.01" name="value" value="{{ w.value }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Reason</label>
+                                    <textarea name="reason" rows="2">{{ w.reason }}</textarea>
+                                </div>
+                                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
+                                    <button type="button" class="btn btn-secondary" onclick="closeModal('editModal{{ w.id }}')">Cancel</button>
+                                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Delete Modal -->
+                    <div id="deleteModal{{ w.id }}" class="modal">
+                        <div class="modal-content">
+                            <h3>Delete Fee Waiver</h3>
+                            <p>Are you sure you want to delete the waiver for <strong>{{ w.student.name }}</strong>?</p>
+                            <form method="POST">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="waiver_id" value="{{ w.id }}">
+                                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
+                                    <button type="button" class="btn btn-secondary" onclick="closeModal('deleteModal{{ w.id }}')">Cancel</button>
+                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="padding: 20px; text-align: center; color: #64748b;">No fee waivers registered for this period.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Waiver Modal -->
+<div id="addWaiverModal" class="modal">
+    <div class="modal-content">
+        <h3>Add New Fee Waiver</h3>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            
+            <div class="form-group">
+                <label>Student</label>
+                <select name="student" required>
+                    <option value="">-- Select Student --</option>
+                    {% for s in students %}
+                    <option value="{{ s.reg_number }}">{{ s.name }} ({{ s.reg_number }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Term</label>
+                <select name="term" required>
+                    <option value="">-- Select Term --</option>
+                    {% for t in terms %}
+                    <option value="{{ t.id }}">{{ t.academic_year }} - {{ t.get_term_display }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Waiver Type</label>
+                <select name="waiver_type">
+                    <option value="PERCENTAGE">Percentage Discount (%)</option>
+                    <option value="FIXED">Fixed Amount Discount</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Value</label>
+                <input type="number" step="0.01" name="value" placeholder="e.g. 20.00" required>
+            </div>
+            <div class="form-group">
+                <label>Reason</label>
+                <textarea name="reason" rows="2" placeholder="Reason for waiver..."></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addWaiverModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Waiver</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleDropdown(event, id) {
+    event.stopPropagation();
+    // Close any currently open dropdowns
+    document.querySelectorAll('.dropdown-content').forEach(el => {
+        if (el.id !== id) el.classList.remove('show');
+    });
+    // Toggle targeted dropdown
+    const target = document.getElementById(id);
+    if (target) {
+        target.classList.toggle('show');
+    }
+}
+
+function openModal(id) {
+    // Close dropdowns when modal opens
+    document.querySelectorAll('.dropdown-content').forEach(el => el.classList.remove('show'));
+    document.getElementById(id).style.display = 'block';
+}
+
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+window.onclick = function(event) {
+    // Close modals on outside click
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
+    // Close active dropdowns on outside click
+    if (!event.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown-content').forEach(el => el.classList.remove('show'));
+    }
+}
+</script>
+{% endblock %}

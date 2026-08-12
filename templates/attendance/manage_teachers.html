@@ -66,6 +66,18 @@
     .action-link.delete { color: var(--danger); }
     .action-link:hover { opacity: 0.7; }
 
+    /* Clickable Teacher Link */
+    .teacher-link {
+        font-weight: 600;
+        color: var(--text-main, #0f172a);
+        text-decoration: none;
+        transition: color 0.2s ease-in-out;
+    }
+    .teacher-link:hover {
+        color: var(--primary, #2563eb);
+        text-decoration: underline;
+    }
+
     /* Modal Styles */
     .modal {
         display: none;
@@ -143,7 +155,13 @@
         <tbody id="teacherTableBody">
             {% for teacher in teachers %}
             <tr class="teacher-row">
-                <td style="font-weight: 600; color: var(--text-main);">{{ teacher.name }}</td>
+                <!-- Clickable Instructor Name -->
+                <td>
+                    <a href="{% url 'attendance:teacher_detail' teacher.pk %}" class="teacher-link" title="View details for {{ teacher.name }}">
+                        <i class="fas fa-chalkboard-teacher" style="font-size:0.8rem; margin-right:0.35rem; color:#2563eb;"></i>
+                        {{ teacher.name }}
+                    </a>
+                </td>
                 <td><code style="font-size:0.9rem;">{{ teacher.user.email }}</code></td>
                 <td>
                     {% for course in teacher.courses.all %}
@@ -240,7 +258,6 @@
                 });
 
                 if (emptyRow) {
-                    // Only show JS empty error state if rows exist but zero match the query
                     emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
                 }
             });

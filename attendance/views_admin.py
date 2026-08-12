@@ -11,6 +11,10 @@ from django.contrib import messages
 from django.db import transaction
 from django.db.models import Count, Q
 from attendance.models import *
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from attendance.models import *
 
 
 def generate_secure_password():
@@ -349,23 +353,6 @@ def delete_student(request, pk):
 # NEW. DEPARTMENTS MANAGEMENT
 # =========================================================================
 
-@login_required
-@transaction.atomic
-def manage_departments(request):
-    if request.user.role != User.IS_ADMIN:
-        return HttpResponse("Unauthorized", status=403)
-
-    if request.method == 'POST':
-        name = request.POST.get('department_name', '').strip()
-        if name:
-            Department.objects.get_or_create(name=name)
-            messages.success(request, f"Department '{name}' successfully integrated.")
-        else:
-            messages.error(request, "Department name value cannot be blank.")
-        return redirect('attendance:manage_departments')
-
-    departments = Department.objects.all()
-    return render(request, 'attendance/manage_departments.html', {'departments': departments})
 
 @login_required
 def add_department(request):
@@ -399,19 +386,88 @@ def add_department(request):
 def edit_department(request, pk):
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
-    
+
     department = get_object_or_404(Department, pk=pk)
+
     if request.method == 'POST':
         name = request.POST.get('department_name', '').strip()
+        faculty_id = request.POST.get('faculty', '').strip()
+
         if name:
+            faculty_obj = Faculty.objects.filter(id=faculty_id).first() if faculty_id else None
             department.name = name
+            department.faculty = faculty_obj
             department.save()
-            messages.success(request, "Department structural identifier modified successfully.")
+
+            messages.success(request, f"Department unit '{department.name}' successfully updated.")
             return redirect('attendance:manage_departments')
         else:
-            messages.error(request, "Department fields cannot be blank.")
-            
-    return render(request, 'attendance/edit_department.html', {'department': department})
+            messages.error(request, "Department name is required.")
+
+    faculties = Faculty.objects.all()
+
+    return render(request, 'attendance/edit_department.html', {
+        'department': department,
+        'faculties': faculties
+    })
+
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from .models import User, Institution
+
+
+@login_required
+@transaction.atomic
+def manage_institution(request):
+    if request.user.role != User.IS_ADMIN and request.user.role != 'ADMIN':
+        return HttpResponse("Unauthorized", status=403)
+
+    # Fetch the primary institution record or initialize a new draft
+    institution = Institution.objects.first()
+
+    if request.method == 'POST':
+        if not institution:
+            institution = Institution()
+
+        institution.name = request.POST.get('name', '').strip()
+        institution.institution_type = request.POST.get('institution_type', 'TECHNICAL_COLLEGE').strip()
+        institution.slogan = request.POST.get('slogan', '').strip()
+        institution.address = request.POST.get('address', '').strip()
+        institution.telephone_1 = request.POST.get('telephone_1', '').strip()
+        institution.telephone_2 = request.POST.get('telephone_2', '').strip()
+        institution.website = request.POST.get('website', '').strip()
+        institution.email = request.POST.get('email', '').strip()
+        institution.academic_units = request.POST.get('academic_units', '').strip()
+
+        if institution.name and institution.email and institution.telephone_1:
+            institution.save()
+            messages.success(request, f"Institution profile '{institution.name}' updated successfully.")
+            return redirect('attendance:manage_institution')
+        else:
+            messages.error(request, "Please fill in all required fields (Name, Primary Phone, Email).")
+
+    return render(request, 'attendance/manage_institution.html', {
+        'institution': institution,
+        'type_choices': Institution.TYPE_CHOICES,
+    })
+    
+
+@login_required
+@transaction.atomic
+def delete_faculty(request, pk):
+    if request.user.role != User.IS_ADMIN:
+        return HttpResponse("Unauthorized", status=403)
+
+    faculty = get_object_or_404(Faculty, pk=pk)
+    faculty_name = faculty.name
+
+    faculty.delete()
+
+    messages.success(request, f"Faculty unit '{faculty_name}' was successfully deleted.")
+    return redirect('attendance:manage_faculties')
 
 
 @login_required
@@ -419,17 +475,211 @@ def edit_department(request, pk):
 def delete_department(request, pk):
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
-    
-    department = get_object_or_404(Department, pk=pk)
-    name = department.name
-    department.delete()
-    messages.success(request, f"Department '{name}' cleanly detached from application context.")
-    return redirect('attendance:manage_departments')
 
+    department = get_object_or_404(Department, pk=pk)
+    department_name = department.name
+
+    department.delete()
+
+    messages.success(request, f"Department unit '{department_name}' was successfully deleted.")
+    return redirect('attendance:manage_departments')
 
 # =========================================================================
 # 3. COURSES MANAGEMENT (UPDATED FOR DEPARTMENTS)
 # =========================================================================
+import csv
+import io
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from .models import User, Faculty, Department, Institution
+
+
+@login_required
+@transaction.atomic
+def manage_faculties(request):
+    if request.user.role != User.IS_ADMIN:
+        return HttpResponse("Unauthorized", status=403)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # Handle Single Faculty Creation / Update
+        if action == 'single' or 'faculty_name' in request.POST or 'name' in request.POST:
+            code = (request.POST.get('faculty_code') or request.POST.get('code', '')).strip()
+            name = (request.POST.get('faculty_name') or request.POST.get('name', '')).strip()
+            description = request.POST.get('description', '').strip()
+            institution_id = request.POST.get('institution', '').strip()
+
+            if name:
+                inst = Institution.objects.filter(id=institution_id).first() if institution_id else None
+                
+                faculty, created = Faculty.objects.get_or_create(
+                    name=name, 
+                    defaults={
+                        'code': code, 
+                        'description': description, 
+                        'institution': inst
+                    }
+                )
+                if not created:
+                    faculty.code = code
+                    faculty.description = description
+                    faculty.institution = inst
+                    faculty.save()
+
+                messages.success(request, f"Faculty unit '{name}' successfully integrated.")
+            return redirect('attendance:manage_faculties')
+
+        # Handle Bulk CSV Ingestion
+        elif action == 'bulk' and request.FILES.get('csv_file'):
+            csv_file = request.FILES['csv_file']
+            decoded_file = csv_file.read().decode('utf-8')
+            reader = csv.reader(io.StringIO(decoded_file), delimiter=',')
+            next(reader, None)  # Skip CSV header
+
+            for row in reader:
+                if len(row) >= 2:
+                    f_code = row[0].strip()
+                    f_name = row[1].strip()
+                    f_desc = row[2].strip() if len(row) > 2 else ''
+                    
+                    if f_name:
+                        Faculty.objects.get_or_create(
+                            name=f_name, 
+                            defaults={'code': f_code, 'description': f_desc}
+                        )
+            messages.success(request, "Bulk faculty ingestion complete.")
+            return redirect('attendance:manage_faculties')
+
+    # Query faculties along with prefetching related counts
+    faculties = Faculty.objects.select_related('institution').prefetch_related('departments').exclude(name="").exclude(name__isnull=True)
+    institutions = Institution.objects.all()
+
+    return render(request, 'attendance/manage_faculties.html', {
+        'faculties': faculties,
+        'institutions': institutions
+    })
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from .models import User, Faculty, Department, Institution
+
+
+@login_required
+@transaction.atomic
+def edit_faculty(request, pk):
+    if request.user.role != User.IS_ADMIN:
+        return HttpResponse("Unauthorized", status=403)
+
+    faculty = get_object_or_404(Faculty, pk=pk)
+
+    if request.method == 'POST':
+        code = request.POST.get('faculty_code', '').strip()
+        name = request.POST.get('faculty_name', '').strip()
+        description = request.POST.get('description', '').strip()
+        institution_id = request.POST.get('institution', '').strip()
+
+        if name:
+            inst = Institution.objects.filter(id=institution_id).first() if institution_id else None
+            faculty.code = code
+            faculty.name = name
+            faculty.description = description
+            faculty.institution = inst
+            faculty.save()
+
+            messages.success(request, f"Faculty unit '{faculty.name}' successfully updated.")
+            return redirect('attendance:manage_faculties')
+        else:
+            messages.error(request, "Faculty name is required.")
+
+    institutions = Institution.objects.all()
+
+    return render(request, 'attendance/edit_faculty.html', {
+        'faculty': faculty,
+        'institutions': institutions
+    })
+
+
+
+
+
+import csv
+import io
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from .models import User, Faculty, Department
+
+
+@login_required
+@transaction.atomic
+def manage_departments(request):
+    if request.user.role != User.IS_ADMIN:
+        return HttpResponse("Unauthorized", status=403)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # Handle Single Department Creation / Update
+        if action == 'single' or 'department_name' in request.POST or 'name' in request.POST:
+            name = (request.POST.get('department_name') or request.POST.get('name', '')).strip()
+            faculty_id = request.POST.get('faculty', '').strip()
+
+            if name:
+                faculty_obj = Faculty.objects.filter(id=faculty_id).first() if faculty_id else None
+
+                dept, created = Department.objects.get_or_create(
+                    name=name,
+                    defaults={'faculty': faculty_obj}
+                )
+                if not created:
+                    dept.faculty = faculty_obj
+                    dept.save()
+
+                messages.success(request, f"Department unit '{name}' successfully integrated.")
+            return redirect('attendance:manage_departments')
+
+        # Handle Bulk CSV Ingestion
+        elif action == 'bulk' and request.FILES.get('csv_file'):
+            csv_file = request.FILES['csv_file']
+            decoded_file = csv_file.read().decode('utf-8')
+            reader = csv.reader(io.StringIO(decoded_file), delimiter=',')
+            next(reader, None)  # Skip header row
+
+            for row in reader:
+                if row:
+                    d_name = row[0].strip()
+                    if d_name:
+                        Department.objects.get_or_create(name=d_name)
+
+            messages.success(request, "Bulk department ingestion complete.")
+            return redirect('attendance:manage_departments')
+
+    # Filtering logic (e.g., coming from manage_faculties page)
+    filter_faculty = request.GET.get('filter_faculty')
+    
+    departments = Department.objects.select_related('faculty').prefetch_related('courses').exclude(name="").exclude(name__isnull=True)
+    
+    if filter_faculty:
+        departments = departments.filter(faculty_id=filter_faculty)
+
+    faculties = Faculty.objects.all()
+
+    return render(request, 'attendance/manage_departments.html', {
+        'departments': departments,
+        'faculties': faculties,
+        'selected_faculty_id': filter_faculty
+    })
+
+
 
 @login_required
 @transaction.atomic
@@ -968,6 +1218,201 @@ def upload_timetable(request, stream_id):
     }
     return render(request, 'attendance/upload_timetable.html', context)
 
+
+
+import io
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+
+# ReportLab Imports
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+from .models import Stream, TimetableBatch, TimetableEntry, Institution
+
+
+@login_required
+def download_timetable_pdf(request, stream_id):
+    if request.user.role != 'ADMIN':
+        return HttpResponse("Unauthorized", status=403)
+
+    stream_obj = get_object_or_404(Stream, id=stream_id)
+
+    # Fetch active batch
+    batch = TimetableBatch.objects.filter(is_active=True, is_revoked=False).order_by('-uploaded_at').first()
+    if not batch:
+        messages.error(request, "No active timetable batch found.")
+        return redirect('attendance:manage_timetable')
+
+    # Fetch entries for this stream
+    entries = TimetableEntry.objects.filter(
+        batch=batch, 
+        stream=stream_obj
+    ).select_related('course_unit', 'teacher')
+
+    # Group entries by unique time slots: (start_time, end_time) -> {day_code: entry}
+    time_slots_map = {}
+    for entry in entries:
+        key = (entry.start_time, entry.end_time)
+        if key not in time_slots_map:
+            time_slots_map[key] = {}
+        time_slots_map[key][entry.day] = entry
+
+    DAYS = TimetableEntry.DAYS_OF_WEEK  # [('MON', 'Monday'), ...]
+
+    # Initialize PDF buffer and document (Landscape A4)
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=20,
+        leftMargin=20,
+        topMargin=20,
+        bottomMargin=20
+    )
+    elements = []
+
+    # ReportLab Stylesheet
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'HeaderTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        leading=20,
+        textColor=colors.HexColor('#2b3e85'),
+        alignment=TA_LEFT,
+        spaceAfter=4
+    )
+    subtitle_style = ParagraphStyle(
+        'HeaderSubtitle',
+        parent=styles['Normal'],
+        fontSize=9.5,
+        textColor=colors.HexColor('#475569'),
+        alignment=TA_LEFT,
+        spaceAfter=12
+    )
+    th_style = ParagraphStyle(
+        'TableHeader',
+        parent=styles['Normal'],
+        fontSize=9,
+        fontName='Helvetica-Bold',
+        textColor=colors.white,
+        alignment=TA_CENTER
+    )
+    cell_time_style = ParagraphStyle(
+        'CellTime',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10,
+        fontName='Helvetica-Bold',
+        textColor=colors.HexColor('#1e293b'),
+        alignment=TA_CENTER
+    )
+    cell_text_style = ParagraphStyle(
+        'CellText',
+        parent=styles['Normal'],
+        fontSize=7.5,
+        leading=9.5,
+        textColor=colors.HexColor('#0f172a'),
+        alignment=TA_CENTER
+    )
+
+    # 1. Header Information
+    inst_name = "TIMETABLE MANAGEMENT SYSTEM"
+    try:
+        inst = Institution.objects.first()
+        if inst:
+            inst_name = inst.name.upper()
+    except Exception:
+        pass
+
+    elements.append(Paragraph(f"<b>{inst_name}</b>", title_style))
+    
+    course_name = stream_obj.course.name if stream_obj.course else "No Course"
+    course_code = stream_obj.course.code if stream_obj.course else ""
+    info_text = (
+        f"<b>Class Stream:</b> {stream_obj.name} &nbsp;|&nbsp; "
+        f"<b>Course:</b> {course_code} - {course_name} &nbsp;|&nbsp; "
+        f"<b>Effective Date:</b> {batch.week_start_date.strftime('%B %d, %Y')}"
+    )
+    elements.append(Paragraph(info_text, subtitle_style))
+
+    # 2. Construct Table Header Row
+    header_row = [Paragraph("Time Interval", th_style)]
+    for _, day_name in DAYS:
+        header_row.append(Paragraph(day_name, th_style))
+    
+    table_data = [header_row]
+
+    # 3. Construct Matrix Rows
+    sorted_slots = sorted(time_slots_map.keys(), key=lambda x: x[0])
+
+    if not sorted_slots:
+        empty_row = [Paragraph("No Slots", cell_time_style)] + [Paragraph("-", cell_text_style) for _ in DAYS]
+        table_data.append(empty_row)
+    else:
+        for start, end in sorted_slots:
+            row = []
+            # Time column
+            time_str = f"{start.strftime('%I:%M %p')}<br/>to<br/>{end.strftime('%I:%M %p')}"
+            row.append(Paragraph(time_str, cell_time_style))
+
+            day_entries = time_slots_map[(start, end)]
+            for day_code, _ in DAYS:
+                entry = day_entries.get(day_code)
+                if entry:
+                    cu_code = entry.course_unit.code
+                    cu_name = entry.course_unit.name
+                    teacher_name = entry.teacher.name if entry.teacher else "Unassigned"
+                    cell_content = f"<b>{cu_code}</b><br/>{cu_name}<br/><font color='#2563eb'><i>{teacher_name}</i></font>"
+                    row.append(Paragraph(cell_content, cell_text_style))
+                else:
+                    row.append(Paragraph("-", cell_text_style))
+            
+            table_data.append(row)
+
+    # 4. Table Layout & Styling
+    # Total A4 Landscape Width = ~842pt. Margins (20x2) = 40. Usable Width = 802pt.
+    col_widths = [80] + [103] * len(DAYS)  # 80 + 103*7 = 801pt
+
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
+    
+    t_style = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2b3e85')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+    ]
+
+    # Zebra Striping & Time Col Styling
+    for i in range(1, len(table_data)):
+        bg = colors.HexColor('#f8fafc') if i % 2 == 0 else colors.HexColor('#ffffff')
+        t_style.append(('BACKGROUND', (0, i), (0, i), colors.HexColor('#e2e8f0')))
+        t_style.append(('BACKGROUND', (1, i), (-1, i), bg))
+
+    t.setStyle(TableStyle(t_style))
+    elements.append(t)
+
+    # Build Document
+    doc.build(elements)
+    buffer.seek(0)
+
+    filename = f"Timetable_{stream_obj.name.replace(' ', '_')}.pdf"
+    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
 def download_template(request, template_type):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="{template_type}_template.csv"'
@@ -1039,34 +1484,164 @@ def export_credentials(request, role_type):
 # =========================================================================
 
 
+from django.shortcuts import render
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from .models import User, Faculty, Department, Course, StudentProfile
+
 @login_required
 def admin_report_page(request):
     # Enforce Admin-only access
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
         
-    departments = Department.objects.all()
+    # Dropdown Options for Filters
+    faculties = Faculty.objects.all()
+    departments = Department.objects.select_related('faculty').all()
+    all_courses = Course.objects.select_related('department').all()
+    all_students = StudentProfile.objects.select_related('course').all()
     
-    # Extract structural query constraint parameter directly from backend request arrays
+    # Extract structural query parameters
+    selected_faculty_id = request.GET.get('filter_faculty')
     selected_dept_id = request.GET.get('filter_dept')
+    selected_course_code = request.GET.get('filter_course')
+    selected_student_reg = request.GET.get('filter_student')
     
-    # Start with base layout mapping matching all active structural course matrices
-    courses = Course.objects.select_related('department').all()
+    # Base Queryset with performance optimizations
+    courses = Course.objects.select_related('department__faculty').prefetch_related('students').all()
     
-    # Execute structural filtering directly inside database processing layers if constraint exists
+    # Apply backend filters dynamically
+    if selected_faculty_id:
+        courses = courses.filter(department__faculty_id=selected_faculty_id)
+        try:
+            selected_faculty_id = int(selected_faculty_id)
+        except ValueError:
+            selected_faculty_id = None
+
     if selected_dept_id:
         courses = courses.filter(department_id=selected_dept_id)
         try:
-            selected_dept_id = int(selected_dept_id)  # Standardize type matching for UI template rules
+            selected_dept_id = int(selected_dept_id)
         except ValueError:
             selected_dept_id = None
 
+    if selected_course_code:
+        courses = courses.filter(code=selected_course_code)
+
+    if selected_student_reg:
+        courses = courses.filter(students__reg_number=selected_student_reg)
+
     return render(request, 'attendance/admin_report.html', {
+        'faculties': faculties,
         'departments': departments,
+        'all_courses': all_courses,
+        'all_students': all_students,
         'courses': courses,
-        'selected_dept_id': selected_dept_id
+        'selected_faculty_id': selected_faculty_id,
+        'selected_dept_id': selected_dept_id,
+        'selected_course_code': selected_course_code,
+        'selected_student_reg': selected_student_reg,
     })
 
+
+from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from .models import StudentProfile, AttendanceRecord
+
+@login_required
+def student_detail_view(request, reg_number):
+    # Fetch student profile with related academic structure and prefetch history logs
+    student = get_object_or_404(
+        StudentProfile.objects.select_related(
+            'user',
+            'course__department__faculty',
+            'stream'
+        ).prefetch_related(
+            'parents__user',
+            'room_allocations__room__hostel',
+            'term_fees__term',
+            'marks__exam__course_unit',
+            'marks__grade',
+            'library_records__book',
+            'disciplinary_logs__reported_by',
+            'transport_allocations__route'
+        ),
+        reg_number=reg_number
+    )
+
+    # Attendance statistics calculation
+    total_sessions = AttendanceRecord.objects.filter(student=student).count()
+    present_sessions = AttendanceRecord.objects.filter(student=student, status='PRESENT').count()
+    attendance_percentage = (present_sessions / total_sessions * 100) if total_sessions > 0 else 0.0
+
+    # Current/Latest Allocations
+    current_room_allocation = student.room_allocations.order_by('-allocated_at').first()
+    current_transport = student.transport_allocations.filter(is_active=True).first()
+
+    # Fee Balances
+    term_fees = student.term_fees.all()
+    total_balance = sum(fee.remaining_balance for fee in term_fees)
+
+    context = {
+        'student': student,
+        'attendance_percentage': round(attendance_percentage, 1),
+        'total_sessions': total_sessions,
+        'present_sessions': present_sessions,
+        'current_room_allocation': current_room_allocation,
+        'current_transport': current_transport,
+        'term_fees': term_fees,
+        'total_balance': total_balance,
+        'marks': student.marks.all(),
+        'library_records': student.library_records.order_by('-issue_date'),
+        'disciplinary_logs': student.disciplinary_logs.order_by('-date_logged'),
+        'parents': student.parents.all(),
+    }
+
+    return render(request, 'attendance/student_detail.html', context)
+
+
+# attendance/views_admin.py
+
+from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from .models import TeacherProfile, TimetableEntry
+
+@login_required
+def teacher_detail_view(request, pk):
+    # Fetch TeacherProfile with optimized queries for all related data
+    teacher = get_object_or_404(
+        TeacherProfile.objects.select_related('user').prefetch_related(
+            'courses__department__faculty',
+            'online_courses',
+            'uploaded_documents__course_unit',
+            'user__qualifications',
+            'user__leave_requests',
+            'user__evaluations',
+            'user__staff_payments'
+        ),
+        pk=pk
+    )
+
+    # Timetable schedule assigned to this teacher
+    timetable_entries = TimetableEntry.objects.filter(teacher=teacher).select_related(
+        'course_unit__course', 'stream'
+    ).order_by('day', 'start_time')
+
+    context = {
+        'teacher': teacher,
+        'timetable_entries': timetable_entries,
+        'assigned_courses': teacher.courses.all(),
+        'online_courses': teacher.online_courses.all(),
+        'documents': teacher.uploaded_documents.all(),
+        'qualifications': teacher.user.qualifications.all(),
+        'leave_requests': teacher.user.leave_requests.order_by('-start_date'),
+        'evaluations': teacher.user.evaluations.order_by('-evaluation_date'),
+        'payments': teacher.user.staff_payments.order_by('-payment_date'),
+    }
+
+    return render(request, 'attendance/teacher_detail.html', context)
+
+    
 '''
 from django.shortcuts import render
 from django.http import HttpResponse
@@ -3905,3 +4480,518 @@ def manage_student_transfers(request):
         'streams': streams,
         'courses': courses,
     })
+
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from attendance.models import FeeElement
+
+@login_required
+def fees_elements(request):
+    if request.method == 'POST':
+        action = request.POST.get('action', 'add')
+
+        # --- ACTION: ADD ELEMENT ---
+        if action == 'add':
+            code = request.POST.get('code')
+            name = request.POST.get('name')
+            fee_type = request.POST.get('fee_type')
+            description = request.POST.get('description', '')
+
+            if FeeElement.objects.filter(code=code).exists():
+                messages.error(request, f"Fee Element with code '{code}' already exists.")
+            else:
+                FeeElement.objects.create(
+                    code=code,
+                    name=name,
+                    fee_type=fee_type,
+                    description=description
+                )
+                messages.success(request, f"Fee Element '{name}' added successfully.")
+
+        # --- ACTION: EDIT ELEMENT ---
+        elif action == 'edit':
+            element_id = request.POST.get('element_id')
+            element = get_object_or_404(FeeElement, id=element_id)
+            
+            element.code = request.POST.get('code')
+            element.name = request.POST.get('name')
+            element.fee_type = request.POST.get('fee_type')
+            element.description = request.POST.get('description', '')
+            element.is_active = request.POST.get('is_active') == 'true'
+            element.save()
+
+            messages.success(request, f"Fee Element '{element.name}' updated successfully.")
+
+        # --- ACTION: DELETE ELEMENT ---
+        elif action == 'delete':
+            element_id = request.POST.get('element_id')
+            element = get_object_or_404(FeeElement, id=element_id)
+            element_name = element.name
+            element.delete()
+            messages.success(request, f"Fee Element '{element_name}' deleted successfully.")
+
+        # Safely reload the current endpoint path to prevent NoReverseMatch errors
+        return redirect(request.path)
+
+    elements = FeeElement.objects.all().order_by('code')
+    context = {
+        'elements': elements,
+        'active_tab': 'elements'
+    }
+    return render(request, 'attendance/fees_elements.html', context)
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import TuitionAmount, Course, AcademicTerm, FeeElement
+
+@login_required
+def tuition_amounts(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # --- ACTION: ADD / BULK ADD ---
+        if action == 'add':
+            course_ids = request.POST.getlist('courses')
+            term_id = request.POST.get('term')
+            fee_element_id = request.POST.get('fee_element')
+            amount = request.POST.get('amount')
+
+            if not course_ids or not term_id or not fee_element_id or not amount:
+                messages.error(request, "Please select at least one course, an active academic term, a fee element, and enter an amount.")
+            else:
+                term = get_object_or_404(AcademicTerm, id=term_id)
+                fee_element = get_object_or_404(FeeElement, id=fee_element_id)
+                created_count = 0
+                updated_count = 0
+
+                for c_code in course_ids:
+                    obj, created = TuitionAmount.objects.update_or_create(
+                        course_id=c_code,
+                        term=term,
+                        fee_element=fee_element,
+                        defaults={'amount': amount}
+                    )
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+
+                messages.success(request, f"Tuition setup saved! ({created_count} added, {updated_count} updated).")
+
+        # --- ACTION: EDIT ---
+        elif action == 'edit':
+            tuition_id = request.POST.get('tuition_id')
+            fee_element_id = request.POST.get('fee_element')
+            amount = request.POST.get('amount')
+            
+            tuition = get_object_or_404(TuitionAmount, id=tuition_id)
+            tuition.amount = amount
+            if fee_element_id:
+                tuition.fee_element_id = fee_element_id
+            tuition.save()
+            messages.success(request, f"Updated tuition for {tuition.course.name}.")
+
+        # --- ACTION: DELETE ---
+        elif action == 'delete':
+            tuition_id = request.POST.get('tuition_id')
+            tuition = get_object_or_404(TuitionAmount, id=tuition_id)
+            tuition.delete()
+            messages.success(request, "Tuition rate deleted successfully.")
+
+        # Redirect back to current route path safely
+        return redirect(request.path)
+
+    tuitions = TuitionAmount.objects.select_related('course', 'term').all()
+    courses = Course.objects.all()
+    terms = AcademicTerm.objects.filter(is_current=True)
+    fee_elements = FeeElement.objects.all()
+
+    context = {
+        'tuitions': tuitions,
+        'courses': courses,
+        'terms': terms,
+        'fee_elements': fee_elements,
+        'active_tab': 'tuition'
+    }
+    return render(request, 'attendance/tuition_amounts.html', context)
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from decimal import Decimal
+from .models import FunctionalFee, FeeElement, Course, AcademicTerm
+
+@login_required
+def functional_fees(request):
+    current_term = AcademicTerm.objects.filter(is_current=True).first()
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # --- DELETE ACTION ---
+        if action == 'delete':
+            fee_id = request.POST.get('fee_id')
+            fee = get_object_or_404(FunctionalFee, id=fee_id)
+            fee.delete()
+            messages.success(request, "Functional fee deleted successfully.")
+            return redirect(request.path)
+
+        # --- EDIT SINGLE FEE ACTION ---
+        elif action == 'edit':
+            fee_id = request.POST.get('fee_id')
+            fee = get_object_or_404(FunctionalFee, id=fee_id)
+            amount = request.POST.get('amount')
+            fee.amount = Decimal(amount or '0.00')
+            fee.save()
+            messages.success(request, "Functional fee updated successfully.")
+            return redirect(request.path)
+
+        # --- BULK ATTACH / CREATE ACTION ---
+        else:
+            element_id = request.POST.get('element')
+            selected_courses = request.POST.getlist('courses')  # List of selected course codes
+            amount = request.POST.get('amount')
+
+            if not current_term:
+                messages.error(request, "No current active term found. Please configure an active academic term.")
+                return redirect(request.path)
+
+            element = get_object_or_404(FeeElement, id=element_id)
+            decimal_amount = Decimal(amount or '0.00')
+
+            if not selected_courses or 'ALL' in selected_courses:
+                # Set standard fee (applies to all courses)
+                FunctionalFee.objects.update_or_create(
+                    element=element,
+                    course=None,
+                    term=current_term,
+                    defaults={'amount': decimal_amount}
+                )
+            else:
+                # Create/Update fees for each selected course
+                for course_code in selected_courses:
+                    course = Course.objects.filter(code=course_code).first()
+                    if course:
+                        FunctionalFee.objects.update_or_create(
+                            element=element,
+                            course=course,
+                            term=current_term,
+                            defaults={'amount': decimal_amount}
+                        )
+
+            messages.success(request, "Functional fee(s) saved successfully.")
+            return redirect(request.path)
+
+    fees = FunctionalFee.objects.select_related('element', 'course', 'term').filter(term=current_term) if current_term else []
+    elements = FeeElement.objects.filter(fee_type='FUNCTIONAL', is_active=True)
+    courses = Course.objects.all()
+
+    return render(request, 'attendance/functional_fees.html', {
+        'fees': fees,
+        'elements': elements,
+        'courses': courses,
+        'current_term': current_term,
+        'active_tab': 'functional',
+    })
+
+
+@login_required
+def other_fees(request):
+    active_term = AcademicTerm.objects.filter(is_current=True).first()
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'add':
+            element_id = request.POST.get('element')
+            name = request.POST.get('name')
+            amount = request.POST.get('amount')
+            description = request.POST.get('description', '')
+
+            if active_term and element_id and name and amount:
+                element = get_object_or_404(FeeElement, id=element_id)
+                OtherFee.objects.create(
+                    element=element,
+                    name=name,
+                    amount=amount,
+                    term=active_term,
+                    description=description
+                )
+                messages.success(request, "Other fee added successfully.")
+            else:
+                messages.error(request, "Failed to add fee. Ensure an active academic term exists and all required fields are filled.")
+
+        elif action == 'edit':
+            fee_id = request.POST.get('fee_id')
+            fee = get_object_or_404(OtherFee, id=fee_id)
+            element_id = request.POST.get('element')
+
+            if element_id:
+                fee.element = get_object_or_404(FeeElement, id=element_id)
+            fee.name = request.POST.get('name', fee.name)
+            fee.amount = request.POST.get('amount', fee.amount)
+            fee.description = request.POST.get('description', fee.description)
+            fee.save()
+            messages.success(request, "Other fee updated successfully.")
+
+        elif action == 'delete':
+            fee_id = request.POST.get('fee_id')
+            fee = get_object_or_404(OtherFee, id=fee_id)
+            fee.delete()
+            messages.success(request, "Other fee deleted successfully.")
+
+        return redirect(request.path)
+
+    fees = OtherFee.objects.filter(term=active_term).select_related('element', 'term') if active_term else OtherFee.objects.none()
+    elements = FeeElement.objects.filter(fee_type='OTHER', is_active=True)
+
+    return render(request, 'attendance/other_fees.html', {
+        'fees': fees,
+        'elements': elements,
+        'active_term': active_term,
+        'active_tab': 'other'
+    })
+
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import FeeWaiver, StudentProfile, AcademicTerm
+
+@login_required
+def fees_waivers(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'add':
+            student_id = request.POST.get('student')
+            term_id = request.POST.get('term')
+            waiver_type = request.POST.get('waiver_type', 'PERCENTAGE')
+            value = request.POST.get('value')
+            reason = request.POST.get('reason', '')
+
+            if student_id and term_id and value:
+                student = get_object_or_404(StudentProfile, reg_number=student_id)
+                term = get_object_or_404(AcademicTerm, id=term_id)
+                FeeWaiver.objects.create(
+                    student=student,
+                    term=term,
+                    waiver_type=waiver_type,
+                    value=value,
+                    reason=reason,
+                    approved_by=request.user
+                )
+                messages.success(request, "Fee waiver added successfully.")
+            else:
+                messages.error(request, "Failed to add waiver. Ensure all required fields are provided.")
+
+        elif action == 'edit':
+            waiver_id = request.POST.get('waiver_id')
+            waiver = get_object_or_404(FeeWaiver, id=waiver_id)
+
+            student_id = request.POST.get('student')
+            term_id = request.POST.get('term')
+
+            if student_id:
+                waiver.student = get_object_or_404(StudentProfile, reg_number=student_id)
+            if term_id:
+                waiver.term = get_object_or_404(AcademicTerm, id=term_id)
+
+            waiver.waiver_type = request.POST.get('waiver_type', waiver.waiver_type)
+            waiver.value = request.POST.get('value', waiver.value)
+            waiver.reason = request.POST.get('reason', waiver.reason)
+            waiver.save()
+            messages.success(request, "Fee waiver updated successfully.")
+
+        elif action == 'delete':
+            waiver_id = request.POST.get('waiver_id')
+            waiver = get_object_or_404(FeeWaiver, id=waiver_id)
+            waiver.delete()
+            messages.success(request, "Fee waiver deleted successfully.")
+
+        return redirect(request.path)
+
+    waivers = FeeWaiver.objects.select_related('student', 'term', 'approved_by').all()
+    students = StudentProfile.objects.all()
+    terms = AcademicTerm.objects.all()
+
+    return render(request, 'attendance/fees_waivers.html', {
+        'waivers': waivers,
+        'students': students,
+        'terms': terms,
+        'active_tab': 'waivers'
+    })
+
+
+@login_required
+def fees_preview(request):
+    tuitions = TuitionAmount.objects.select_related('course', 'term').all()
+    functionals = FunctionalFee.objects.select_related('element', 'term').all()
+    return render(request, 'attendance/fees_preview.html', {'tuitions': tuitions, 'functionals': functionals, 'active_tab': 'preview'})
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db import transaction
+from .models import FeeStructureCopy, AcademicTerm, TuitionAmount, FunctionalFee
+
+@login_required
+def fees_copy(request):
+    if request.method == 'POST':
+        action = request.POST.get('action', 'add')
+        copy_id = request.POST.get('copy_id')
+
+        # ================= ADD / REPLICATE =================
+        if action == 'add':
+            source_term_id = request.POST.get('source_term')
+            target_term_id = request.POST.get('target_term')
+
+            if not source_term_id or not target_term_id:
+                messages.error(request, "Please select both source and target terms.")
+            elif source_term_id == target_term_id:
+                messages.error(request, "Source and target terms cannot be the same.")
+            else:
+                source_term = get_object_or_404(AcademicTerm, pk=source_term_id)
+                target_term = get_object_or_404(AcademicTerm, pk=target_term_id)
+
+                with transaction.atomic():
+                    # 1. Replicate Tuition Amounts
+                    source_tuitions = TuitionAmount.objects.filter(term=source_term)
+                    for t in source_tuitions:
+                        TuitionAmount.objects.update_or_create(
+                            course=t.course,
+                            term=target_term,
+                            fee_element=t.fee_element,
+                            defaults={
+                                'amount': t.amount,
+                                'is_approved': t.is_approved,
+                            }
+                        )
+
+                    # 2. Replicate Functional Fees
+                    source_functionals = FunctionalFee.objects.filter(term=source_term)
+                    for f in source_functionals:
+                        FunctionalFee.objects.update_or_create(
+                            element=f.element,
+                            course=f.course,
+                            term=target_term,
+                            defaults={
+                                'amount': f.amount,
+                                'is_mandatory': f.is_mandatory,
+                            }
+                        )
+
+                    # 3. Create Copy Log Record
+                    FeeStructureCopy.objects.create(
+                        source_term=source_term,
+                        target_term=target_term,
+                        copied_by=request.user
+                    )
+
+                messages.success(request, f"Fee structure successfully replicated from {source_term} to {target_term}.")
+            return redirect('attendance:fees_copy')
+
+        # ================= EDIT =================
+        elif action == 'edit':
+            copy_log = get_object_or_404(FeeStructureCopy, pk=copy_id)
+            source_term_id = request.POST.get('source_term')
+            target_term_id = request.POST.get('target_term')
+
+            if not source_term_id or not target_term_id:
+                messages.error(request, "Both source and target terms are required.")
+            elif source_term_id == target_term_id:
+                messages.error(request, "Source and target terms cannot be the same.")
+            else:
+                copy_log.source_term_id = source_term_id
+                copy_log.target_term_id = target_term_id
+                copy_log.save()
+                messages.success(request, "Fee structure copy record updated successfully.")
+            return redirect('attendance:fees_copy')
+
+        # ================= DELETE =================
+        elif action == 'delete':
+            copy_log = get_object_or_404(FeeStructureCopy, pk=copy_id)
+            copy_log.delete()
+            messages.success(request, "Fee copy log deleted successfully.")
+            return redirect('attendance:fees_copy')
+
+    history = FeeStructureCopy.objects.select_related('source_term', 'target_term', 'copied_by').all().order_by('-copied_at')
+    terms = AcademicTerm.objects.all()
+    return render(request, 'attendance/fees_copy.html', {'history': history, 'terms': terms, 'active_tab': 'copy'})
+
+
+@login_required
+def fees_approvals(request):
+    approvals = FeeApproval.objects.select_related('term', 'requested_by', 'approved_by').all()
+    return render(request, 'attendance/fees_approvals.html', {'approvals': approvals, 'active_tab': 'approvals'})
+
+@login_required
+def manage_affiliates(request):
+    affiliates = Affiliate.objects.all()
+    return render(request, 'attendance/manage_affiliates.html', {'affiliates': affiliates, 'active_tab': 'affiliates'})
+
+@login_required
+def graduation_fees(request):
+    grad_fees = GraduationFee.objects.select_related('student').all()
+    return render(request, 'attendance/graduation_fees.html', {'grad_fees': grad_fees, 'active_tab': 'graduation'})
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import AcademicTerm
+
+@login_required
+def manage_academic_terms(request):
+    if request.method == 'POST':
+        academic_year = request.POST.get('academic_year')
+        term = request.POST.get('term')
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+        is_current = request.POST.get('is_current') == 'on'
+
+        try:
+            new_term = AcademicTerm(
+                academic_year=academic_year,
+                term=term,
+                start_date=start_date,
+                end_date=end_date,
+                is_current=is_current
+            )
+            new_term.save()
+            messages.success(request, f"Academic term '{new_term}' created successfully.")
+        except Exception as e:
+            messages.error(request, f"Error adding academic term: {e}")
+
+        return redirect('attendance:manage_academic_terms')
+
+    terms = AcademicTerm.objects.all().order_by('-academic_year', 'term')
+    term_choices = AcademicTerm.TERM_CHOICES
+    return render(request, 'attendance/manage_academic_terms.html', {
+        'terms': terms,
+        'term_choices': term_choices,
+    })
+
+
+@login_required
+def set_current_term(request, pk):
+    term = get_object_or_404(AcademicTerm, pk=pk)
+    term.is_current = True
+    term.save()
+    messages.success(request, f"Set '{term}' as the current active academic term.")
+    return redirect('attendance:manage_academic_terms')
+
+
+@login_required
+def delete_academic_term(request, pk):
+    term = get_object_or_404(AcademicTerm, pk=pk)
+    term.delete()
+    messages.success(request, f"Academic term deleted successfully.")
+    return redirect('attendance:manage_academic_terms')

@@ -1,0 +1,254 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    /* Option text visibility & light scheme fixes */
+    select, select option, input {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+    
+    .dropdown {
+        position: relative;
+        display: inline-block;
+    }
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        right: 0;
+        background-color: #ffffff;
+        min-width: 130px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.15);
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 6px;
+        z-index: 100;
+    }
+    .dropdown-content.show {
+        display: block;
+    }
+    .dropdown-content button {
+        color: #333;
+        padding: 8px 12px;
+        text-decoration: none;
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.875rem;
+    }
+    .dropdown-content button:hover {
+        background-color: #f1f5f9;
+    }
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+        background-color: #fff;
+        margin: 5% auto;
+        padding: 20px;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+    }
+    .btn {
+        padding: 8px 14px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .btn-primary { background: #2b3e85; color: white; }
+    .btn-secondary { background: #e2e8f0; color: #333; }
+    .btn-danger { background: #dc2626; color: white; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+    .form-group select {
+        width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;
+    }
+</style>
+
+<div style="display: flex; gap: 1.5rem;">
+    <div style="flex: 1; padding: 1rem;">
+        <h2><i class="fas fa-copy"></i> Duplicate Fee Structures</h2>
+        <p style="color: var(--text-muted, #64748b);">Copy existing tuition and fee settings from a previous term to a new academic term.</p>
+
+        {% if messages %}
+        <div style="margin-top: 1rem;">
+            {% for message in messages %}
+            <div style="padding: 10px; border-radius: 6px; margin-bottom: 8px; {% if message.tags == 'success' %}background: #d1fae5; color: #065f46;{% else %}background: #fee2e2; color: #991b1b;{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Execute Term Fee Copy (ADD) -->
+        <div style="margin-top: 1rem; margin-bottom: 1.5rem; background: #ffffff; padding: 1.2rem; border-radius: 8px; border: 1px solid var(--border, #e2e8f0);">
+            <h3>Execute Term Fee Copy</h3>
+            <form method="POST" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add">
+                
+                <select name="source_term" required style="padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1; flex: 1;">
+                    <option value="">-- Source Term (Copy From) --</option>
+                    {% for t in terms %}
+                    <option value="{{ t.id }}">{{ t.academic_year }} - {{ t.get_term_display }}</option>
+                    {% endfor %}
+                </select>
+                
+                <i class="fas fa-arrow-right" style="color: #64748b;"></i>
+                
+                <select name="target_term" required style="padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1; flex: 1;">
+                    <option value="">-- Target Term (Copy To) --</option>
+                    {% for t in terms %}
+                    <option value="{{ t.id }}">{{ t.academic_year }} - {{ t.get_term_display }}</option>
+                    {% endfor %}
+                </select>
+                
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-clone"></i> Replicate Structure
+                </button>
+            </form>
+        </div>
+
+        <!-- Copy History Table -->
+        <div style="background: #ffffff; border: 1px solid var(--border, #e2e8f0); border-radius: 8px; overflow: visible;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #2b3e85; color: white; text-align: left;">
+                        <th style="padding: 10px;">Source Term</th>
+                        <th style="padding: 10px;">Target Term</th>
+                        <th style="padding: 10px;">Action Date</th>
+                        <th style="padding: 10px;">Performed By</th>
+                        <th style="padding: 10px; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in history %}
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 10px;">{{ h.source_term.academic_year }} - {{ h.source_term.get_term_display }}</td>
+                        <td style="padding: 10px; font-weight: bold;">{{ h.target_term.academic_year }} - {{ h.target_term.get_term_display }}</td>
+                        <td style="padding: 10px;">{{ h.copied_at|date:"M d, Y H:i" }}</td>
+                        <td style="padding: 10px;">{{ h.copied_by.username|default:"System Admin" }}</td>
+                        <td style="padding: 10px; text-align: center;">
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-secondary" style="padding: 4px 10px;" onclick="toggleDropdown(event, 'dropdown-{{ h.id }}')">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <div id="dropdown-{{ h.id }}" class="dropdown-content">
+                                    <button type="button" onclick="openModal('editModal{{ h.id }}')"><i class="fas fa-edit"></i> Edit</button>
+                                    <button type="button" onclick="openModal('deleteModal{{ h.id }}')" style="color: #dc2626;"><i class="fas fa-trash"></i> Delete</button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Edit Modal -->
+                    <div id="editModal{{ h.id }}" class="modal">
+                        <div class="modal-content">
+                            <h3>Edit Fee Copy Record</h3>
+                            <form method="POST">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="edit">
+                                <input type="hidden" name="copy_id" value="{{ h.id }}">
+                                
+                                <div class="form-group">
+                                    <label>Source Term</label>
+                                    <select name="source_term" required>
+                                        {% for t in terms %}
+                                        <option value="{{ t.id }}" {% if t.id == h.source_term.id %}selected{% endif %}>
+                                            {{ t.academic_year }} - {{ t.get_term_display }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Target Term</label>
+                                    <select name="target_term" required>
+                                        {% for t in terms %}
+                                        <option value="{{ t.id }}" {% if t.id == h.target_term.id %}selected{% endif %}>
+                                            {{ t.academic_year }} - {{ t.get_term_display }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
+                                    <button type="button" class="btn btn-secondary" onclick="closeModal('editModal{{ h.id }}')">Cancel</button>
+                                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Delete Modal -->
+                    <div id="deleteModal{{ h.id }}" class="modal">
+                        <div class="modal-content">
+                            <h3>Delete Copy Record</h3>
+                            <p>Are you sure you want to delete the record for copy from <strong>{{ h.source_term }}</strong> to <strong>{{ h.target_term }}</strong>?</p>
+                            <form method="POST">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="copy_id" value="{{ h.id }}">
+                                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
+                                    <button type="button" class="btn btn-secondary" onclick="closeModal('deleteModal{{ h.id }}')">Cancel</button>
+                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="padding: 20px; text-align: center; color: #64748b;">No duplication history recorded.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleDropdown(event, id) {
+    event.stopPropagation();
+    document.querySelectorAll('.dropdown-content').forEach(el => {
+        if (el.id !== id) el.classList.remove('show');
+    });
+    const target = document.getElementById(id);
+    if (target) {
+        target.classList.toggle('show');
+    }
+}
+
+function openModal(id) {
+    document.querySelectorAll('.dropdown-content').forEach(el => el.classList.remove('show'));
+    document.getElementById(id).style.display = 'block';
+}
+
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+    }
+    if (!event.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown-content').forEach(el => el.classList.remove('show'));
+    }
+}
+</script>
+{% endblock %}

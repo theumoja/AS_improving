@@ -1,0 +1,149 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<div style="display: flex; gap: 1.5rem;">
+    <div style="flex: 1; padding: 1rem;">
+        <h2><i class="fas fa-cogs"></i> Functional Fees Schedule</h2>
+        <p style="color: var(--text-muted);">
+            Active Term: <strong>{% if current_term %}{{ current_term }}{% else %}<span style="color: red;">No Active Term Set</span>{% endif %}</strong>
+        </p>
+
+        <div style="margin-bottom: 1.5rem; background: #ffffff; padding: 1.2rem; border-radius: 8px; border: 1px solid var(--border);">
+            <h3>Attach Functional Fee</h3>
+            <form method="POST" style="display: flex; flex-direction: column; gap: 1rem;">
+                {% csrf_token %}
+                
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <select name="element" required style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; flex: 1;">
+                        <option value="">-- Select Fee Element --</option>
+                        {% for el in elements %}
+                        <option value="{{ el.id }}">{{ el.name }} ({{ el.code }})</option>
+                        {% endfor %}
+                    </select>
+
+                    <input type="number" step="0.01" name="amount" placeholder="Amount" required style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; flex: 1;">
+                </div>
+
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label><strong>Select Applicable Courses:</strong></label>
+                        <div>
+                            <button type="button" onclick="toggleAllCourses(true)" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; border: 1px solid #2b3e85; background: #2b3e85; color: white;">Mark All</button>
+                            <button type="button" onclick="toggleAllCourses(false)" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: #f8f9fa;">Unmark All</button>
+                        </div>
+                    </div>
+
+                    <div style="max-height: 160px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 4px; background: #fcfcfc;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: #2b3e85;">
+                            <input type="checkbox" name="courses" value="ALL" class="course-checkbox"> -- All Courses (Standard Fee) --
+                        </label>
+                        <hr style="margin: 6px 0; border: 0; border-top: 1px solid #e0e0e0;">
+                        {% for c in courses %}
+                        <label style="display: block; margin-bottom: 4px; font-weight: normal;">
+                            <input type="checkbox" name="courses" value="{{ c.code }}" class="course-checkbox"> {{ c.code }} - {{ c.name }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <button type="submit" class="btn" style="background: #2b3e85; color: white; padding: 10px 16px; border-radius: 4px; border: none; width: fit-content;">
+                    <i class="fas fa-plus"></i> Save Functional Fee(s)
+                </button>
+            </form>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #2b3e85; color: white; text-align: left;">
+                        <th style="padding: 10px;">Fee Element</th>
+                        <th style="padding: 10px;">Applicable Course</th>
+                        <th style="padding: 10px;">Academic Term</th>
+                        <th style="padding: 10px;">Amount</th>
+                        <th style="padding: 10px; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fee in fees %}
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 10px; font-weight: bold;">{{ fee.element.name }}</td>
+                        <td style="padding: 10px;">{{ fee.course.name|default:"All Courses" }}</td>
+                        <td style="padding: 10px;">{{ fee.term }}</td>
+                        <td style="padding: 10px;">{{ fee.amount }}</td>
+                        <td style="padding: 10px; text-align: center;">
+                            <select onchange="handleAction(this, '{{ fee.id }}', '{{ fee.element.name|escapejs }}', '{{ fee.course.name|default:'All Courses'|escapejs }}', '{{ fee.amount }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;">
+                                <option value="">-- Action --</option>
+                                <option value="edit">Edit Amount</option>
+                                <option value="delete">Delete</option>
+                            </select>
+
+                            <!-- Hidden Delete Form -->
+                            <form id="delete-form-{{ fee.id }}" method="POST" style="display: none;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="fee_id" value="{{ fee.id }}">
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="padding: 20px; text-align: center; color: #64748b;">No functional fees recorded for the active term.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;">
+    <div style="background: white; padding: 1.5rem; border-radius: 8px; width: 350px; display: flex; flex-direction: column; gap: 1rem;">
+        <h3>Edit Fee Amount</h3>
+        <p id="editInfo" style="font-size: 0.9rem; color: #555; margin: 0;"></p>
+        <form method="POST" style="display: flex; flex-direction: column; gap: 1rem;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="fee_id" id="editFeeId">
+            <div>
+                <label style="display: block; font-size: 0.85rem; margin-bottom: 4px;"><strong>Amount:</strong></label>
+                <input type="number" step="0.01" name="amount" id="editAmount" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" onclick="closeEditModal()" style="padding: 6px 12px; border-radius: 4px; border: 1px solid #ccc; background: #f8f9fa; cursor: pointer;">Cancel</button>
+                <button type="submit" style="padding: 6px 12px; border-radius: 4px; border: none; background: #2b3e85; color: white; cursor: pointer;">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleAllCourses(checked) {
+        const checkboxes = document.querySelectorAll('.course-checkbox');
+        checkboxes.forEach(cb => cb.checked = checked);
+    }
+
+    function handleAction(selectElement, feeId, elementName, courseName, currentAmount) {
+        const action = selectElement.value;
+        selectElement.value = ""; // Reset dropdown selection
+
+        if (action === 'delete') {
+            if (confirm(`Are you sure you want to delete the functional fee for "${elementName}" (${courseName})?`)) {
+                document.getElementById(`delete-form-${feeId}`).submit();
+            }
+        } else if (action === 'edit') {
+            document.getElementById('editFeeId').value = feeId;
+            document.getElementById('editAmount').value = currentAmount;
+            document.getElementById('editInfo').innerText = `${elementName} — ${courseName}`;
+            document.getElementById('editModal').style.display = 'flex';
+        }
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+</script>
+{% endblock %}

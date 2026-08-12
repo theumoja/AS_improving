@@ -1,5 +1,10 @@
 {% extends 'attendance/base.html' %}
 {% block content %}
+{% block sidebar %}
+
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
 
 <style>
     .dashboard-nav {
@@ -173,6 +178,19 @@
 
 <!-- Optimized Compact Metric Tracker Matrix -->
 <div class="compact-stat-grid">
+    <div class="breadcrumb-area">
+        <nav aria-label="breadcrumb">
+            <ul class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{% url 'attendance:home' %}"><i class="fas fa-home"></i> Home</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{% url 'attendance:my_apps' %}">Modules</a>
+                </li>
+                <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+            </ul>
+        </nav>
+    </div>
     <div class="stat-card">
         <div class="icon"><i class="fas fa-book-open"></i></div>
         <div class="info">

@@ -1,0 +1,46 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<div style="display: flex; gap: 1.5rem;">
+    <div style="flex: 1; padding: 1rem;">
+        <h2><i class="fas fa-user-graduate"></i> Graduation Fees Ledger</h2>
+        <p style="color: var(--text-muted);">Track graduation mandatory fees, clearances, and candidate payments.</p>
+
+        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 1rem;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #2b3e85; color: white; text-align: left;">
+                        <th style="padding: 10px;">Reg Number</th>
+                        <th style="padding: 10px;">Graduating Student</th>
+                        <th style="padding: 10px;">Amount Due</th>
+                        <th style="padding: 10px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in grad_fees %}
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 10px; font-weight: bold;">{{ g.student.reg_number }}</td>
+                        <td style="padding: 10px;">{{ g.student.get_full_name }}</td>
+                        <td style="padding: 10px;">{{ g.amount }}</td>
+                        <td style="padding: 10px;">
+                            {% if g.is_paid %}
+                                <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #d1fae5; color: #065f46;">Cleared</span>
+                            {% else %}
+                                <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #fee2e2; color: #991b1b;">Pending Payment</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="padding: 20px; text-align: center; color: #64748b;">No graduation fee records created yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

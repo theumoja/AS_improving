@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from decimal import Decimal
 
+
 class User(AbstractUser):
     IS_ADMIN = 'ADMIN'
     IS_TEACHER = 'TEACHER'
@@ -11,8 +12,8 @@ class User(AbstractUser):
     IS_WARDEN = 'WARDEN'
     IS_LIBRARIAN = 'LIBRARIAN'
     IS_ACCOUNTANT = 'ACCOUNTANT'
-    IS_REGISTRAR = 'REGISTRAR'          # NEW
-    IS_PARENT = 'PARENT'                # NEW
+    IS_REGISTRAR = 'REGISTRAR'
+    IS_PARENT = 'PARENT'
 
     ROLE_CHOICES = [
         (IS_ADMIN, 'Admin'),
@@ -21,10 +22,61 @@ class User(AbstractUser):
         (IS_WARDEN, 'Warden'),
         (IS_LIBRARIAN, 'Librarian'),
         (IS_ACCOUNTANT, 'Accountant'),
-        (IS_REGISTRAR, 'Academic Registrar'),   # NEW
-        (IS_PARENT, 'Parent'),                  # NEW
+        (IS_REGISTRAR, 'Academic Registrar'),
+        (IS_PARENT, 'Parent'),
     ]
     role = models.CharField(max_length=15, choices=ROLE_CHOICES, default=IS_STUDENT)
+
+
+# ==================== INSTITUTION & ACADEMIC STRUCTURE ====================
+
+class Institution(models.Model):
+    TYPE_CHOICES = [
+        ('TECHNICAL_COLLEGE', 'Technical College'),
+        ('UNIVERSITY', 'University'),
+        ('INSTITUTE', 'Institute'),
+        ('OTHER', 'Other'),
+    ]
+
+    name = models.CharField(max_length=255)
+    institution_type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='TECHNICAL_COLLEGE')
+    slogan = models.CharField(max_length=255, blank=True, null=True)
+    address = models.TextField(help_text="Full location and P. O. Box address")
+    telephone_1 = models.CharField(max_length=20)
+    telephone_2 = models.CharField(max_length=20, blank=True, null=True)
+    website = models.URLField(blank=True, null=True)
+    email = models.EmailField()
+    academic_units = models.CharField(
+        max_length=255, 
+        blank=True, 
+        help_text="Comma-separated academic units e.g., COLLEGES, FACULTIES, DEPARTMENTS"
+    )
+    date_created = models.DateTimeField(auto_now_add=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Faculty(models.Model):
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='faculties', null=True, blank=True)
+    name = models.CharField(max_length=255, unique=True)
+    code = models.CharField(max_length=50, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = "Faculties"
+
+    def __str__(self):
+        return self.name
+
+
+class Department(models.Model):
+    faculty = models.ForeignKey(Faculty, on_delete=models.SET_NULL, null=True, blank=True, related_name='departments')
+    name = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.name
 
 
 # ==================== ACADEMIC PERIOD TRACKING ====================
@@ -47,25 +99,20 @@ class AcademicTerm(models.Model):
         verbose_name = "Academic Term"
 
     def clean(self):
-        # ... (validation logic as in original) ...
-        pass
+        if self.start_date and self.end_date and self.start_date >= self.end_date:
+            raise ValidationError("Start date must be strictly before end date.")
 
     def save(self, *args, **kwargs):
-        # ... (as original) ...
-        pass
+        self.full_clean()
+        if self.is_current:
+            AcademicTerm.objects.filter(is_current=True).exclude(pk=self.pk).update(is_current=False)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.academic_year} - {self.get_term_display()}"
 
 
 # ===================================================================
-
-class Department(models.Model):
-    name = models.CharField(max_length=255, unique=True)
-
-    def __str__(self):
-        return self.name
-
 
 class Course(models.Model):
     code = models.CharField(max_length=20, primary_key=True)
@@ -113,7 +160,7 @@ class StudentProfile(models.Model):
         return f"{self.reg_number} - {self.name}"
 
 
-# ==================== PARENT PROFILE (NEW) ====================
+# ==================== PARENT PROFILE ====================
 
 class ParentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='parent_profile')
@@ -182,7 +229,130 @@ class LibraryRecord(models.Model):
         return f"{self.book.title} - {borrower} ({self.status})"
 
 
-# ==================== FINANCE MODELS ====================
+# ==================== FINANCE & FEES MANAGEMENT MODULE ====================
+
+class FeeElement(models.Model):
+    ELEMENT_TYPES = [
+        ('TUITION', 'Tuition Fee'),
+        ('FUNCTIONAL', 'Functional Fee'),
+        ('OTHER', 'Other / Sundry Fee'),
+        ('GRADUATION', 'Graduation Fee'),
+    ]
+    code = models.CharField(max_length=30, unique=True)
+    name = models.CharField(max_length=255)
+    fee_type = models.CharField(max_length=20, choices=ELEMENT_TYPES, default='FUNCTIONAL')
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.name} ({self.get_fee_type_display()})"
+
+
+class TuitionAmount(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='tuition_amounts')
+    term = models.ForeignKey(AcademicTerm, on_delete=models.CASCADE, related_name='tuition_amounts')
+    fee_element = models.ForeignKey(FeeElement, on_delete=models.CASCADE, related_name='tuition_amounts', null=True, blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    is_approved = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('course', 'term', 'fee_element')
+
+    def __str__(self):
+        return f"Tuition: {self.course.code} ({self.term}) - {self.amount}"
+
+
+class FunctionalFee(models.Model):
+    element = models.ForeignKey(FeeElement, on_delete=models.CASCADE, limit_choices_to={'fee_type': 'FUNCTIONAL'})
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, null=True, blank=True, help_text="Leave blank if standard for all programs")
+    term = models.ForeignKey(AcademicTerm, on_delete=models.CASCADE, related_name='functional_fees')
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    is_mandatory = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Functional Fee: {self.element.name} ({self.term}) - {self.amount}"
+
+
+class OtherFee(models.Model):
+    element = models.ForeignKey(FeeElement, on_delete=models.CASCADE, limit_choices_to={'fee_type': 'OTHER'})
+    name = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    term = models.ForeignKey(AcademicTerm, on_delete=models.CASCADE, null=True, blank=True)
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Other Fee: {self.name} - {self.amount}"
+
+
+class FeeWaiver(models.Model):
+    WAIVER_TYPES = [
+        ('PERCENTAGE', 'Percentage Discount (%)'),
+        ('FIXED', 'Fixed Amount Discount'),
+    ]
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='waivers')
+    term = models.ForeignKey(AcademicTerm, on_delete=models.CASCADE, related_name='waivers')
+    waiver_type = models.CharField(max_length=20, choices=WAIVER_TYPES, default='PERCENTAGE')
+    value = models.DecimalField(max_digits=10, decimal_places=2, help_text="Discount percentage or exact amount")
+    reason = models.TextField()
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, limit_choices_to={'role__in': ['ADMIN', 'ACCOUNTANT']})
+    date_granted = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Waiver: {self.student.name} ({self.term}) - {self.value}"
+
+
+class FeeApproval(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending Approval'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    ]
+    title = models.CharField(max_length=255)
+    term = models.ForeignKey(AcademicTerm, on_delete=models.CASCADE)
+    details = models.TextField()
+    requested_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fee_approval_requests')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='fee_approvals_given')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Approval Request: {self.title} [{self.status}]"
+
+
+class Affiliate(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    code = models.CharField(max_length=50, unique=True)
+    contact_person = models.CharField(max_length=255, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    revenue_share_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'))
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Affiliate: {self.name} ({self.code})"
+
+
+class GraduationFee(models.Model):
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='graduation_fees')
+    academic_year = models.CharField(max_length=9, help_text="E.g., 2025/2026")
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    is_paid = models.BooleanField(default=False)
+    clearance_status = models.CharField(max_length=20, choices=[('PENDING', 'Pending'), ('CLEARED', 'Cleared')], default='PENDING')
+
+    def __str__(self):
+        return f"Graduation Fee: {self.student.name} - {self.amount}"
+
+
+class FeeStructureCopy(models.Model):
+    source_term = models.ForeignKey(AcademicTerm, on_delete=models.CASCADE, related_name='source_copies')
+    target_term = models.ForeignKey(AcademicTerm, on_delete=models.CASCADE, related_name='target_copies')
+    copied_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    copied_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Copy from {self.source_term} to {self.target_term}"
+
 
 class StudentTermFee(models.Model):
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='term_fees')
@@ -333,7 +503,7 @@ class DisciplinaryRecord(models.Model):
         return f"{self.subject} - {self.student.name}"
 
 
-# ==================== NEW: EXAMINATION MODULE ====================
+# ==================== EXAMINATION MODULE ====================
 
 class Exam(models.Model):
     name = models.CharField(max_length=255)
@@ -350,11 +520,11 @@ class Exam(models.Model):
 
 
 class GradeScale(models.Model):
-    name = models.CharField(max_length=50)  # e.g., "A", "B", etc.
+    name = models.CharField(max_length=50)
     min_score = models.PositiveIntegerField()
     max_score = models.PositiveIntegerField()
     grade_point = models.DecimalField(max_digits=3, decimal_places=1, default=0.0)
-    remark = models.CharField(max_length=50, blank=True)  # e.g., "Excellent"
+    remark = models.CharField(max_length=50, blank=True)
 
     class Meta:
         ordering = ['-min_score']
@@ -389,7 +559,7 @@ class Transcript(models.Model):
         return f"Transcript - {self.student.name} ({self.term})"
 
 
-# ==================== NEW: INVENTORY MODULE ====================
+# ==================== INVENTORY MODULE ====================
 
 class Supplier(models.Model):
     name = models.CharField(max_length=255)
@@ -416,7 +586,7 @@ class InventoryItem(models.Model):
     quantity = models.PositiveIntegerField(default=0)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='items')
-    location = models.CharField(max_length=255, blank=True)  # e.g., store room
+    location = models.CharField(max_length=255, blank=True)
     reorder_level = models.PositiveIntegerField(default=10)
     description = models.TextField(blank=True)
 
@@ -461,17 +631,17 @@ class Procurement(models.Model):
 class StockMovement(models.Model):
     MOVEMENT_TYPES = [('IN','Stock In'), ('OUT','Stock Out')]
     item = models.ForeignKey(InventoryItem, on_delete=models.CASCADE, related_name='movements')
-    quantity = models.IntegerField()  # positive for IN, negative for OUT
+    quantity = models.IntegerField()
     movement_type = models.CharField(max_length=3, choices=MOVEMENT_TYPES)
     date = models.DateTimeField(auto_now_add=True)
-    reference = models.CharField(max_length=100, blank=True)  # e.g., invoice number
+    reference = models.CharField(max_length=100, blank=True)
     remarks = models.TextField(blank=True)
 
     def __str__(self):
         return f"{self.item.name} {self.movement_type} {self.quantity}"
 
 
-# ==================== NEW: TRANSPORT MODULE ====================
+# ==================== TRANSPORT MODULE ====================
 
 class Vehicle(models.Model):
     registration_number = models.CharField(max_length=20, unique=True)
@@ -525,11 +695,11 @@ class TripLog(models.Model):
         return f"{self.vehicle.registration_number} - {self.route.name} ({self.departure_time})"
 
 
-# ==================== NEW: HUMAN RESOURCE (LEAVE, EVALUATION, QUALIFICATIONS) ====================
+# ==================== HUMAN RESOURCE ====================
 
 class Qualification(models.Model):
     staff = models.ForeignKey(User, on_delete=models.CASCADE, related_name='qualifications', limit_choices_to={'role__in': ['ADMIN','TEACHER','WARDEN','LIBRARIAN','ACCOUNTANT']})
-    qualification_name = models.CharField(max_length=255)  # e.g., BSc, MSc, PhD
+    qualification_name = models.CharField(max_length=255)
     institution = models.CharField(max_length=255)
     year_awarded = models.IntegerField()
     certificate_file = models.FileField(upload_to='qualifications/', blank=True, null=True)
@@ -571,7 +741,7 @@ class PerformanceEvaluation(models.Model):
         return f"{self.staff.username} - {self.score}%"
 
 
-# ==================== NEW: ONLINE LEARNING MODULE ====================
+# ==================== ONLINE LEARNING MODULE ====================
 
 class OnlineCourse(models.Model):
     name = models.CharField(max_length=255)

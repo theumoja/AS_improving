@@ -1,0 +1,42 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<div style="display: flex; gap: 1.5rem;">
+    <div style="flex: 1; padding: 1rem;">
+        <h2><i class="fas fa-network-wired"></i> Affiliate Institutions & Centers</h2>
+        <p style="color: var(--text-muted);">Manage partner institutions, affiliate centers, and fee sharing settings.</p>
+
+        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 1rem;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #2b3e85; color: white; text-align: left;">
+                        <th style="padding: 10px;">Affiliate Code</th>
+                        <th style="padding: 10px;">Institution Name</th>
+                        <th style="padding: 10px;">Contact Person</th>
+                        <th style="padding: 10px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aff in affiliates %}
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 10px; font-weight: bold;">{{ aff.code }}</td>
+                        <td style="padding: 10px;">{{ aff.name }}</td>
+                        <td style="padding: 10px;">{{ aff.contact_person|default:"N/A" }}</td>
+                        <td style="padding: 10px;">
+                            <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #d1fae5; color: #065f46;">Active</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="padding: 20px; text-align: center; color: #64748b;">No affiliate institutions configured.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

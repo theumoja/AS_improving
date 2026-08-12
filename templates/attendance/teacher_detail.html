@@ -1,0 +1,275 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .detail-card {
+        background: #ffffff;
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: var(--radius-md, 8px);
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+    }
+    .profile-avatar {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: #2563eb;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+    .pill-badge {
+        display: inline-block;
+        padding: 0.25rem 0.6rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 4px;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        margin: 0.15rem;
+    }
+    .badge-blue { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+    .badge-green { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+    .badge-amber { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+    
+    .table-custom {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    .table-custom th, .table-custom td {
+        padding: 0.65rem 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+        text-align: left;
+    }
+    .table-custom th {
+        background: #f8fafc;
+        font-weight: 700;
+        color: var(--text-muted, #64748b);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+    }
+</style>
+
+<!-- Profile Banner Header -->
+<div class="detail-card">
+    <div class="profile-header">
+        <div class="profile-avatar">
+            <i class="fas fa-chalkboard-teacher"></i>
+        </div>
+        <div>
+            <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-main, #0f172a);">{{ teacher.name }}</h2>
+            <div style="margin-top: 0.35rem; color: #64748b; font-size: 0.9rem;">
+                <span class="pill-badge badge-blue"><i class="fas fa-user-shield"></i> {{ teacher.user.get_role_display }}</span>
+                <span><i class="fas fa-envelope"></i> {{ teacher.user.email|default:"No Email" }}</span> | 
+                <span><i class="fas fa-id-badge"></i> Username: {{ teacher.user.username }}</span>
+            </div>
+        </div>
+        <div style="margin-left: auto;">
+            <a href="{% url 'attendance:edit_teacher' teacher.pk %}" class="pill-badge badge-amber" style="text-decoration:none; padding:0.4rem 0.8rem;">
+                <i class="fas fa-edit"></i> Edit Profile
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Assigned Academic Courses -->
+    <div class="detail-card">
+        <h3 style="margin-top:0; font-size:1.1rem; color:#1e293b;">
+            <i class="fas fa-book-reader" style="color:#2563eb;"></i> Assigned Courses
+        </h3>
+        {% if assigned_courses %}
+            {% for course in assigned_courses %}
+                <div style="padding:0.5rem 0; border-bottom:1px solid #f1f5f9;">
+                    <strong style="color:#0f172a;">{{ course.code }}</strong> - {{ course.name }}
+                    <div style="font-size:0.8rem; color:#64748b;">
+                        Faculty: {{ course.department.faculty.name|default:"N/A" }} | Dept: {{ course.department.name|default:"N/A" }}
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p style="color:#94a3b8; font-style:italic;">No courses assigned.</p>
+        {% endif %}
+    </div>
+
+    <!-- Timetable Teaching Schedule -->
+    <div class="detail-card">
+        <h3 style="margin-top:0; font-size:1.1rem; color:#1e293b;">
+            <i class="fas fa-calendar-alt" style="color:#7c3aed;"></i> Timetable Schedule
+        </h3>
+        {% if timetable_entries %}
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Time</th>
+                        <th>Course Unit</th>
+                        <th>Stream</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in timetable_entries %}
+                        <tr>
+                            <td><span class="pill-badge badge-blue">{{ entry.get_day_display }}</span></td>
+                            <td>{{ entry.start_time|time:"H:i" }} - {{ entry.end_time|time:"H:i" }}</td>
+                            <td><strong>{{ entry.course_unit.code }}</strong></td>
+                            <td>{{ entry.stream.name }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color:#94a3b8; font-style:italic;">No active timetable sessions.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Online Courses & Uploaded Content -->
+    <div class="detail-card">
+        <h3 style="margin-top:0; font-size:1.1rem; color:#1e293b;">
+            <i class="fas fa-laptop-code" style="color:#0284c7;"></i> E-Learning Courses & Uploads
+        </h3>
+        <h4 style="margin: 0.5rem 0; font-size:0.95rem; color:#475569;">Online Classes</h4>
+        {% if online_courses %}
+            {% for oc in online_courses %}
+                <div style="padding:0.4rem 0;">
+                    <span class="pill-badge badge-green">{{ oc.name }}</span> 
+                    <small>({{ oc.course_unit.code }})</small>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p style="color:#94a3b8; font-size:0.85rem; font-style:italic;">No online courses created.</p>
+        {% endif %}
+
+        <h4 style="margin: 0.75rem 0 0.5rem 0; font-size:0.95rem; color:#475569;">Shared Resources</h4>
+        {% if documents %}
+            <ul style="padding-left:1.2rem; margin:0; font-size:0.85rem;">
+                {% for doc in documents %}
+                    <li><a href="{{ doc.file.url }}" target="_blank">{{ doc.title }}</a> ({{ doc.course_unit.code }})</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p style="color:#94a3b8; font-size:0.85rem; font-style:italic;">No documents uploaded.</p>
+        {% endif %}
+    </div>
+
+    <!-- Qualifications & HR Evaluation -->
+    <div class="detail-card">
+        <h3 style="margin-top:0; font-size:1.1rem; color:#1e293b;">
+            <i class="fas fa-graduation-cap" style="color:#16a34a;"></i> Academic Qualifications
+        </h3>
+        {% if qualifications %}
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Qualification</th>
+                        <th>Institution</th>
+                        <th>Year</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in qualifications %}
+                        <tr>
+                            <td><strong>{{ q.qualification_name }}</strong></td>
+                            <td>{{ q.institution }}</td>
+                            <td>{{ q.year_awarded }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color:#94a3b8; font-style:italic;">No recorded qualifications.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- Leave History -->
+    <div class="detail-card">
+        <h3 style="margin-top:0; font-size:1.1rem; color:#1e293b;">
+            <i class="fas fa-plane-departure" style="color:#ea580c;"></i> Leave History
+        </h3>
+        {% if leave_requests %}
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Dates</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leave in leave_requests %}
+                        <tr>
+                            <td>{{ leave.get_leave_type_display }}</td>
+                            <td>{{ leave.start_date }} to {{ leave.end_date }}</td>
+                            <td>
+                                {% if leave.status == 'APPROVED' %}
+                                    <span class="pill-badge badge-green">Approved</span>
+                                {% elif leave.status == 'PENDING' %}
+                                    <span class="pill-badge badge-amber">Pending</span>
+                                {% else %}
+                                    <span class="pill-badge" style="background:#fee2e2; color:#991b1b;">Rejected</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color:#94a3b8; font-style:italic;">No leave requests logged.</p>
+        {% endif %}
+    </div>
+
+    <!-- Disbursement & Salary Payouts -->
+    <div class="detail-card">
+        <h3 style="margin-top:0; font-size:1.1rem; color:#1e293b;">
+            <i class="fas fa-file-invoice-dollar" style="color:#059669;"></i> Salary Payouts
+        </h3>
+        {% if payments %}
+            <table class="table-custom">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Ref</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in payments %}
+                        <tr>
+                            <td>{{ p.payment_date }}</td>
+                            <td><code>{{ p.reference_number }}</code></td>
+                            <td><strong>UGX {{ p.amount }}</strong></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color:#94a3b8; font-style:italic;">No payment records found.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

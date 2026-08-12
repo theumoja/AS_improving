@@ -1,0 +1,48 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<div style="display: flex; gap: 1.5rem;">
+    <div style="flex: 1; padding: 1rem;">
+        <h2><i class="fas fa-check-double"></i> Fee Structure Approvals</h2>
+        <p style="color: var(--text-muted);">Review and validate administrative fee structures prior to student billing.</p>
+
+        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 1rem;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #2b3e85; color: white; text-align: left;">
+                        <th style="padding: 10px;">Academic Term</th>
+                        <th style="padding: 10px;">Submitted By</th>
+                        <th style="padding: 10px;">Approver</th>
+                        <th style="padding: 10px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for app in approvals %}
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 10px; font-weight: bold;">{{ app.term.name }}</td>
+                        <td style="padding: 10px;">{{ app.requested_by.username }}</td>
+                        <td style="padding: 10px;">{{ app.approved_by.username|default:"Pending Review" }}</td>
+                        <td style="padding: 10px;">
+                            {% if app.status == 'APPROVED' %}
+                                <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #d1fae5; color: #065f46;">Approved</span>
+                            {% elif app.status == 'REJECTED' %}
+                                <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #fee2e2; color: #991b1b;">Rejected</span>
+                            {% else %}
+                                <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #fef3c7; color: #92400e;">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="padding: 20px; text-align: center; color: #64748b;">No pending or previous approval requests.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

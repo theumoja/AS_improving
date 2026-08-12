@@ -1,0 +1,57 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<div style="display: flex; gap: 1.5rem;">
+    <div style="flex: 1; padding: 1rem;">
+        <h2><i class="fas fa-eye"></i> Fee Structure Billing Preview</h2>
+        <p style="color: var(--text-muted);">Consolidated breakdown of tuition and functional fees by program.</p>
+
+        <div style="margin-bottom: 1.5rem; background: #ffffff; padding: 1.2rem; border-radius: 8px; border: 1px solid var(--border);">
+            <h3>Tuition Schedules</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem;">
+                <thead>
+                    <tr style="background: #f1f5f9; text-align: left;">
+                        <th style="padding: 8px;">Program</th>
+                        <th style="padding: 8px;">Term</th>
+                        <th style="padding: 8px;">Tuition Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in tuitions %}
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 8px;">{{ t.course.name }}</td>
+                        <td style="padding: 8px;">{{ t.term.name }}</td>
+                        <td style="padding: 8px; font-weight: bold;">{{ t.amount }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="background: #ffffff; padding: 1.2rem; border-radius: 8px; border: 1px solid var(--border);">
+            <h3>Functional Charges</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem;">
+                <thead>
+                    <tr style="background: #f1f5f9; text-align: left;">
+                        <th style="padding: 8px;">Item</th>
+                        <th style="padding: 8px;">Term</th>
+                        <th style="padding: 8px;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in functionals %}
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 8px;">{{ f.element.name }}</td>
+                        <td style="padding: 8px;">{{ f.term.name|default:"All Terms" }}</td>
+                        <td style="padding: 8px; font-weight: bold;">{{ f.amount }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

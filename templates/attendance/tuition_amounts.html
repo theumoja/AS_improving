@@ -1,0 +1,210 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    /* Force dropdown native text visibility across browser dark/light themes */
+    select, select option, input {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+    
+    .course-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 0.5rem;
+        max-height: 180px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 0.75rem;
+        border-radius: 4px;
+        background: #fafafa;
+    }
+
+    .course-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        color: #1e293b;
+    }
+
+    .action-btn {
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+</style>
+
+<div style="display: flex; gap: 1.5rem;">
+    <div style="flex: 1; padding: 1rem;">
+        <h2><i class="fas fa-graduation-cap"></i> Tuition Amounts Setup</h2>
+        <p style="color: var(--text-muted);">Assign tuition fees per programme/course, fee element, and active academic terms.</p>
+
+        <!-- ADD / BULK ADD FORM -->
+        <div style="margin-bottom: 1.5rem; background: #ffffff; padding: 1.2rem; border-radius: 8px; border: 1px solid var(--border);">
+            <h3>Assign Tuition Rate</h3>
+            
+            <form method="POST" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add">
+
+                <!-- COURSE MULTI-SELECT HEADER -->
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <label style="font-weight: bold; color: #1e293b;">Select Courses / Programmes:</label>
+                        <div>
+                            <button type="button" onclick="selectAllCourses(true)" class="action-btn" style="background: #e2e8f0; color: #1e293b;">Select All</button>
+                            <button type="button" onclick="selectAllCourses(false)" class="action-btn" style="background: #e2e8f0; color: #1e293b;">Unmark All</button>
+                        </div>
+                    </div>
+                    
+                    <div class="course-grid">
+                        {% for c in courses %}
+                        <label class="course-item">
+                            <input type="checkbox" name="courses" value="{{ c.code }}" class="course-checkbox">
+                            <span>{{ c.name }} ({{ c.code }})</span>
+                        </label>
+                        {% empty %}
+                        <p style="color: #64748b; margin: 0;">No courses registered.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- TERM, FEE ELEMENT, AND AMOUNT INPUTS -->
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                    <select name="term" required style="padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; flex: 1; min-width: 200px;">
+                        <option value="" style="color: #0f172a; background-color: #ffffff;">-- Select Active Academic Term --</option>
+                        {% for t in terms %}
+                        <option value="{{ t.id }}" style="color: #0f172a; background-color: #ffffff;">
+                            {{ t }}
+                        </option>
+                        {% empty %}
+                        <option value="" disabled style="color: #94a3b8;">No active term set</option>
+                        {% endfor %}
+                    </select>
+
+                    <select name="fee_element" required style="padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; flex: 1; min-width: 200px;">
+                        <option value="" style="color: #0f172a; background-color: #ffffff;">-- Select Fee Element --</option>
+                        {% for elem in fee_elements %}
+                        <option value="{{ elem.id }}" style="color: #0f172a; background-color: #ffffff;">
+                            {{ elem.name }} ({{ elem.code }})
+                        </option>
+                        {% empty %}
+                        <option value="" disabled style="color: #94a3b8;">No fee elements created</option>
+                        {% endfor %}
+                    </select>
+
+                    <input type="number" step="0.01" name="amount" placeholder="Amount (UGX / USD)" required style="padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; flex: 1; min-width: 160px;">
+
+                    <button type="submit" class="btn" style="background: #2b3e85; color: white; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; white-space: nowrap;">
+                        <i class="fas fa-plus"></i> Set Tuition
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- LIST & ACTIONS TABLE -->
+        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #2b3e85; color: white; text-align: left;">
+                        <th style="padding: 10px;">Programme / Course</th>
+                        <th style="padding: 10px;">Fee Element</th>
+                        <th style="padding: 10px;">Academic Term</th>
+                        <th style="padding: 10px;">Amount</th>
+                        <th style="padding: 10px;">Status</th>
+                        <th style="padding: 10px; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in tuitions %}
+                    <tr style="border-bottom: 1px solid #e2e8f0; color: #1e293b;">
+                        <td style="padding: 10px; font-weight: bold;">{{ t.course.name }} ({{ t.course.code }})</td>
+                        <td style="padding: 10px;">{{ t.fee_element.name|default:"Standard Tuition" }}</td>
+                        <td style="padding: 10px;">{{ t.term }}</td>
+                        <td style="padding: 10px;">{{ t.amount }}</td>
+                        <td style="padding: 10px;">
+                            <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #d1fae5; color: #065f46;">Configured</span>
+                        </td>
+                        <td style="padding: 10px; text-align: center;">
+                            <!-- EDIT BUTTON -->
+                            <button onclick="openEditModal('{{ t.id }}', '{{ t.amount }}', '{{ t.course.name|escapejs }}', '{{ t.fee_element_id }}')" class="action-btn" style="background: #3b82f6; color: white; margin-right: 4px;">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            
+                            <!-- DELETE FORM -->
+                            <form method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this tuition rate?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="tuition_id" value="{{ t.id }}">
+                                <button type="submit" class="action-btn" style="background: #ef4444; color: white;">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="padding: 20px; text-align: center; color: #64748b;">No tuition rates established yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT DIALOG MODAL -->
+<dialog id="editModal" style="border: 1px solid #ccc; border-radius: 8px; padding: 1.5rem; max-width: 400px; width: 100%;">
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="edit">
+        <input type="hidden" name="tuition_id" id="edit_tuition_id">
+        
+        <h3 style="margin-top:0;">Edit Tuition Rate</h3>
+        <p id="edit_course_name" style="color: #64748b; font-size: 0.9rem;"></p>
+        
+        <div style="margin-bottom: 1rem;">
+            <label style="display: block; margin-bottom: 0.3rem; color: #1e293b; font-weight: bold;">Fee Element:</label>
+            <select name="fee_element" id="edit_fee_element" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+                {% for elem in fee_elements %}
+                <option value="{{ elem.id }}">{{ elem.name }} ({{ elem.code }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+            <label style="display: block; margin-bottom: 0.3rem; color: #1e293b; font-weight: bold;">New Amount:</label>
+            <input type="number" step="0.01" name="amount" id="edit_amount" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button type="button" onclick="document.getElementById('editModal').close()" class="action-btn" style="background: #e2e8f0; color: #1e293b;">Cancel</button>
+            <button type="submit" class="action-btn" style="background: #2b3e85; color: white;">Save Changes</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+    function selectAllCourses(checked) {
+        const checkboxes = document.querySelectorAll('.course-checkbox');
+        checkboxes.forEach(cb => cb.checked = checked);
+    }
+
+    function openEditModal(id, amount, courseName, feeElementId) {
+        document.getElementById('edit_tuition_id').value = id;
+        document.getElementById('edit_amount').value = amount;
+        document.getElementById('edit_course_name').innerText = "Course: " + courseName;
+        if (feeElementId) {
+            document.getElementById('edit_fee_element').value = feeElementId;
+        }
+        document.getElementById('editModal').showModal();
+    }
+</script>
+{% endblock %}

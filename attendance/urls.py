@@ -1,8 +1,7 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, reverse_lazy
 from django.contrib.auth import views as auth_views
 from attendance import views_admin, views_users, views_analytics, views
-from django.urls import path, reverse_lazy
 
 app_name = 'attendance'
 
@@ -26,11 +25,9 @@ urlpatterns = [
     path('admin-ui/upload/teachers/', views_admin.bulk_upload_teachers, name='bulk_upload_teachers'),
     path('admin-ui/upload/students/', views_admin.bulk_upload_students, name='bulk_upload_students'),
 
-    # 1. Dashboard directory listing all streams/classes and their timetable statuses
+    # Timetable management
     path('timetable/manage/', views_admin.manage_timetable, name='manage_timetable'),
-    # 2. Scoped interactive matrix editor for a specific stream/class
     path('timetable/upload/<int:stream_id>/', views_admin.upload_timetable, name='upload_timetable'),
-    #path('admin-ui/upload/timetable/', views_admin.upload_timetable, name='upload_timetable'),
 
     # Outbound structural export arrays
     path('admin-ui/export/credentials/<str:role_type>/', views_admin.export_credentials, name='export_credentials'),
@@ -51,26 +48,19 @@ urlpatterns = [
     path('user-admin/manage-courses/', views_admin.manage_courses, name='manage_courses'),
     path('user-admin/manage-course-units/', views_admin.manage_course_units, name='manage_course_units'),
 
-    # =========================================================================
-    # CRITICAL RECORD EDIT / DELETE ROUTING ENGINE
-    # =========================================================================
-
-    # generate_report_card
-    #path('generate_report_card/', views_users.generate_report_card, name='generate_report_card'),
-    
-    # Teachers CRUD Extensions (Standard Auto-Increment Integer Keys)
+    # Teachers CRUD Extensions
     path('user-admin/manage-teachers/edit/<int:pk>/', views_admin.edit_teacher, name='edit_teacher'),
     path('user-admin/manage-teachers/delete/<int:pk>/', views_admin.delete_teacher, name='delete_teacher'),
 
-    # Students CRUD Extensions (FIXED: Uses path to accommodate slashes in Reg Numbers)
+    # Students CRUD Extensions
     path('user-admin/manage-students/edit/<path:pk>/', views_admin.edit_student, name='edit_student'),
     path('user-admin/manage-students/delete/<path:pk>/', views_admin.delete_student, name='delete_student'),
 
-    # Courses CRUD Extensions (String Alphanumeric Primary Keys)
+    # Courses CRUD Extensions
     path('user-admin/manage-courses/edit/<str:pk>/', views_admin.edit_course, name='edit_course'),
     path('user-admin/manage-courses/delete/<str:pk>/', views_admin.delete_course, name='delete_course'),
 
-    # Course Units CRUD Extensions (String Alphanumeric Primary Keys)
+    # Course Units CRUD Extensions
     path('user-admin/manage-course-units/edit/<str:pk>/', views_admin.edit_course_unit, name='edit_course_unit'),
     path('user-admin/manage-course-units/delete/<str:pk>/', views_admin.delete_course_unit, name='delete_course_unit'),
     path('change-password/', views.change_password_view, name='change_password'),
@@ -80,72 +70,83 @@ urlpatterns = [
     path('management/streams/delete/<int:stream_id>/', views_admin.delete_stream, name='delete_stream'),
     path('management/streams/bulk-upload/', views_admin.bulk_upload_streams, name='bulk_upload_streams'),
 
+    path('teacher/<int:pk>/', views_admin.teacher_detail_view, name='teacher_detail'),
+    path('student/<path:reg_number>/', views_admin.student_detail_view, name='student_detail'),
+    path('institution/', views_admin.manage_institution, name='manage_institution'),
+    
+    # ==================== ACADEMIC PERIOD TRACKING ====================
+    path('terms/', views_admin.manage_academic_terms, name='manage_academic_terms'),
+    path('terms/set-current/<int:pk>/', views_admin.set_current_term, name='set_current_term'),
+    path('terms/delete/<int:pk>/', views_admin.delete_academic_term, name='delete_academic_term'),
 
-    # Department Management Routes
+    # ==================== FACULTIES & DEPARTMENTS ====================
+    path('faculties/', views_admin.manage_faculties, name='manage_faculties'),
+    path('faculties/edit/<int:pk>/', views_admin.edit_faculty, name='edit_faculty'),
+    path('faculties/delete/<int:pk>/', views_admin.delete_faculty, name='delete_faculty'),
+
     path('departments/', views_admin.manage_departments, name='manage_departments'),
     path('departments/edit/<int:pk>/', views_admin.edit_department, name='edit_department'),
     path('departments/delete/<int:pk>/', views_admin.delete_department, name='delete_department'),
     path('departments/reports/', views_admin.admin_report_page, name='admin_report_page'),
     path('student/download-card/', views_users.download_attendance_card, name='download_attendance_card'),
-
-
     path('departments/add/', views_admin.add_department, name='add_department'),
     path('analytics/', views_admin.analytics_dashboard, name='analytics_dashboard'),
     path('admin-ui/upload/timetable/pdf/', views_admin.export_timetable_pdf, name='export_timetable_pdf'),
+    path('timetable/stream/<int:stream_id>/pdf/', views_admin.download_timetable_pdf, name='download_timetable_pdf'),
 
-
-    # 1. Admin Role & User Management Dashboard
     path('admin_ui/users/', views_admin.manage_users, name='manage_users'),
     path('library/reserve/apply/<int:book_id>/', views_users.apply_reserve_book, name='apply_reserve_book'),
 
-    # 2. Lodgings & Hostel Overview (Viewable by everyone based on template permissions)
     path('lodgings/', views_users.view_lodgings, name='view_lodgings'),
-
-    # 3. Lodging Allocation Execution Endpoint (Strictly processed by Wardens)
     path('lodgings/allocate/', views_users.allocate_or_reallocate, name='allocate_or_reallocate'),
     path('staff-payments/disburse/', views_users.disburse_payment_view, name='disburse_payment'),
     path('library/upload-books/', views_users.upload_books, name='upload_books'),
 
-    
-    # In attendance/urls.py inside urlpatterns:
     path('library/dashboard/', views_users.librarian_dashboard, name='librarian_dashboard'),
     path('library/manage/', views_users.manage_library, name='manage_library'),
     path('library/issue/', views_users.issue_book, name='issue_book'),
     path('library/return/<int:record_id>/', views_users.return_book, name='return_book'),
     path('library/books/add/', views_users.add_book, name='add_book'),
-
     path('library/reader/', views_users.library_reader_dashboard, name='library_reader_dashboard'),
     
+    # ==================== FINANCE & FEES MANAGEMENT MODULE ====================
     path('finance/', views_users.fees_dashboard, name='fees_dashboard'),
     path('staff_payments_dashboard/', views_users.staff_payments_dashboard, name='staff_payments_dashboard'),
     path('finance/record/', views_users.record_payment_attempt, name='record_payment_attempt'),
     path('finance/confirm/<int:transaction_id>/', views_users.confirm_student_payment, name='confirm_student_payment'),
-
-
     path('fees/confirm/<int:transaction_id>/', views_users.confirm_student_payment, name='confirm_student_payment'),
     
-    # New Management CRUD routing gates
     path('fees/edit/<int:transaction_id>/', views_users.edit_fee_transaction, name='edit_fee_transaction'),
     path('fees/delete/<int:transaction_id>/', views_users.delete_fee_transaction, name='delete_fee_transaction'),
     path('staff-payments/edit/<int:payment_id>/', views_users.edit_staff_payment, name='edit_staff_payment'),
     path('staff-payments/delete/<int:payment_id>/', views_users.delete_staff_payment, name='delete_staff_payment'),
     path('accountant-dashboard/', views_users.accountant_dashboard, name='accountant_dashboard'),
 
+    path('fees/elements/', views_admin.fees_elements, name='fees_elements'),
+    path('fees/tuition/', views_admin.tuition_amounts, name='tuition_amounts'),
+    path('fees/functional/', views_admin.functional_fees, name='functional_fees'),
+    path('fees/other/', views_admin.other_fees, name='other_fees'),
+    path('fees/waivers/', views_admin.fees_waivers, name='fees_waivers'),
+    path('fees/preview/', views_admin.fees_preview, name='fees_preview'),
+    path('fees/copy/', views_admin.fees_copy, name='fees_copy'),
+    path('fees/approvals/', views_admin.fees_approvals, name='fees_approvals'),
+    path('fees/affiliates/', views_admin.manage_affiliates, name='manage_affiliates'),
+    path('fees/graduation/', views_admin.graduation_fees, name='graduation_fees'),
 
+    # Disciplinary
     path('disciplinary/', views_users.disciplinary_dashboard, name='disciplinary_dashboard'),
     path('disciplinary/add/', views_users.add_complaint, name='add_complaint'),
     path('disciplinary/delete/<int:record_id>/', views_users.delete_complaint, name='delete_complaint'),
     path('complaint/<int:pk>/edit/', views_users.edit_complaint, name='edit_complaint'),    
 
-    # In attendance/urls.py
     path('warden-dashboard/', views_users.warden_dashboard, name='warden_dashboard'),
 
-
+    # Password resets
     path('password-reset/', 
          auth_views.PasswordResetView.as_view(
              template_name='registration/password_reset_form.html',
-             email_template_name='registration/password_reset_email.html', # Custom email template
-             success_url=reverse_lazy('attendance:password_reset_done')    # Namespaced success redirect
+             email_template_name='registration/password_reset_email.html',
+             success_url=reverse_lazy('attendance:password_reset_done')
          ), 
          name='password_reset'),
          
@@ -158,7 +159,7 @@ urlpatterns = [
     path('password-reset-confirm/<uidb64>/<token>/', 
          auth_views.PasswordResetConfirmView.as_view(
              template_name='registration/password_reset_confirm.html',
-             success_url=reverse_lazy('attendance:password_reset_complete') # Namespaced success redirect
+             success_url=reverse_lazy('attendance:password_reset_complete')
          ), 
          name='password_reset_confirm'),
          
@@ -168,7 +169,6 @@ urlpatterns = [
          ), 
          name='password_reset_complete'),
 
-   # Examination
     # Examination
     path('exams/', views_admin.manage_exams, name='manage_exams'),
     path('exams/edit/<int:exam_id>/', views_admin.edit_exam, name='edit_exam'),
@@ -177,7 +177,6 @@ urlpatterns = [
     path('exams/marks/<int:exam_id>/', views_users.manage_marks, name='manage_marks'),
     path('exams/marks/delete/<int:mark_id>/', views_users.delete_mark, name='delete_mark'),
     path('exams/grades/', views_admin.view_grades, name='view_grades'),
-    # Updated lines in urls.py:
     path('exams/report-card/<path:student_id>/<int:term_id>/', views_users.generate_report_card, name='generate_report_card'),
     path('exams/transcript/<path:student_id>/<int:term_id>/', views_admin.generate_transcript, name='generate_transcript'),
     path('exams/ranking/', views_admin.exam_ranking, name='exam_ranking'),
@@ -193,7 +192,6 @@ urlpatterns = [
     path('allocate/transport/', views_admin.allocate_transport, name='allocate_transport'),
     path('allocate/transport/edit/<int:pk>/', views_admin.edit_transport_allocation, name='edit_transport_allocation'),
     path('allocate/transport/delete/<int:pk>/', views_admin.delete_transport_allocation, name='delete_transport_allocation'),
-
     path('transport/trips/', views_admin.trip_log, name='trip_log'),
     path('transport/dashboard/', views_users.transport_dashboard, name='transport_dashboard'),
 
@@ -217,14 +215,9 @@ urlpatterns = [
     path('online/exams/', views_users.manage_online_exams, name='manage_online_exams'),
 
     # Registrar
-    path('registrar/dashboard/', views_users.registrar_dashboard, name='registrar_dashboard'),  # define if needed
+    path('registrar/dashboard/', views_users.registrar_dashboard, name='registrar_dashboard'),
     path('admin_ui/admissions/', views_admin.manage_admissions, name='manage_admissions'),
     path('admin_ui/transfers/', views_admin.manage_student_transfers, name='manage_student_transfers'),
 
-
-
     path('course-documents/', views_users.manage_course_documents, name='manage_course_documents'),
-
-
-    
-    ]
+]

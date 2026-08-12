@@ -25,7 +25,11 @@
         <h2><i class="fas fa-calendar-alt"></i> Matrix Editor: <span style="color: #2b3e85;">{{ stream.name }}</span></h2>
         <p style="color: var(--text-muted); margin: 0; font-size: 0.95rem;">Modifying or adding records preserves the entire configuration layout specifically for this class block context.</p>
     </div>
-    <div>
+    <!-- Action Buttons -->
+    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <a href="{% url 'attendance:download_timetable_pdf' stream.id %}" target="_blank" class="btn" style="background: #dc2626; border-radius: var(--radius-sm); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 0.6rem 1.2rem; color: white; font-weight: 600;">
+            <i class="fas fa-file-pdf"></i> Download PDF
+        </a>
         <button type="button" id="addTimeRowBtn" class="btn" style="background: #2b3e85; border-radius: var(--radius-sm);">
             <i class="fas fa-plus"></i> Append New Time Interval Row
         </button>

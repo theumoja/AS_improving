@@ -1,0 +1,67 @@
+{% comment %}
+    Breadcrumb Navigation Bar Partial
+    Included in base.html above {% block content %}
+{% endcomment %}
+<nav aria-label="breadcrumb" class="breadcrumb-bar">
+    <a href="{% url 'attendance:my_apps' %}">
+        <i class="fas fa-th-large"></i> My Apps
+    </a>
+
+    {% if 'students' in request.path or 'student' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:manage_students' %}">Student Operations</a>
+    {% elif 'teachers' in request.path or 'teacher' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:manage_teachers' %}">Teacher Operations</a>
+    {% elif 'institution' in request.path or 'faculties' in request.path or 'departments' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:manage_departments' %}">Institutional Operations</a>
+    {% elif 'courses' in request.path or 'course-units' in request.path or 'course-documents' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:manage_courses' %}">Programs & Curriculum</a>
+    {% elif 'streams' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:manage_streams' %}">Stream Operations</a>
+    {% elif 'library' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:manage_library' %}">Library Operations</a>
+    {% elif 'finance' in request.path or 'fees' in request.path or 'staff-payments' in request.path or 'accountant' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:fees_dashboard' %}">Accounting Operations</a>
+    {% elif 'warden' in request.path or 'lodgings' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:view_lodgings' %}">Warden Operations</a>
+    {% elif 'disciplinary' in request.path or 'complaint' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:disciplinary_dashboard' %}">Disciplinary Operations</a>
+    {% elif 'timetable' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:manage_timetable' %}">Timetable Operations</a>
+    {% elif 'exams' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:manage_exams' %}">Examination Operations</a>
+    {% elif 'inventory' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:manage_inventory' %}">Inventory Operations</a>
+    {% elif 'transport' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:transport_dashboard' %}">Transport Operations</a>
+    {% elif 'hr' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:hr_dashboard' %}">Human Resources</a>
+    {% elif 'parent' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:parent_dashboard' %}">Parent Portal</a>
+    {% elif 'online' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:manage_online_courses' %}">E-Learning Operations</a>
+    {% elif 'registrar' in request.path or 'admissions' in request.path or 'transfers' in request.path %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <a href="{% url 'attendance:registrar_dashboard' %}">Registrar Operations</a>
+    {% endif %}
+
+    {% if request.resolver_match.url_name and request.resolver_match.url_name != 'my_apps' %}
+        <span class="separator"><i class="fas fa-chevron-right"></i></span>
+        <span class="current-page">{{ page_title|default:"Current Page" }}</span>
+    {% endif %}
+</nav>

@@ -36,6 +36,19 @@
                 <i class="fas fa-chart-pie"></i>
                 <span class="card-label">Admin Dashboard</span>
             </a>
+
+            {# --- ADMIN ONLY MODULES --- #}
+            {% if user.role == 'ADMIN' %}
+                <a href="{% url 'attendance:manage_institution' %}" class="nav-card">
+                    <i class="fas fa-university"></i>
+                    <span class="card-label">Institution Setup</span>
+                </a>
+                <a href="{% url 'attendance:manage_courses' %}" class="nav-card">
+                    <i class="fas fa-scroll"></i>
+                    <span class="card-label">Programs & Curriculum</span>
+                </a>
+            {% endif %}
+
             <a href="{% url 'attendance:manage_teachers' %}" class="nav-card">
                 <i class="fas fa-chalkboard-teacher"></i>
                 <span class="card-label">Teachers</span>
@@ -48,6 +61,13 @@
                 <i class="fas fa-calendar-alt"></i>
                 <span class="card-label">Timetable</span>
             </a>
+
+            {# --- FEES MANAGEMENT SUB-MODULES --- #}
+            <a href="{% url 'attendance:fees_dashboard' %}" class="nav-card">
+                <i class="fas fa-wallet"></i>
+                <span class="card-label">Fees Dashboard</span>
+            </a>
+            
         {% endif %}
 
         {# ========================================================= #}
@@ -67,7 +87,6 @@
                 <i class="fas fa-graduation-cap"></i>
                 <span class="card-label">Grade Scales</span>
             </a>
-            <!-- ADDED: Course Documents for Admin -->
             <a href="{% url 'attendance:manage_course_documents' %}" class="nav-card">
                 <i class="fas fa-folder-open"></i>
                 <span class="card-label">Course Documents</span>
@@ -160,6 +179,10 @@
                 <i class="fas fa-book"></i>
                 <span class="card-label">Courses</span>
             </a>
+            <a href="{% url 'attendance:manage_academic_terms' %}" class="nav-card">
+                <i class="fas fa-calendar-alt"></i>
+                <span class="card-label">Academic Terms</span>
+            </a>
             <a href="{% url 'attendance:manage_students' %}" class="nav-card">
                 <i class="fas fa-user-graduate"></i>
                 <span class="card-label">Students</span>
@@ -209,7 +232,6 @@
                 <i class="fas fa-video"></i>
                 <span class="card-label">Online Exams</span>
             </a>
-            <!-- ADDED: Course Documents for Online Learning module -->
             <a href="{% url 'attendance:manage_course_documents' %}" class="nav-card">
                 <i class="fas fa-folder-open"></i>
                 <span class="card-label">Course Documents</span>
@@ -225,7 +247,6 @@
                 <i class="fas fa-chalkboard-teacher"></i>
                 <span class="card-label">Dashboard</span>
             </a>
-            <!-- ADDED: Course Documents for Teacher -->
             <a href="{% url 'attendance:manage_course_documents' %}" class="nav-card">
                 <i class="fas fa-folder-open"></i>
                 <span class="card-label">Course Documents</span>
@@ -257,7 +278,6 @@
                 <i class="fas fa-user-graduate"></i>
                 <span class="card-label">Dashboard</span>
             </a>
-            <!-- ADDED: Course Documents for Student -->
             <a href="{% url 'attendance:manage_course_documents' %}" class="nav-card">
                 <i class="fas fa-folder-open"></i>
                 <span class="card-label">Course Documents</span>
@@ -293,7 +313,6 @@
                 <i class="fas fa-child"></i>
                 <span class="card-label">Dashboard</span>
             </a>
-            <!-- ADDED: Course Documents for Parent -->
             <a href="{% url 'attendance:manage_course_documents' %}" class="nav-card">
                 <i class="fas fa-folder-open"></i>
                 <span class="card-label">Course Documents</span>
@@ -355,10 +374,10 @@
         {% endif %}
 
         {# ========================================================= #}
-        {# 13. ACCOUNTING                                           #}
+        {# 13. ACCOUNTING & FEES MANAGEMENT                         #}
         {# ========================================================= #}
-        {% if selected_module == 'accounting' and user.role == 'ACCOUNTANT' %}
-            <div class="nav-section-title">Accounting</div>
+        {% if selected_module == 'accounting' and user.role == 'ACCOUNTANT' or selected_module == 'accounting' and user.role == 'ADMIN' or selected_module == 'accounting' and user.is_staff %}
+            <div class="nav-section-title">Accounting Operations</div>
             <a href="{% url 'attendance:accountant_dashboard' %}" class="nav-card">
                 <i class="fas fa-chart-pie"></i>
                 <span class="card-label">Dashboard</span>
@@ -374,6 +393,48 @@
             <a href="{% url 'attendance:apply_leave' %}" class="nav-card">
                 <i class="fas fa-calendar-alt"></i>
                 <span class="card-label">Apply Leave</span>
+            </a>
+
+            <div class="nav-section-title" style="width: 100%; margin-top: 1rem;">Fees Management</div>
+            <a href="{% url 'attendance:fees_elements' %}" class="nav-card">
+                <i class="fas fa-tags"></i>
+                <span class="card-label">Fees Elements</span>
+            </a>
+            <a href="{% url 'attendance:tuition_amounts' %}" class="nav-card">
+                <i class="fas fa-graduation-cap"></i>
+                <span class="card-label">Tuition Amounts</span>
+            </a>
+            <a href="{% url 'attendance:functional_fees' %}" class="nav-card">
+                <i class="fas fa-cogs"></i>
+                <span class="card-label">Functional Fees</span>
+            </a>
+            <a href="{% url 'attendance:other_fees' %}" class="nav-card">
+                <i class="fas fa-receipt"></i>
+                <span class="card-label">Other Fees</span>
+            </a>
+            <a href="{% url 'attendance:fees_waivers' %}" class="nav-card">
+                <i class="fas fa-hand-holding-usd"></i>
+                <span class="card-label">Fees Waivers</span>
+            </a>
+            <a href="{% url 'attendance:fees_preview' %}" class="nav-card">
+                <i class="fas fa-eye"></i>
+                <span class="card-label">Fees Preview</span>
+            </a>
+            <a href="{% url 'attendance:fees_copy' %}" class="nav-card">
+                <i class="fas fa-copy"></i>
+                <span class="card-label">Fees Copy</span>
+            </a>
+            <a href="{% url 'attendance:fees_approvals' %}" class="nav-card">
+                <i class="fas fa-check-double"></i>
+                <span class="card-label">Fees Approvals</span>
+            </a>
+            <a href="{% url 'attendance:manage_affiliates' %}" class="nav-card">
+                <i class="fas fa-network-wired"></i>
+                <span class="card-label">Manage Affiliates</span>
+            </a>
+            <a href="{% url 'attendance:graduation_fees' %}" class="nav-card">
+                <i class="fas fa-user-graduate"></i>
+                <span class="card-label">Graduation Fees</span>
             </a>
         {% endif %}
 

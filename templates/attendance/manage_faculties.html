@@ -116,19 +116,19 @@
 
 <div class="page-header-actions">
     <div style="display: flex; gap: 1rem; align-items: center; flex: 1; flex-wrap: wrap;">
-        <a href="{% url 'attendance:download_template' 'departments' %}" class="btn-download-list">
-            <i class="fas fa-download"></i> Export Department Metrics
+        <a href="{% url 'attendance:download_template' 'faculties' %}" class="btn-download-list">
+            <i class="fas fa-download"></i> Export Faculty Metrics
         </a>
         <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
             <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search department name, faculty..." style="padding-left: 2.25rem;">
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search faculty code, title, institution..." style="padding-left: 2.25rem;">
         </div>
     </div>
 
     <div class="action-group">
         
         <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
-            <i class="fas fa-plus-circle"></i> Create Department
+            <i class="fas fa-plus-circle"></i> Create Faculty Unit
         </button>
     </div>
 </div>
@@ -137,52 +137,62 @@
     <table class="table">
         <thead>
             <tr>
-                <th>Department Name</th>
-                <th>Parent Faculty / School</th>
-                <th>Subordinated Course Programs</th>
+                <th style="width:140px;">Faculty Code</th>
+                <th>Full Faculty / School Name</th>
+                <th>Institution</th>
+                <th>Subordinated Departments</th>
                 <th style="text-align: right;">Execution Parameters</th>
             </tr>
         </thead>
-        <tbody id="departmentsTableBody">
-            {% for dept in departments %}  
-            <tr class="department-row">
-                <td style="font-weight: 600; color: var(--text-main);">
-                    {{ dept.name }}
+        <tbody id="facultiesTableBody">
+            {% for faculty in faculties %}  
+            <tr class="faculty-row">
+                <td>
+                    {% if faculty.code %}
+                        <code style="font-size:0.95rem; font-weight:700; color:var(--text-main);">{{ faculty.code }}</code>
+                    {% else %}
+                        <em style="color: #94a3b8;">N/A</em>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="font-weight: 600; color: var(--text-main);">{{ faculty.name }}</div>
+                    {% if faculty.description %}
+                        <small style="color: var(--text-muted); display: block; font-size: 0.8rem; margin-top: 2px;">{{ faculty.description|truncatewords:12 }}</small>
+                    {% endif %}
                 </td>
                 <td style="color: var(--text-muted);">
-                    {% if dept.faculty %}
-                        <span style="font-weight: 500; color: var(--text-main);">{{ dept.faculty.name }}</span>
-                        {% if dept.faculty.code %}(<code>{{ dept.faculty.code }}</code>){% endif %}
+                    {% if faculty.institution %}
+                        {{ faculty.institution.name }}
                     {% else %}
                         <em style="color: #94a3b8;">Unassigned</em>
                     {% endif %}
                 </td>
                 <td>
-                    <a href="{% url 'attendance:manage_courses' %}?filter_department={{ dept.id }}" class="unit-navigation-link">
-                        <i class="fas fa-graduation-cap"></i> View Courses ({{ dept.courses.count }})
+                    <a href="{% url 'attendance:manage_departments' %}?filter_faculty={{ faculty.id }}" class="unit-navigation-link">
+                        <i class="fas fa-sitemap"></i> View Departments ({{ faculty.departments.count }})
                     </a>
                 </td>
                 <td style="text-align: right;">
-                    <a href="{% url 'attendance:edit_department' dept.pk %}" class="action-link edit">
+                    <a href="{% url 'attendance:edit_faculty' faculty.pk %}" class="action-link edit">
                         <i class="fas fa-edit"></i> Edit
                     </a>
-                    <a href="{% url 'attendance:delete_department' dept.pk %}" class="action-link delete" onclick="return confirm('Drop this department track?');">
+                    <a href="{% url 'attendance:delete_faculty' faculty.pk %}" class="action-link delete" onclick="return confirm('Drop this faculty branch and unassign departments?');">
                         <i class="fas fa-trash-alt"></i> Delete
                     </a>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                    <i class="fas fa-sitemap" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
-                    No department structural records registered yet.
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class="fas fa-university" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                    No faculty organizational structures registered yet.
                 </td>
             </tr>
             {% endfor %}
             <tr id="searchEmptyRow" style="display: none;">
-                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
-                    No matching department records discovered for your filter criteria.
+                    No matching faculty records discovered for your filter criteria.
                 </td>
             </tr>
         </tbody>
@@ -192,28 +202,36 @@
 <div class="modal" id="singleAddModal">
     <div class="modal-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-            <h3>Structural Department Creator</h3>
+            <h3>Structural Faculty Creator</h3>
             <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
         <form method="POST" action="">
             {% csrf_token %}
             <input type="hidden" name="action" value="single">
-
+            
             <div class="form-group">
-                <label for="department_name">Department Name</label>
-                <input type="text" id="department_name" name="department_name" class="form-control" required placeholder="e.g. Department of Computer Science">
+                <label for="faculty_code">Faculty Code (Optional)</label>
+                <input type="text" id="faculty_code" name="faculty_code" class="form-control" placeholder="e.g. FoE, FST">
             </div>
 
             <div class="form-group">
-                <label for="faculty">Assigned Parent Faculty</label>
-                <select id="faculty" name="faculty" class="form-control">
-                    <option value="">-- Select Faculty (Optional) --</option>
-                    {% for fac in faculties %}
-                        <option value="{{ fac.id }}" {% if selected_faculty_id == fac.id|stringformat:"s" %}selected{% endif %}>
-                            {{ fac.name }} {% if fac.code %}({{ fac.code }}){% endif %}
-                        </option>
+                <label for="faculty_name">Full Faculty Name</label>
+                <input type="text" id="faculty_name" name="faculty_name" class="form-control" required placeholder="e.g. Faculty of Engineering and Technology">
+            </div>
+
+            <div class="form-group">
+                <label for="institution">Parent Institution</label>
+                <select id="institution" name="institution" class="form-control">
+                    <option value="">-- Select Institution (Optional) --</option>
+                    {% for inst in institutions %}
+                        <option value="{{ inst.id }}">{{ inst.name }}</option>
                     {% endfor %}
                 </select>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Faculty Overview / Description</label>
+                <textarea id="description" name="description" class="form-control" rows="3" placeholder="Brief summary of academic scope..."></textarea>
             </div>
 
             <div style="display:flex; gap:0.75rem; margin-top:2rem;">
@@ -240,7 +258,7 @@
 
         // Automated Frontend Search Matrix
         const searchInput = document.getElementById('dashboardSearch');
-        const dataRows = document.querySelectorAll('.department-row');
+        const dataRows = document.querySelectorAll('.faculty-row');
         const emptyRow = document.getElementById('searchEmptyRow');
 
         if (searchInput) {

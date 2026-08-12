@@ -1,0 +1,297 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .profile-header-card {
+        background: #ffffff;
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: var(--radius-md, 8px);
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+    }
+    .profile-avatar-title {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+    }
+    .avatar-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: var(--primary-light, #eff6ff);
+        color: var(--primary, #2563eb);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        font-weight: 700;
+        border: 2px solid var(--border, #cbd5e1);
+    }
+    .grid-layout {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .info-card {
+        background: #ffffff;
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: var(--radius-md, 8px);
+        padding: 1.25rem 1.5rem;
+    }
+    .info-card h3 {
+        margin-top: 0;
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+        color: var(--text-main, #1e293b);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-bottom: 1px solid var(--border, #f1f5f9);
+        padding-bottom: 0.5rem;
+    }
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.4rem 0;
+        font-size: 0.9rem;
+        border-bottom: 1px dashed #f1f5f9;
+    }
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+    .detail-label {
+        color: var(--text-muted, #64748b);
+        font-weight: 500;
+    }
+    .detail-value {
+        font-weight: 600;
+        color: var(--text-main, #0f172a);
+        text-align: right;
+    }
+    .badge-pill {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+    .badge-success { background: #dcfce7; color: #15803d; }
+    .badge-warning { background: #fef3c7; color: #b45309; }
+    .badge-danger { background: #fee2e2; color: #b91c1c; }
+</style>
+
+<!-- Profile Header Banner -->
+<div class="profile-header-card">
+    <div class="profile-avatar-title">
+        <div class="avatar-icon">
+            <i class="fas fa-user-graduate"></i>
+        </div>
+        <div>
+            <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-main, #0f172a);">{{ student.name }}</h2>
+            <p style="margin: 0.25rem 0 0 0; color: var(--text-muted, #64748b); font-size: 0.95rem;">
+                Reg No: <strong>{{ student.reg_number }}</strong> | Username: <code>{{ student.user.username }}</code>
+            </p>
+        </div>
+    </div>
+    <div>
+        <a href="javascript:history.back()" class="btn" style="background: #f1f5f9; color: #334155; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-weight: 600;">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+<!-- Academic & Facility Structure Grid -->
+<div class="grid-layout">
+    <!-- Academic Details -->
+    <div class="info-card">
+        <h3><i class="fas fa-university" style="color: #2563eb;"></i> Academic Structure</h3>
+        <div class="detail-row">
+            <span class="detail-label">Faculty</span>
+            <span class="detail-value">{{ student.course.department.faculty.name|default:"Unassigned" }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Department</span>
+            <span class="detail-value">{{ student.course.department.name|default:"Unassigned" }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Course</span>
+            <span class="detail-value">{{ student.course.code }} - {{ student.course.name }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Stream</span>
+            <span class="detail-value">{{ student.stream.name|default:"N/A" }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Account Email</span>
+            <span class="detail-value">{{ student.user.email|default:"N/A" }}</span>
+        </div>
+    </div>
+
+    <!-- Attendance & Hostel / Transport -->
+    <div class="info-card">
+        <h3><i class="fas fa-clock" style="color: #059669;"></i> Attendance & Facilities</h3>
+        <div class="detail-row">
+            <span class="detail-label">Overall Attendance</span>
+            <span class="detail-value">
+                <span class="badge-pill {% if attendance_percentage >= 75 %}badge-success{% else %}badge-danger{% endif %}">
+                    {{ attendance_percentage }}%
+                </span>
+                <small style="display:block; color:var(--text-muted);">({{ present_sessions }}/{{ total_sessions }} Sessions)</small>
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Hostel Allocation</span>
+            <span class="detail-value">
+                {% if current_room_allocation %}
+                    {{ current_room_allocation.room.hostel.name }} - Room {{ current_room_allocation.room.name_or_number }}
+                {% else %}
+                    <span style="color: var(--text-muted);">Not Allocated</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Transport Route</span>
+            <span class="detail-value">
+                {% if current_transport %}
+                    {{ current_transport.route.name }}
+                {% else %}
+                    <span style="color: var(--text-muted);">No Active Route</span>
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- Financial Status -->
+    <div class="info-card">
+        <h3><i class="fas fa-wallet" style="color: #d97706;"></i> Financial Summary</h3>
+        <div class="detail-row">
+            <span class="detail-label">Outstanding Balance</span>
+            <span class="detail-value" style="font-size: 1.1rem; color: {% if total_balance > 0 %}#dc2626{% else %}#16a34a{% endif %};">
+                UGX {{ total_balance|floatformat:2 }}
+            </span>
+        </div>
+        {% for fee in term_fees %}
+        <div class="detail-row">
+            <span class="detail-label">{{ fee.term }}</span>
+            <span class="detail-value">
+                Paid: {{ fee.total_amount_paid }} / Due: {{ fee.total_fees_due }}
+            </span>
+        </div>
+        {% empty %}
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">No term fee accounts generated.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Parent & Guardian Contacts -->
+<div class="info-card" style="margin-bottom: 1.5rem;">
+    <h3><i class="fas fa-users" style="color: #7c3aed;"></i> Parent / Guardian Contacts</h3>
+    {% if parents %}
+        <table class="table" style="width:100%;">
+            <thead>
+                <tr>
+                    <th>Guardian Name</th>
+                    <th>Phone Number</th>
+                    <th>Account Username</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for parent in parents %}
+                <tr>
+                    <td><strong>{{ parent.name }}</strong></td>
+                    <td>{{ parent.phone|default:"N/A" }}</td>
+                    <td><code>{{ parent.user.username }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="color: var(--text-muted); margin: 0; font-size: 0.9rem;">No parent/guardian profiles linked to this student.</p>
+    {% endif %}
+</div>
+
+<!-- Examination & Marks Record -->
+<div class="info-card" style="margin-bottom: 1.5rem;">
+    <h3><i class="fas fa-graduation-cap" style="color: #2563eb;"></i> Academic Results Summary</h3>
+    {% if marks %}
+        <table class="table" style="width:100%;">
+            <thead>
+                <tr>
+                    <th>Exam Title</th>
+                    <th>Course Unit</th>
+                    <th>Term</th>
+                    <th>Score Obtained</th>
+                    <th>Grade</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in marks %}
+                <tr>
+                    <td>{{ m.exam.name }}</td>
+                    <td><code>{{ m.exam.course_unit.code }}</code> {{ m.exam.course_unit.name }}</td>
+                    <td>{{ m.exam.term }}</td>
+                    <td><strong>{{ m.marks_obtained }}</strong> / {{ m.exam.total_marks }}</td>
+                    <td><span class="badge-pill badge-success">{{ m.grade.name|default:"-" }}</span></td>
+                    <td>{{ m.remarks|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="color: var(--text-muted); margin: 0; font-size: 0.9rem;">No examination marks recorded for this student.</p>
+    {% endif %}
+</div>
+
+<!-- Library Borrowing & Disciplinary Logs -->
+<div class="grid-layout">
+    <!-- Library Activity -->
+    <div class="info-card">
+        <h3><i class="fas fa-book-reader" style="color: #0284c7;"></i> Library Activity</h3>
+        {% if library_records %}
+            <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.88rem;">
+                {% for log in library_records %}
+                <li style="padding: 0.5rem 0; border-bottom: 1px solid #f1f5f9;">
+                    <strong>{{ log.book.title }}</strong><br>
+                    <span style="color: var(--text-muted);">Issued: {{ log.issue_date }} | Due: {{ log.due_date }}</span><br>
+                    <span class="badge-pill {% if log.status == 'ISSUED' %}badge-warning{% else %}badge-success{% endif %}">
+                        {{ log.status }}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p style="color: var(--text-muted); margin: 0; font-size: 0.9rem;">No library borrowing history found.</p>
+        {% endif %}
+    </div>
+
+    <!-- Disciplinary History -->
+    <div class="info-card">
+        <h3><i class="fas fa-exclamation-triangle" style="color: #dc2626;"></i> Disciplinary Logs</h3>
+        {% if disciplinary_logs %}
+            <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.88rem;">
+                {% for log in disciplinary_logs %}
+                <li style="padding: 0.5rem 0; border-bottom: 1px solid #f1f5f9;">
+                    <strong>{{ log.subject }}</strong> 
+                    <span class="badge-pill badge-danger">{{ log.get_severity_display }}</span><br>
+                    <span style="color: var(--text-muted);">{{ log.date_logged|date:"Y-m-d" }} - Reported by {{ log.reported_by.username }}</span>
+                    <p style="margin: 0.25rem 0 0 0;">{{ log.details }}</p>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p style="color: var(--text-muted); margin: 0; font-size: 0.9rem;">No disciplinary incidents logged.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

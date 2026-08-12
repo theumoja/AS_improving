@@ -1,0 +1,111 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .edit-container {
+        max-width: 650px;
+        margin: 2rem auto;
+    }
+    .page-header-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--text-muted);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: var(--transition);
+    }
+    .btn-back:hover {
+        color: var(--accent);
+    }
+    .edit-card {
+        background: #ffffff;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        padding: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+    .form-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 2rem;
+    }
+</style>
+
+<div class="edit-container">
+    <div class="page-header-actions">
+        <a href="{% url 'attendance:manage_faculties' %}" class="btn-back">
+            <i class="fas fa-arrow-left"></i> Back to Faculties
+        </a>
+        <h2 style="font-size: 1.25rem; font-weight: 700;">Edit Faculty Unit</h2>
+    </div>
+
+    <div class="edit-card">
+        <form method="POST" action="">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="faculty_code">Faculty Code (Optional)</label>
+                <input type="text" id="faculty_code" name="faculty_code" class="form-control" value="{{ faculty.code|default:'' }}" placeholder="e.g. FoE, FST">
+            </div>
+
+            <div class="form-group">
+                <label for="faculty_name">Full Faculty Name</label>
+                <input type="text" id="faculty_name" name="faculty_name" class="form-control" required value="{{ faculty.name }}" placeholder="e.g. Faculty of Engineering and Technology">
+            </div>
+
+            <div class="form-group">
+                <label for="institution">Parent Institution</label>
+                <select id="institution" name="institution" class="form-control">
+                    <option value="">-- Select Institution (Optional) --</option>
+                    {% for inst in institutions %}
+                        <option value="{{ inst.id }}" {% if faculty.institution and faculty.institution.id == inst.id %}selected{% endif %}>
+                            {{ inst.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Faculty Overview / Description</label>
+                <textarea id="description" name="description" class="form-control" rows="4" placeholder="Brief summary of academic scope...">{{ faculty.description|default:'' }}</textarea>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'attendance:manage_faculties' %}" class="btn btn-outline" style="flex:1; text-align:center; text-decoration:none;">Cancel</a>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .institution-container {
+        max-width: 900px;
+        margin: 1.5rem auto;
+    }
+    .page-header-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .header-title-group {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .header-icon {
+        width: 42px;
+        height: 42px;
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    .profile-card {
+        background: #ffffff;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        padding: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .section-divider {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin: 1.75rem 0 1rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .section-divider:first-of-type {
+        margin-top: 0;
+    }
+    .form-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.25rem;
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .meta-badge-container {
+        display: flex;
+        gap: 1.5rem;
+        background: #f8fafc;
+        padding: 0.85rem 1.25rem;
+        border-radius: var(--radius-sm);
+        border: 1px dashed var(--border);
+        margin-bottom: 1.5rem;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+</style>
+
+<div class="institution-container">
+    <div class="page-header-actions">
+        <div class="header-title-group">
+            <div class="header-icon">
+                <i class="fas fa-university"></i>
+            </div>
+            <div>
+                <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;">Institution Configuration</h2>
+                <small style="color: var(--text-muted);">View & Update Central System Profile</small>
+            </div>
+        </div>
+        <a href="{% url 'attendance:my_apps' %}" class="btn btn-outline" style="text-decoration: none;">
+            <i class="fas fa-arrow-left"></i> My APPS
+        </a>
+    </div>
+
+    <div class="profile-card">
+        {% if institution.pk %}
+            <div class="meta-badge-container">
+                <div><i class="fas fa-calendar-plus"></i> <strong>Established:</strong> {{ institution.date_created|date:"M d, Y - H:i" }}</div>
+                <div><i class="fas fa-sync-alt"></i> <strong>Last Synchronized:</strong> {{ institution.last_updated|date:"M d, Y - H:i" }}</div>
+            </div>
+        {% endif %}
+
+        <form method="POST" action="">
+            {% csrf_token %}
+
+            <!-- 1. GENERAL IDENTIFICATION -->
+            <div class="section-divider">
+                <i class="fas fa-id-card" style="color: #2563eb;"></i> Primary Identification
+            </div>
+
+            <div class="form-group">
+                <label for="name">Institution Name <span style="color: var(--danger);">*</span></label>
+                <input type="text" id="name" name="name" class="form-control" required value="{{ institution.name|default:'' }}" placeholder="e.g. Makerere University / National Technical College">
+            </div>
+
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="institution_type">Institution Category Type</label>
+                    <select id="institution_type" name="institution_type" class="form-control">
+                        {% for code, label in type_choices %}
+                            <option value="{{ code }}" {% if institution and institution.institution_type == code %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="slogan">Motto / Slogan</label>
+                    <input type="text" id="slogan" name="slogan" class="form-control" value="{{ institution.slogan|default:'' }}" placeholder="e.g. We Build for the Future">
+                </div>
+            </div>
+
+            <!-- 2. CONTACT & LOCATION DETAILS -->
+            <div class="section-divider">
+                <i class="fas fa-address-book" style="color: #2563eb;"></i> Contact & Location Channels
+            </div>
+
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="email">Official Email Address <span style="color: var(--danger);">*</span></label>
+                    <input type="email" id="email" name="email" class="form-control" required value="{{ institution.email|default:'' }}" placeholder="info@institution.ac.ug">
+                </div>
+
+                <div class="form-group">
+                    <label for="website">Web Portal URL</label>
+                    <input type="url" id="website" name="website" class="form-control" value="{{ institution.website|default:'' }}" placeholder="https://www.institution.ac.ug">
+                </div>
+            </div>
+
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="telephone_1">Primary Telephone Line <span style="color: var(--danger);">*</span></label>
+                    <input type="text" id="telephone_1" name="telephone_1" class="form-control" required value="{{ institution.telephone_1|default:'' }}" placeholder="+256 414 000 000">
+                </div>
+
+                <div class="form-group">
+                    <label for="telephone_2">Secondary Telephone Line (Optional)</label>
+                    <input type="text" id="telephone_2" name="telephone_2" class="form-control" value="{{ institution.telephone_2|default:'' }}" placeholder="+256 700 000 000">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="address">Postal Address & Location Summary</label>
+                <textarea id="address" name="address" class="form-control" rows="3" placeholder="P.O. Box 7062, Kampala, Uganda. Plot 14 Academic Avenue.">{{ institution.address|default:'' }}</textarea>
+            </div>
+
+            <!-- 3. ACADEMIC STRUCTURE -->
+            <div class="section-divider">
+                <i class="fas fa-sitemap" style="color: #2563eb;"></i> Organizational Units Definition
+            </div>
+
+            <div class="form-group">
+                <label for="academic_units">Subordinated Academic Structures</label>
+                <input type="text" id="academic_units" name="academic_units" class="form-control" value="{{ institution.academic_units|default:'' }}" placeholder="COLLEGES, FACULTIES, DEPARTMENTS, SCHOOLS">
+                <small style="color: var(--text-muted); display: block; margin-top: 0.3rem;">Comma-separated listing of organizational terms used across your institution.</small>
+            </div>
+
+            <!-- SUBMIT ACTION -->
+            <div class="form-actions">
+                <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 0.75rem 2rem;">
+                    <i class="fas fa-save"></i> Save Profile Settings
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

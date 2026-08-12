@@ -7,21 +7,40 @@
 <style>
     .page-header-actions {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 2rem;
-        flex-wrap: wrap;
-        gap: 1rem;
+        flex-direction: column;
+        gap: 1.25rem;
+        margin-bottom: 1.5rem;
         background: #ffffff;
         padding: 1.25rem 1.5rem;
         border-radius: var(--radius-md);
         border: 1px solid var(--border);
     }
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        width: 100%;
+    }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+    .filter-group.full-width {
+        grid-column: 1 / -1;
+    }
+    .filter-group label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
     .filter-indicator {
-        display: none;
+        display: flex;
         align-items: center;
         gap: 0.5rem;
-        background: var(--warning-light);
+        background: var(--warning-light, #fef3c7);
         color: #92400e;
         border: 1px solid #fde68a;
         padding: 0.5rem 1rem;
@@ -30,7 +49,6 @@
         font-size: 0.9rem;
         font-weight: 500;
     }
-    .filter-indicator i { color: var(--warning); }
     .filter-indicator .clear-filter {
         margin-left: auto;
         color: #b45309;
@@ -38,100 +56,257 @@
         font-weight: 600;
         font-size: 0.85rem;
     }
-    .parent-course-badge {
+    .parent-badge {
         display: inline-flex;
         align-items: center;
         padding: 0.25rem 0.65rem;
         border-radius: 6px;
         font-size: 0.8rem;
-        font-weight: 700;
+        font-weight: 600;
         background: #f1f5f9;
         border: 1px solid var(--border);
         color: var(--text-main);
     }
-    .form-control-select {
-        padding: 0.5rem 1rem;
+    /* Student Pill Styling */
+    .student-pill {
+        display: inline-block;
+        background: #e0f2fe;
+        color: #0369a1;
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        margin: 0.15rem;
+        border: 1px solid #bae6fd;
+        text-decoration: none;
+        transition: all 0.2s ease-in-out;
+    }
+    .student-pill:hover {
+        background: #0284c7;
+        color: #ffffff;
+        border-color: #0284c7;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    /* Teacher Pill Styling */
+    .teacher-pill {
+        display: inline-block;
+        background: #f0fdf4;
+        color: #15803d;
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        margin: 0.15rem;
+        border: 1px solid #bbf7d0;
+        text-decoration: none;
+        transition: all 0.2s ease-in-out;
+    }
+    .teacher-pill:hover {
+        background: #16a34a;
+        color: #ffffff;
+        border-color: #16a34a;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .form-control-select, .form-control-input {
+        padding: 0.5rem 0.75rem;
         border-radius: var(--radius-sm);
         border: 1px solid var(--border);
-        font-weight: 600;
+        font-weight: 500;
+        font-size: 0.9rem;
         color: var(--text-main);
+        width: 100%;
+        background-color: #fff;
+        box-sizing: border-box;
+    }
+    .form-control-input:focus, .form-control-select:focus {
+        outline: none;
+        border-color: var(--primary, #2563eb);
     }
     .action-link {
         font-size: 0.9rem;
         font-weight: 600;
-        margin-right: 0.75rem;
-        transition: var(--transition);
+        margin-left: 0.5rem;
         text-decoration: none;
     }
     .action-link.edit { color: var(--accent); }
     .action-link.delete { color: var(--danger); }
-    .action-link:hover { opacity: 0.7; }
+    .action-link:hover { opacity: 0.75; }
 </style>
 
 <div class="page-header-actions">
     <div>
-        <h2 style="margin:0; font-size:1.4rem;"><i class="fas fa-file-invoice" style="color:var(--primary);"></i> Framework Breakdown Analysis</h2>
+        <h2 style="margin:0; font-size:1.4rem;">
+            <i class="fas fa-file-invoice" style="color:var(--primary);"></i> Framework Breakdown Analysis
+        </h2>
     </div>
 
-    <div>
-        <select id="reportDeptFilter" class="form-control-select" onchange="filterByDepartment(this.value)">
-            <option value="">All Structural Departments...</option>
-            {% for dept in departments %}
-                <option value="{{ dept.pk }}">{{ dept.name }}</option>
-            {% endfor %}
-        </select>
+    <!-- Real-time Frontend Search Bar -->
+    <div class="filter-group full-width">
+        <label for="tableSearchInput"><i class="fas fa-search"></i> Instant Table Search</label>
+        <input 
+            type="text" 
+            id="tableSearchInput" 
+            class="form-control-input" 
+            placeholder="Type keyword to filter by faculty, department, course code, course name, teacher, or student..." 
+            onkeyup="filterTableFrontend()"
+        >
+    </div>
+
+    <!-- Backend Relational Select Filters -->
+    <div class="filter-grid">
+        <!-- Faculty Filter -->
+        <div class="filter-group">
+            <label for="filterFaculty"><i class="fas fa-university"></i> Faculty Filter</label>
+            <select id="filterFaculty" class="form-control-select" onchange="updateFilter('filter_faculty', this.value)">
+                <option value="">All Faculties</option>
+                {% for fac in faculties %}
+                    <option value="{{ fac.pk }}" {% if selected_faculty_id == fac.pk %}selected{% endif %}>
+                        {{ fac.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Department Filter -->
+        <div class="filter-group">
+            <label for="filterDept"><i class="fas fa-building"></i> Department Filter</label>
+            <select id="filterDept" class="form-control-select" onchange="updateFilter('filter_dept', this.value)">
+                <option value="">All Departments</option>
+                {% for dept in departments %}
+                    <option value="{{ dept.pk }}" {% if selected_dept_id == dept.pk %}selected{% endif %}>
+                        {{ dept.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Course Filter -->
+        <div class="filter-group">
+            <label for="filterCourse"><i class="fas fa-book"></i> Course Filter</label>
+            <select id="filterCourse" class="form-control-select" onchange="updateFilter('filter_course', this.value)">
+                <option value="">All Courses</option>
+                {% for crs in all_courses %}
+                    <option value="{{ crs.code }}" {% if selected_course_code == crs.code %}selected{% endif %}>
+                        {{ crs.code }} - {{ crs.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Student Filter -->
+        <div class="filter-group">
+            <label for="filterStudent"><i class="fas fa-user-graduate"></i> Student Filter</label>
+            <select id="filterStudent" class="form-control-select" onchange="updateFilter('filter_student', this.value)">
+                <option value="">All Students</option>
+                {% for std in all_students %}
+                    <option value="{{ std.reg_number }}" {% if selected_student_reg == std.reg_number %}selected{% endif %}>
+                        {{ std.name }} ({{ std.reg_number }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
     </div>
 </div>
 
-<div class="filter-indicator" id="activeFilterWindow">
+{% if selected_faculty_id or selected_dept_id or selected_course_code or selected_student_reg %}
+<div class="filter-indicator">
     <i class="fas fa-filter"></i>
-    <span>Isolating cross-matrices down to Selected Department Group: <strong id="filterDeptName"></strong></span>
-    <a href="{% url 'attendance:admin_report_page' %}" class="clear-filter">Reset Isolation Guard</a>
+    <span>Active filter applied to system records.</span>
+    <a href="{% url 'attendance:admin_report_page' %}" class="clear-filter">Reset Filters</a>
 </div>
+{% endif %}
 
-<div class="card" style="padding:0; overflow:hidden;">
-    <table class="table">
+<div class="card" style="padding:0; overflow-x:auto;">
+    <table class="table" style="width:100%; border-collapse: collapse;">
         <thead>
             <tr>
-                <th style="width:160px;">Program Tracking Code</th>
-                <th>Course Framework Title</th>
-                <th>Assigned Parent Department</th>
-                <th style="text-align: right;">Operations Index</th>
+                <th>Faculty</th>
+                <th>Department</th>
+                <th>Course Details</th>
+                <th>Assigned Teachers</th>
+                <th>Enrolled Students</th>
+                <th style="text-align: right;">Operations</th>
             </tr>
         </thead>
         <tbody id="reportTableBody">
             {% for course in courses %}
-            <tr data-dept-id="{{ course.department.pk|default:'' }}">
-                <td><code style="font-size:0.95rem; font-weight:700; color:var(--text-main);">{{ course.code|default:"UNKNOWN" }}</code></td>
-                <td style="font-weight:500;">{{ course.name }}</td>
+            <tr class="data-row">
+                <!-- Faculty Column -->
                 <td>
-                    <span class="parent-course-badge">
-                        <i class="fas fa-building" style="font-size:0.8rem; margin-right:0.35rem; color:#2563eb;"></i>
-                        {{ course.department.name|default:"Unassigned" }}
+                    <span class="parent-badge">
+                        <i class="fas fa-university" style="font-size:0.8rem; margin-right:0.35rem; color:#7c3aed;"></i>
+                        {{ course.department.faculty.name|default:"Unassigned Faculty" }}
                     </span>
                 </td>
-                <td style="text-align: right;">
-                    <!-- Added safety filters to avoid template compilation aborts on blank rows -->
+
+                <!-- Department Column -->
+                <td>
+                    <span class="parent-badge">
+                        <i class="fas fa-building" style="font-size:0.8rem; margin-right:0.35rem; color:#2563eb;"></i>
+                        {{ course.department.name|default:"Unassigned Dept" }}
+                    </span>
+                </td>
+
+                <!-- Course Column -->
+                <td>
+                    <code style="font-size:0.9rem; font-weight:700; color:var(--text-main);">{{ course.code }}</code>
+                    <div style="font-weight:500; font-size:0.95rem;">{{ course.name }}</div>
+                </td>
+
+                <!-- Teachers Column -->
+                <td>
+                    {% if course.teachers.all %}
+                        {% for teacher in course.teachers.all %}
+                            <!-- Clickable Teacher Detail Link -->
+                            <a href="{% url 'attendance:teacher_detail' teacher.pk %}" class="teacher-pill" title="View details for {{ teacher.name }}">
+                                <i class="fas fa-chalkboard-teacher" style="font-size:0.7rem; margin-right:0.2rem;"></i>
+                                {{ teacher.name }}
+                            </a>
+                        {% endfor %}
+                    {% else %}
+                        <span style="color: var(--text-muted); font-size:0.85rem; font-style: italic;">No teachers assigned</span>
+                    {% endif %}
+                </td>
+
+                <!-- Students Column -->
+                <td>
+                    {% if course.students.all %}
+                        {% for student in course.students.all %}
+                            <!-- Clickable Student Detail Link -->
+                            <a href="{% url 'attendance:student_detail' student.reg_number %}" class="student-pill" title="View details for Reg No: {{ student.reg_number }}">
+                                <i class="fas fa-user-graduate" style="font-size:0.7rem; margin-right:0.2rem;"></i>
+                                {{ student.name }}
+                            </a>
+                        {% endfor %}
+                    {% else %}
+                        <span style="color: var(--text-muted); font-size:0.85rem; font-style: italic;">No students enrolled</span>
+                    {% endif %}
+                </td>
+
+                <!-- Actions Column -->
+                <td style="text-align: right; white-space: nowrap;">
                     <a href="{% url 'attendance:edit_course' course.code|default:'malformed_pk' %}" class="action-link edit">
                         <i class="fas fa-edit"></i> Edit
                     </a>
-                    <a href="{% url 'attendance:delete_course' course.code|default:'malformed_pk' %}" class="action-link delete" onclick="return confirm('Drop this course program track entry from system tracking arrays?');">
+                    <a href="{% url 'attendance:delete_course' course.code|default:'malformed_pk' %}" class="action-link delete" onclick="return confirm('Drop this course entry from tracking arrays?');">
                         <i class="fas fa-trash-alt"></i> Delete
                     </a>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-layer-group" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
-                    No relational programmatic framework tracks parsed.
+                    No relational framework entries matching the selected parameters.
                 </td>
             </tr>
             {% endfor %}
-            <tr id="noResultsRow" style="display:none;">
-                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+
+            <!-- Instant JS Search No-Match Row -->
+            <tr id="noJsSearchResults" style="display: none;">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-search-minus" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
-                    No active programmatic maps match this specific department layout.
+                    No records match your instant search query.
                 </td>
             </tr>
         </tbody>
@@ -139,49 +314,38 @@
 </div>
 
 <script>
-    function filterByDepartment(deptId) {
+    // URL Parameter Filter Redirect
+    function updateFilter(paramKey, paramValue) {
         const url = new URL(window.location.href);
-        if (deptId) {
-            url.searchParams.set('filter_dept', deptId);
+        if (paramValue) {
+            url.searchParams.set(paramKey, paramValue);
         } else {
-            url.searchParams.delete('filter_dept');
+            url.searchParams.delete(paramKey);
         }
         window.location.href = url.toString();
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchParams = new URLSearchParams(window.location.search);
-        const targetDeptId = searchParams.get('filter_dept');
+    // Instant Client-Side Table Search
+    function filterTableFrontend() {
+        const query = document.getElementById('tableSearchInput').value.toLowerCase().trim();
+        const rows = document.querySelectorAll('#reportTableBody tr.data-row');
+        const noResultsRow = document.getElementById('noJsSearchResults');
+        let visibleCount = 0;
 
-        if (targetDeptId) {
-            const selectSelector = document.getElementById('reportDeptFilter');
-            if (selectSelector) selectSelector.value = targetDeptId;
-
-            const filterBox = document.getElementById('activeFilterWindow');
-            const label = document.getElementById('filterDeptName');
-            const rows = document.querySelectorAll('#reportTableBody tr:not(#noResultsRow)');
-            const fallbackRow = document.getElementById('noResultsRow');
-            
-            let matchCount = 0;
-            const selectedText = selectSelector.options[selectSelector.selectedIndex]?.text || "Filtered Node";
-            
-            if (label) label.textContent = selectedText;
-            if (filterBox) filterBox.style.display = 'flex';
-
-            rows.forEach(row => {
-                if (row.getAttribute('data-dept-id') === targetDeptId) {
-                    row.style.display = '';
-                    matchCount++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            if (matchCount === 0 && rows.length > 0 && fallbackRow) {
-                fallbackRow.style.display = 'table-row';
+        rows.forEach(row => {
+            const content = row.textContent.toLowerCase();
+            if (content.includes(query)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
             }
+        });
+
+        if (noResultsRow) {
+            noResultsRow.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
         }
-    });
+    }
 </script>
 
 {% endblock %}
