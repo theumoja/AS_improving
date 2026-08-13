@@ -4,19 +4,95 @@
 {% include "attendance/sidebar.html" %}
 {% endblock %}
 
+<style>
+    .btn-action {
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: white;
+    }
+    .btn-edit { background-color: #2563eb; }
+    .btn-delete { background-color: #dc2626; }
+    .btn-create { background-color: #059669; color: white; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; }
+    
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .modal-card {
+        background: #fff;
+        padding: 1.5rem;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 520px;
+    }
+    .form-group {
+        margin-bottom: 0.9rem;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .form-group input, .form-group select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--border, #ccc);
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    .form-row {
+        display: flex;
+        gap: 0.8rem;
+    }
+    .form-row .form-group {
+        flex: 1;
+    }
+</style>
+
 <div style="display: flex; gap: 1.5rem;">
     <div style="flex: 1; padding: 1rem;">
-        <h2><i class="fas fa-network-wired"></i> Affiliate Institutions & Centers</h2>
-        <p style="color: var(--text-muted);">Manage partner institutions, affiliate centers, and fee sharing settings.</p>
+        
+        <!-- Header & Add Button -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div>
+                <h2><i class="fas fa-network-wired"></i> Affiliate Institutions & Centers</h2>
+                <p style="color: var(--text-muted, #666);">Manage partner institutions, affiliate centers, and fee sharing settings.</p>
+            </div>
+            <button class="btn-create" onclick="openModal('addModal')">
+                <i class="fas fa-plus"></i> Add Affiliate
+            </button>
+        </div>
 
-        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 1rem;">
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div style="padding: 10px; margin-bottom: 1rem; border-radius: 4px; {% if message.tags == 'error' %}background: #fee2e2; color: #991b1b;{% else %}background: #d1fae5; color: #065f46;{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Data Table -->
+        <div style="background: #ffffff; border: 1px solid var(--border, #ddd); border-radius: 8px; overflow: hidden;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: #2b3e85; color: white; text-align: left;">
-                        <th style="padding: 10px;">Affiliate Code</th>
+                        <th style="padding: 10px;">Code</th>
                         <th style="padding: 10px;">Institution Name</th>
                         <th style="padding: 10px;">Contact Person</th>
+                        <th style="padding: 10px;">Contact Details</th>
+                        <th style="padding: 10px;">Revenue Share</th>
                         <th style="padding: 10px;">Status</th>
+                        <th style="padding: 10px; text-align: center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -25,13 +101,33 @@
                         <td style="padding: 10px; font-weight: bold;">{{ aff.code }}</td>
                         <td style="padding: 10px;">{{ aff.name }}</td>
                         <td style="padding: 10px;">{{ aff.contact_person|default:"N/A" }}</td>
+                        <td style="padding: 10px; font-size: 0.85rem;">
+                            {% if aff.email %}<div><i class="fas fa-envelope"></i> {{ aff.email }}</div>{% endif %}
+                            {% if aff.phone %}<div><i class="fas fa-phone"></i> {{ aff.phone }}</div>{% endif %}
+                            {% if not aff.email and not aff.phone %}—{% endif %}
+                        </td>
+                        <td style="padding: 10px;">{{ aff.revenue_share_percentage }}%</td>
                         <td style="padding: 10px;">
-                            <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #d1fae5; color: #065f46;">Active</span>
+                            {% if aff.is_active %}
+                                <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #d1fae5; color: #065f46;">Active</span>
+                            {% else %}
+                                <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #fee2e2; color: #991b1b;">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 10px; text-align: center;">
+                            <button class="btn-action btn-edit" 
+                                    onclick="openEditModal('{{ aff.id }}', '{{ aff.name|escapejs }}', '{{ aff.code|escapejs }}', '{{ aff.contact_person|default:''|escapejs }}', '{{ aff.email|default:''|escapejs }}', '{{ aff.phone|default:''|escapejs }}', '{{ aff.revenue_share_percentage }}', '{{ aff.is_active|yesno:'true,false' }}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn-action btn-delete" 
+                                    onclick="openDeleteModal('{{ aff.id }}', '{{ aff.name|escapejs }}')">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4" style="padding: 20px; text-align: center; color: #64748b;">No affiliate institutions configured.</td>
+                        <td colspan="7" style="padding: 20px; text-align: center; color: #64748b;">No affiliate institutions configured.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -39,4 +135,159 @@
         </div>
     </div>
 </div>
+
+<!-- ==================== ADD MODAL ==================== -->
+<div id="addModal" class="modal-overlay">
+    <div class="modal-card">
+        <h3>New Affiliate Institution</h3>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Institution Name *</label>
+                    <input type="text" name="name" required placeholder="e.g. Apex Tech Center">
+                </div>
+                <div class="form-group">
+                    <label>Affiliate Code *</label>
+                    <input type="text" name="code" required placeholder="e.g. ATC-001">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Contact Person</label>
+                <input type="text" name="contact_person" placeholder="Full name of representative">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" placeholder="contact@institution.com">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" name="phone" placeholder="+256 ...">
+                </div>
+            </div>
+
+            <div class="form-row" style="align-items: center;">
+                <div class="form-group">
+                    <label>Revenue Share (%)</label>
+                    <input type="number" step="0.01" min="0" max="100" name="revenue_share_percentage" value="0.00">
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1.2rem;">
+                    <input type="checkbox" name="is_active" id="add_is_active" checked style="width: auto;">
+                    <label for="add_is_active" style="margin: 0; font-weight: normal;">Active Status</label>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+                <button type="button" onclick="closeModal('addModal')" style="padding: 8px 12px; background: #ccc; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <button type="submit" class="btn-create">Save Affiliate</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==================== EDIT MODAL ==================== -->
+<div id="editModal" class="modal-overlay">
+    <div class="modal-card">
+        <h3>Edit Affiliate Institution</h3>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="affiliate_id" id="edit_affiliate_id">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Institution Name *</label>
+                    <input type="text" name="name" id="edit_name" required>
+                </div>
+                <div class="form-group">
+                    <label>Affiliate Code *</label>
+                    <input type="text" name="code" id="edit_code" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Contact Person</label>
+                <input type="text" name="contact_person" id="edit_contact_person">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" id="edit_email">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" name="phone" id="edit_phone">
+                </div>
+            </div>
+
+            <div class="form-row" style="align-items: center;">
+                <div class="form-group">
+                    <label>Revenue Share (%)</label>
+                    <input type="number" step="0.01" min="0" max="100" name="revenue_share_percentage" id="edit_revenue_share_percentage">
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1.2rem;">
+                    <input type="checkbox" name="is_active" id="edit_is_active" style="width: auto;">
+                    <label for="edit_is_active" style="margin: 0; font-weight: normal;">Active Status</label>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+                <button type="button" onclick="closeModal('editModal')" style="padding: 8px 12px; background: #ccc; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <button type="submit" style="padding: 8px 12px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer;">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==================== DELETE MODAL ==================== -->
+<div id="deleteModal" class="modal-overlay">
+    <div class="modal-card">
+        <h3>Confirm Delete</h3>
+        <p>Are you sure you want to delete <strong id="delete_affiliate_name"></strong>?</p>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="affiliate_id" id="delete_affiliate_id">
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+                <button type="button" onclick="closeModal('deleteModal')" style="padding: 8px 12px; background: #ccc; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <button type="submit" style="padding: 8px 12px; background: #dc2626; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openModal(id) {
+        document.getElementById(id).style.display = 'flex';
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    function openEditModal(id, name, code, contactPerson, email, phone, revenueShare, isActive) {
+        document.getElementById('edit_affiliate_id').value = id;
+        document.getElementById('edit_name').value = name;
+        document.getElementById('edit_code').value = code;
+        document.getElementById('edit_contact_person').value = contactPerson;
+        document.getElementById('edit_email').value = email;
+        document.getElementById('edit_phone').value = phone;
+        document.getElementById('edit_revenue_share_percentage').value = revenueShare;
+        document.getElementById('edit_is_active').checked = (isActive === 'true');
+        openModal('editModal');
+    }
+
+    function openDeleteModal(id, name) {
+        document.getElementById('delete_affiliate_id').value = id;
+        document.getElementById('delete_affiliate_name').innerText = name;
+        openModal('deleteModal');
+    }
+</script>
 {% endblock %}

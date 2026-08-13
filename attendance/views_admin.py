@@ -4927,15 +4927,170 @@ def fees_copy(request):
     return render(request, 'attendance/fees_copy.html', {'history': history, 'terms': terms, 'active_tab': 'copy'})
 
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import FeeApproval, AcademicTerm
+
 @login_required
 def fees_approvals(request):
-    approvals = FeeApproval.objects.select_related('term', 'requested_by', 'approved_by').all()
-    return render(request, 'attendance/fees_approvals.html', {'approvals': approvals, 'active_tab': 'approvals'})
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # --- ADD ACTION ---
+        if action == 'add':
+            title = request.POST.get('title')
+            term_id = request.POST.get('term')
+            details = request.POST.get('details')
+
+            if title and term_id:
+                term = get_object_or_404(AcademicTerm, pk=term_id)
+                FeeApproval.objects.create(
+                    title=title,
+                    term=term,
+                    details=details,
+                    requested_by=request.user,
+                    status='PENDING'
+                )
+                messages.success(request, "Fee approval request created successfully.")
+            else:
+                messages.error(request, "Please fill in all required fields.")
+
+        # --- EDIT ACTION ---
+        elif action == 'edit':
+            approval_id = request.POST.get('approval_id')
+            approval = get_object_or_404(FeeApproval, pk=approval_id)
+
+            title = request.POST.get('title')
+            term_id = request.POST.get('term')
+            details = request.POST.get('details')
+            status = request.POST.get('status')
+
+            if title and term_id:
+                approval.title = title
+                approval.term = get_object_or_404(AcademicTerm, pk=term_id)
+                approval.details = details
+                
+                # Update status and set approved_by if status is finalized
+                if status and status != approval.status:
+                    approval.status = status
+                    if status in ['APPROVED', 'REJECTED']:
+                        approval.approved_by = request.user
+                        
+                approval.save()
+                messages.success(request, "Fee approval request updated successfully.")
+            else:
+                messages.error(request, "Unable to update request. Missing required fields.")
+
+        # --- DELETE ACTION ---
+        elif action == 'delete':
+            approval_id = request.POST.get('approval_id')
+            approval = get_object_or_404(FeeApproval, pk=approval_id)
+            approval.delete()
+            messages.success(request, "Fee approval request deleted successfully.")
+
+        return redirect('attendance:fees_approvals')
+
+    # GET Request Processing
+    approvals = FeeApproval.objects.select_related('term', 'requested_by', 'approved_by').all().order_by('-created_at')
+    terms = AcademicTerm.objects.all()
+
+    context = {
+        'approvals': approvals,
+        'terms': terms,
+        'active_tab': 'approvals'
+    }
+    return render(request, 'attendance/fees_approvals.html', context)
+
+
+
+from decimal import Decimal
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import Affiliate
 
 @login_required
 def manage_affiliates(request):
-    affiliates = Affiliate.objects.all()
-    return render(request, 'attendance/manage_affiliates.html', {'affiliates': affiliates, 'active_tab': 'affiliates'})
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # --- ADD ACTION ---
+        if action == 'add':
+            name = request.POST.get('name')
+            code = request.POST.get('code')
+            contact_person = request.POST.get('contact_person')
+            email = request.POST.get('email')
+            phone = request.POST.get('phone')
+            revenue_share = request.POST.get('revenue_share_percentage') or '0.00'
+            is_active = request.POST.get('is_active') == 'on'
+
+            if name and code:
+                try:
+                    Affiliate.objects.create(
+                        name=name,
+                        code=code,
+                        contact_person=contact_person,
+                        email=email,
+                        phone=phone,
+                        revenue_share_percentage=Decimal(revenue_share),
+                        is_active=is_active
+                    )
+                    messages.success(request, f"Affiliate '{name}' created successfully.")
+                except Exception as e:
+                    messages.error(request, f"Error creating affiliate: {str(e)}")
+            else:
+                messages.error(request, "Name and Affiliate Code are required.")
+
+        # --- EDIT ACTION ---
+        elif action == 'edit':
+            affiliate_id = request.POST.get('affiliate_id')
+            affiliate = get_object_or_404(Affiliate, pk=affiliate_id)
+
+            name = request.POST.get('name')
+            code = request.POST.get('code')
+            contact_person = request.POST.get('contact_person')
+            email = request.POST.get('email')
+            phone = request.POST.get('phone')
+            revenue_share = request.POST.get('revenue_share_percentage') or '0.00'
+            is_active = request.POST.get('is_active') == 'on'
+
+            if name and code:
+                try:
+                    affiliate.name = name
+                    affiliate.code = code
+                    affiliate.contact_person = contact_person
+                    affiliate.email = email
+                    affiliate.phone = phone
+                    affiliate.revenue_share_percentage = Decimal(revenue_share)
+                    affiliate.is_active = is_active
+                    affiliate.save()
+                    messages.success(request, f"Affiliate '{name}' updated successfully.")
+                except Exception as e:
+                    messages.error(request, f"Error updating affiliate: {str(e)}")
+            else:
+                messages.error(request, "Name and Affiliate Code are required.")
+
+        # --- DELETE ACTION ---
+        elif action == 'delete':
+            affiliate_id = request.POST.get('affiliate_id')
+            affiliate = get_object_or_404(Affiliate, pk=affiliate_id)
+            affiliate_name = affiliate.name
+            affiliate.delete()
+            messages.success(request, f"Affiliate '{affiliate_name}' deleted successfully.")
+
+        return redirect('attendance:manage_affiliates')
+
+    # GET Request Processing
+    affiliates = Affiliate.objects.all().order_by('name')
+
+    context = {
+        'affiliates': affiliates,
+        'active_tab': 'affiliates'
+    }
+    return render(request, 'attendance/manage_affiliates.html', context)
+
+    
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required

@@ -36,19 +36,6 @@
                 <i class="fas fa-chart-pie"></i>
                 <span class="card-label">Admin Dashboard</span>
             </a>
-
-            {# --- ADMIN ONLY MODULES --- #}
-            {% if user.role == 'ADMIN' %}
-                <a href="{% url 'attendance:manage_institution' %}" class="nav-card">
-                    <i class="fas fa-university"></i>
-                    <span class="card-label">Institution Setup</span>
-                </a>
-                <a href="{% url 'attendance:manage_courses' %}" class="nav-card">
-                    <i class="fas fa-scroll"></i>
-                    <span class="card-label">Programs & Curriculum</span>
-                </a>
-            {% endif %}
-
             <a href="{% url 'attendance:manage_teachers' %}" class="nav-card">
                 <i class="fas fa-chalkboard-teacher"></i>
                 <span class="card-label">Teachers</span>
@@ -61,13 +48,6 @@
                 <i class="fas fa-calendar-alt"></i>
                 <span class="card-label">Timetable</span>
             </a>
-
-            {# --- FEES MANAGEMENT SUB-MODULES --- #}
-            <a href="{% url 'attendance:fees_dashboard' %}" class="nav-card">
-                <i class="fas fa-wallet"></i>
-                <span class="card-label">Fees Dashboard</span>
-            </a>
-            
         {% endif %}
 
         {# ========================================================= #}
