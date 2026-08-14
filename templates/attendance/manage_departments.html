@@ -5,6 +5,13 @@
 {% endblock %}
 
 <style>
+    /* Force form native text visibility across browser dark/light themes */
+    select, select option, input, textarea {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+
     .page-header-actions {
         display: flex;
         justify-content: space-between;
@@ -60,16 +67,6 @@
         color: #fff;
         transform: translateY(-1px);
     }
-    .action-link {
-        font-size: 0.9rem;
-        font-weight: 600;
-        margin-right: 0.75rem;
-        transition: var(--transition);
-        text-decoration: none;
-    }
-    .action-link.edit { color: var(--accent); }
-    .action-link.delete { color: var(--danger); }
-    .action-link:hover { opacity: 0.7; }
 
     /* Modal Context Interface Components */
     .modal {
@@ -121,12 +118,11 @@
         </a>
         <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
             <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search department name, faculty..." style="padding-left: 2.25rem;">
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search department name, faculty, HOD..." style="padding-left: 2.25rem;">
         </div>
     </div>
 
     <div class="action-group">
-        
         <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
             <i class="fas fa-plus-circle"></i> Create Department
         </button>
@@ -139,6 +135,7 @@
             <tr>
                 <th>Department Name</th>
                 <th>Parent Faculty / School</th>
+                <th>Head of Department (HOD)</th>
                 <th>Subordinated Course Programs</th>
                 <th style="text-align: right;">Execution Parameters</th>
             </tr>
@@ -158,29 +155,38 @@
                     {% endif %}
                 </td>
                 <td>
+                    {% if dept.hod %}
+                        <span style="font-weight: 600; color: var(--text-main);">
+                            <i class="fas fa-user-tie" style="margin-right: 0.35rem; color: #2563eb;"></i> {{ dept.hod.name }}
+                        </span>
+                    {% else %}
+                        <em style="color: #94a3b8;">Not Appointed</em>
+                    {% endif %}
+                </td>
+                <td>
                     <a href="{% url 'attendance:manage_courses' %}?filter_department={{ dept.id }}" class="unit-navigation-link">
                         <i class="fas fa-graduation-cap"></i> View Courses ({{ dept.courses.count }})
                     </a>
                 </td>
                 <td style="text-align: right;">
-                    <a href="{% url 'attendance:edit_department' dept.pk %}" class="action-link edit">
-                        <i class="fas fa-edit"></i> Edit
-                    </a>
-                    <a href="{% url 'attendance:delete_department' dept.pk %}" class="action-link delete" onclick="return confirm('Drop this department track?');">
-                        <i class="fas fa-trash-alt"></i> Delete
-                    </a>
+                    <!-- ACTION DROPDOWN SELECT -->
+                    <select onchange="handleAction(this, '{% url 'attendance:edit_department' dept.pk %}', '{% url 'attendance:delete_department' dept.pk %}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="edit">Edit</option>
+                        <option value="delete">Delete</option>
+                    </select>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-sitemap" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No department structural records registered yet.
                 </td>
             </tr>
             {% endfor %}
             <tr id="searchEmptyRow" style="display: none;">
-                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No matching department records discovered for your filter criteria.
                 </td>
@@ -216,6 +222,16 @@
                 </select>
             </div>
 
+            <div class="form-group">
+                <label for="hod">Head of Department (HOD)</label>
+                <select id="hod" name="hod" class="form-control">
+                    <option value="">-- Select Teacher (Optional) --</option>
+                    {% for teacher in teachers %}
+                        <option value="{{ teacher.id }}">{{ teacher.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <div style="display:flex; gap:0.75rem; margin-top:2rem;">
                 <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
                 <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Confirm & Build</button>
@@ -225,6 +241,21 @@
 </div>
 
 <script>
+    function handleAction(selectElement, editUrl, deleteUrl) {
+        const action = selectElement.value;
+
+        if (action === 'edit') {
+            window.location.href = editUrl;
+        } else if (action === 'delete') {
+            if (confirm('Drop this department track?')) {
+                window.location.href = deleteUrl;
+            }
+        }
+
+        // Reset dropdown back to default "-- Action --"
+        selectElement.value = '';
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const modal = document.getElementById('singleAddModal');
         const openBtn = document.getElementById('openModalBtn');

@@ -67,21 +67,6 @@
         font-weight: 600;
     }
 
-    /* Action Icon Buttons */
-    .btn-icon {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 0.95rem;
-        padding: 0.35rem 0.5rem;
-        border-radius: var(--radius-sm);
-        transition: background 0.2s;
-    }
-    .btn-transfer { color: #2563eb; }
-    .btn-transfer:hover { background: rgba(37, 99, 235, 0.1); }
-    .btn-delete { color: #dc2626; }
-    .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
-
     /* Modal Interface */
     .modal {
         display: none;
@@ -233,17 +218,12 @@
                 </td>
 
                 <td style="text-align: right;">
-                    <!-- Transfer Action Button -->
-                    <button type="button" class="btn-icon btn-transfer" title="Transfer Student"
-                        onclick="openTransferModal('{{ student.reg_number }}', '{{ student.stream.id|default:'' }}', '{{ student.course.code|default:'' }}')">
-                        <i class="fas fa-exchange-alt"></i> Transfer
-                    </button>
-
-                    <!-- Delete Action Button -->
-                    <button type="button" class="btn-icon btn-delete" title="Delete Student"
-                        onclick="openDeleteModal('{{ student.reg_number }}', `{{ student.name|escapejs }}`)">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
+                    <!-- Action Options Dropdown -->
+                    <select onchange="handleAction(this, '{{ student.reg_number }}', '{{ student.stream.id|default:'' }}', '{{ student.course.code|default:'' }}', '{{ student.name|escapejs }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="transfer">Transfer</option>
+                        <option value="delete">Delete</option>
+                    </select>
                 </td>
             </tr>
             {% empty %}
@@ -335,6 +315,17 @@
 </div>
 
 <script>
+    // Action Dropdown Selection Handler
+    function handleAction(selectElement, regNumber, streamId, courseCode, studentName) {
+        const action = selectElement.value;
+        if (action === 'transfer') {
+            openTransferModal(regNumber, streamId, courseCode);
+        } else if (action === 'delete') {
+            openDeleteModal(regNumber, studentName);
+        }
+        selectElement.value = ''; // Reset back to default "-- Action --"
+    }
+
     // Global Functions to Trigger Modals
     function openTransferModal(regNumber, currentStreamId, currentCourseCode) {
         document.getElementById('student_id').value = regNumber;

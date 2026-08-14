@@ -5,6 +5,13 @@
 {% endblock %}
 
 <style>
+    /* Force form native text visibility across browser themes */
+    select, select option, input, textarea {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+
     .page-header-actions {
         display: flex;
         justify-content: space-between;
@@ -67,21 +74,6 @@
     .badge-pending  { background: rgba(245, 158, 11, 0.1); color: #d97706; }
     .badge-rejected { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
 
-    /* Action Buttons & Badges */
-    .btn-icon {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 0.95rem;
-        padding: 0.35rem 0.5rem;
-        border-radius: var(--radius-sm);
-        transition: background 0.2s;
-    }
-    .btn-edit { color: #2563eb; }
-    .btn-edit:hover { background: rgba(37, 99, 235, 0.1); }
-    .btn-delete { color: #dc2626; }
-    .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
-    
     .btn-approve-quick {
         background: rgba(16, 185, 129, 0.12);
         color: #059669;
@@ -272,18 +264,12 @@
                 {% endif %}
 
                 <td style="text-align: right;">
-                    <!-- Edit Action (Owner or Admin) -->
                     {% if leave.staff == request.user or request.user.role == 1 %}
-                    <button type="button" class="btn-icon btn-edit" title="Edit Leave"
-                        onclick="openEditModal('{{ leave.id }}', '{{ leave.leave_type }}', '{{ leave.start_date|date:'Y-m-d' }}', '{{ leave.end_date|date:'Y-m-d' }}', `{{ leave.reason|escapejs }}`)">
-                        <i class="fas fa-edit"></i>
-                    </button>
-
-                    <!-- Delete Action (Owner or Admin) -->
-                    <button type="button" class="btn-icon btn-delete" title="Delete Leave"
-                        onclick="openDeleteModal('{{ leave.id }}')">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
+                    <select onchange="handleAction(this, '{{ leave.id }}', '{{ leave.leave_type }}', '{{ leave.start_date|date:'Y-m-d' }}', '{{ leave.end_date|date:'Y-m-d' }}', '{{ leave.reason|escapejs }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="edit">Edit</option>
+                        <option value="delete">Delete</option>
+                    </select>
                     {% endif %}
                 </td>
             </tr>
@@ -403,6 +389,17 @@
 </div>
 
 <script>
+    // Dropdown Action Handler
+    function handleAction(selectElement, id, leaveType, startDate, endDate, reason) {
+        const action = selectElement.value;
+        if (action === 'edit') {
+            openEditModal(id, leaveType, startDate, endDate, reason);
+        } else if (action === 'delete') {
+            openDeleteModal(id);
+        }
+        selectElement.value = ''; // Reset selection back to "-- Action --"
+    }
+
     // Global Modal Functions
     function openEditModal(id, leaveType, startDate, endDate, reason) {
         document.getElementById('modalTitle').textContent = 'Edit Leave Request';

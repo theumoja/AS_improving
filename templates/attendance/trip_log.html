@@ -55,31 +55,6 @@
         align-items: center;
     }
 
-    /* Action Buttons */
-    .btn-action {
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        padding: 0.35rem 0.6rem;
-        cursor: pointer;
-        font-size: 0.85rem;
-        transition: all 0.2s ease;
-    }
-    .btn-action-edit {
-        color: #2563eb;
-        border-color: rgba(37, 99, 235, 0.3);
-    }
-    .btn-action-edit:hover {
-        background: rgba(37, 99, 235, 0.1);
-    }
-    .btn-action-delete {
-        color: #dc2626;
-        border-color: rgba(220, 38, 38, 0.3);
-    }
-    .btn-action-delete:hover {
-        background: rgba(220, 38, 38, 0.1);
-    }
-
     /* Modal Components */
     .modal {
         display: none;
@@ -241,24 +216,11 @@
                     {{ trip.remarks|default:"-" }}
                 </td>
                 <td style="text-align: right; padding-right: 1.5rem;">
-                    <button class="btn-action btn-action-edit edit-btn"
-                            data-id="{{ trip.id }}"
-                            data-vehicle-id="{{ trip.vehicle.id }}"
-                            data-route-id="{{ trip.route.id }}"
-                            data-dep-time="{{ trip.departure_time|date:'Y-m-d\TH:i' }}"
-                            data-arr-time="{% if trip.arrival_time %}{{ trip.arrival_time|date:'Y-m-d\TH:i' }}{% endif %}"
-                            data-driver-name="{{ trip.driver_name|default:'' }}"
-                            data-mileage-start="{{ trip.mileage_start|default:'' }}"
-                            data-mileage-end="{{ trip.mileage_end|default:'' }}"
-                            data-remarks="{{ trip.remarks|default:'' }}">
-                        <i class="fas fa-edit"></i> Edit
-                    </button>
-                    <button class="btn-action btn-action-delete delete-btn"
-                            data-id="{{ trip.id }}"
-                            data-vehicle-number="{{ trip.vehicle.registration_number }}"
-                            data-route-name="{{ trip.route.name }}">
-                        <i class="fas fa-trash-alt"></i> Delete
-                    </button>
+                    <select onchange="handleTripAction(this, '{{ trip.id }}', '{{ trip.vehicle.id }}', '{{ trip.route.id }}', '{{ trip.departure_time|date:"Y-m-d\TH:i" }}', '{% if trip.arrival_time %}{{ trip.arrival_time|date:"Y-m-d\TH:i" }}{% endif %}', '{{ trip.driver_name|default:""|escapejs }}', '{{ trip.mileage_start|default:"" }}', '{{ trip.mileage_end|default:"" }}', '{{ trip.remarks|default:""|escapejs }}', '{{ trip.vehicle.registration_number|escapejs }}', '{{ trip.route.name|escapejs }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="edit">Edit</option>
+                        <option value="delete">Delete</option>
+                    </select>
                 </td>
             </tr>
             {% empty %}
@@ -453,6 +415,31 @@
 </div>
 
 <script>
+    // --- ACTION DROPDOWN HANDLER ---
+    function handleTripAction(selectElement, id, vehicleId, routeId, depTime, arrTime, driverName, mileageStart, mileageEnd, remarks, vehicleNumber, routeName) {
+        const action = selectElement.value;
+        if (action === 'edit') {
+            document.getElementById('edit_trip_id').value = id;
+            document.getElementById('edit_vehicle').value = vehicleId;
+            document.getElementById('edit_route').value = routeId;
+            document.getElementById('edit_departure_time').value = depTime;
+            document.getElementById('edit_arrival_time').value = arrTime;
+            document.getElementById('edit_driver_name').value = driverName;
+            document.getElementById('edit_mileage_start').value = mileageStart;
+            document.getElementById('edit_mileage_end').value = mileageEnd;
+            document.getElementById('edit_remarks').value = remarks;
+
+            document.getElementById('editModal').classList.add('active');
+        } else if (action === 'delete') {
+            document.getElementById('delete_trip_id').value = id;
+            document.getElementById('deleteVehicleNumber').textContent = vehicleNumber;
+            document.getElementById('deleteRouteName').textContent = routeName;
+
+            document.getElementById('deleteModal').classList.add('active');
+        }
+        selectElement.value = ''; // Reset selection back to "-- Action --"
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // --- MODALS TOGGLES ---
         const createModal = document.getElementById('singleAddModal');
@@ -476,36 +463,6 @@
             if (e.target === createModal) createModal.classList.remove('active');
             if (e.target === editModal) editModal.classList.remove('active');
             if (e.target === deleteModal) deleteModal.classList.remove('active');
-        });
-
-        // --- EDIT MODAL DATA POPULATION ---
-        const editBtns = document.querySelectorAll('.edit-btn');
-        editBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.getElementById('edit_trip_id').value = this.getAttribute('data-id');
-                document.getElementById('edit_vehicle').value = this.getAttribute('data-vehicle-id');
-                document.getElementById('edit_route').value = this.getAttribute('data-route-id');
-                document.getElementById('edit_departure_time').value = this.getAttribute('data-dep-time');
-                document.getElementById('edit_arrival_time').value = this.getAttribute('data-arr-time');
-                document.getElementById('edit_driver_name').value = this.getAttribute('data-driver-name');
-                document.getElementById('edit_mileage_start').value = this.getAttribute('data-mileage-start');
-                document.getElementById('edit_mileage_end').value = this.getAttribute('data-mileage-end');
-                document.getElementById('edit_remarks').value = this.getAttribute('data-remarks');
-
-                editModal.classList.add('active');
-            });
-        });
-
-        // --- DELETE MODAL DATA POPULATION ---
-        const deleteBtns = document.querySelectorAll('.delete-btn');
-        deleteBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.getElementById('delete_trip_id').value = this.getAttribute('data-id');
-                document.getElementById('deleteVehicleNumber').textContent = this.getAttribute('data-vehicle-number');
-                document.getElementById('deleteRouteName').textContent = this.getAttribute('data-route-name');
-
-                deleteModal.classList.add('active');
-            });
         });
 
         // --- MULTI-FILTERING SYSTEM ---

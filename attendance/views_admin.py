@@ -381,6 +381,14 @@ def add_department(request):
     return redirect('attendance:manage_departments')
 
     
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from .models import User, Faculty, Department, TeacherProfile
+
+
 @login_required
 @transaction.atomic
 def edit_department(request, pk):
@@ -392,11 +400,15 @@ def edit_department(request, pk):
     if request.method == 'POST':
         name = request.POST.get('department_name', '').strip()
         faculty_id = request.POST.get('faculty', '').strip()
+        hod_id = request.POST.get('hod', '').strip()
 
         if name:
             faculty_obj = Faculty.objects.filter(id=faculty_id).first() if faculty_id else None
+            hod_obj = TeacherProfile.objects.filter(id=hod_id).first() if hod_id else None
+
             department.name = name
             department.faculty = faculty_obj
+            department.hod = hod_obj
             department.save()
 
             messages.success(request, f"Department unit '{department.name}' successfully updated.")
@@ -405,55 +417,80 @@ def edit_department(request, pk):
             messages.error(request, "Department name is required.")
 
     faculties = Faculty.objects.all()
+    teachers = TeacherProfile.objects.all()
 
     return render(request, 'attendance/edit_department.html', {
         'department': department,
-        'faculties': faculties
+        'faculties': faculties,
+        'teachers': teachers
     })
 
-from django.shortcuts import render, redirect
-from django.http import HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from .models import User, Institution
+from django.http import HttpResponse
+from django.shortcuts import redirect, render
+
+from .models import Institution, User
 
 
 @login_required
 @transaction.atomic
 def manage_institution(request):
-    if request.user.role != User.IS_ADMIN and request.user.role != 'ADMIN':
+    if request.user.role != User.IS_ADMIN and request.user.role != "ADMIN":
         return HttpResponse("Unauthorized", status=403)
 
-    # Fetch the primary institution record or initialize a new draft
     institution = Institution.objects.first()
 
-    if request.method == 'POST':
+    if request.method == "POST":
         if not institution:
             institution = Institution()
 
-        institution.name = request.POST.get('name', '').strip()
-        institution.institution_type = request.POST.get('institution_type', 'TECHNICAL_COLLEGE').strip()
-        institution.slogan = request.POST.get('slogan', '').strip()
-        institution.address = request.POST.get('address', '').strip()
-        institution.telephone_1 = request.POST.get('telephone_1', '').strip()
-        institution.telephone_2 = request.POST.get('telephone_2', '').strip()
-        institution.website = request.POST.get('website', '').strip()
-        institution.email = request.POST.get('email', '').strip()
-        institution.academic_units = request.POST.get('academic_units', '').strip()
+        institution.name = request.POST.get("name", "").strip()
+        institution.institution_type = request.POST.get(
+            "institution_type", "TECHNICAL_COLLEGE"
+        ).strip()
+        institution.slogan = request.POST.get("slogan", "").strip()
+        institution.address = request.POST.get("address", "").strip()
+        institution.telephone_1 = request.POST.get("telephone_1", "").strip()
+        institution.telephone_2 = request.POST.get("telephone_2", "").strip()
+        institution.website = request.POST.get("website", "").strip()
+        institution.email = request.POST.get("email", "").strip()
+        institution.academic_units = request.POST.get(
+            "academic_units", ""
+        ).strip()
+
+        # Handle Logo Upload & Deletion
+        if "logo" in request.FILES:
+            institution.logo = request.FILES["logo"]
+        elif request.POST.get("clear_logo") == "1":
+            institution.logo.delete(
+                save=False
+            )  # Deletes file from storage path
+            institution.logo = None
 
         if institution.name and institution.email and institution.telephone_1:
             institution.save()
-            messages.success(request, f"Institution profile '{institution.name}' updated successfully.")
-            return redirect('attendance:manage_institution')
+            messages.success(
+                request,
+                f"Institution profile '{institution.name}' updated successfully.",
+            )
+            return redirect("attendance:manage_institution")
         else:
-            messages.error(request, "Please fill in all required fields (Name, Primary Phone, Email).")
+            messages.error(
+                request,
+                "Please fill in all required fields (Name, Primary Phone, Email).",
+            )
 
-    return render(request, 'attendance/manage_institution.html', {
-        'institution': institution,
-        'type_choices': Institution.TYPE_CHOICES,
-    })
-    
+    return render(
+        request,
+        "attendance/manage_institution.html",
+        {
+            "institution": institution,
+            "type_choices": Institution.TYPE_CHOICES,
+        },
+    )
+     
 
 @login_required
 @transaction.atomic
@@ -616,7 +653,8 @@ from django.http import HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from .models import User, Faculty, Department
+# Import TeacherProfile instead of Teacher
+from .models import User, Faculty, Department, TeacherProfile
 
 
 @login_required
@@ -632,16 +670,19 @@ def manage_departments(request):
         if action == 'single' or 'department_name' in request.POST or 'name' in request.POST:
             name = (request.POST.get('department_name') or request.POST.get('name', '')).strip()
             faculty_id = request.POST.get('faculty', '').strip()
+            hod_id = request.POST.get('hod', '').strip()
 
             if name:
                 faculty_obj = Faculty.objects.filter(id=faculty_id).first() if faculty_id else None
+                hod_obj = TeacherProfile.objects.filter(id=hod_id).first() if hod_id else None
 
                 dept, created = Department.objects.get_or_create(
                     name=name,
-                    defaults={'faculty': faculty_obj}
+                    defaults={'faculty': faculty_obj, 'hod': hod_obj}
                 )
                 if not created:
                     dept.faculty = faculty_obj
+                    dept.hod = hod_obj
                     dept.save()
 
                 messages.success(request, f"Department unit '{name}' successfully integrated.")
@@ -663,22 +704,23 @@ def manage_departments(request):
             messages.success(request, "Bulk department ingestion complete.")
             return redirect('attendance:manage_departments')
 
-    # Filtering logic (e.g., coming from manage_faculties page)
+    # Filtering logic
     filter_faculty = request.GET.get('filter_faculty')
     
-    departments = Department.objects.select_related('faculty').prefetch_related('courses').exclude(name="").exclude(name__isnull=True)
+    departments = Department.objects.select_related('faculty', 'hod').prefetch_related('courses').exclude(name="").exclude(name__isnull=True)
     
     if filter_faculty:
         departments = departments.filter(faculty_id=filter_faculty)
 
     faculties = Faculty.objects.all()
+    teachers = TeacherProfile.objects.all()
 
     return render(request, 'attendance/manage_departments.html', {
         'departments': departments,
         'faculties': faculties,
+        'teachers': teachers,
         'selected_faculty_id': filter_faculty
     })
-
 
 
 @login_required

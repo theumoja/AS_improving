@@ -5,6 +5,13 @@
 {% endblock %}
 
 <style>
+    /* Force form native text visibility across browser dark/light themes */
+    select, select option, input, textarea {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+
     .btn-action {
         padding: 4px 8px;
         border-radius: 4px;
@@ -103,14 +110,12 @@
                             {% endif %}
                         </td>
                         <td style="padding: 10px; text-align: center;">
-                            <button class="btn-action btn-edit" 
-                                    onclick="openEditModal('{{ app.id }}', '{{ app.title|escapejs }}', '{{ app.term.id }}', '{{ app.details|escapejs }}', '{{ app.status }}')">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                            <button class="btn-action btn-delete" 
-                                    onclick="openDeleteModal('{{ app.id }}', '{{ app.title|escapejs }}')">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
+                            <!-- ACTION DROPDOWN SELECT -->
+                            <select onchange="handleAction(this, '{{ app.id }}', '{{ app.title|escapejs }}', '{{ app.term.id }}', '{{ app.details|escapejs }}', '{{ app.status }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                                <option value="">-- Action --</option>
+                                <option value="edit">Edit</option>
+                                <option value="delete">Delete</option>
+                            </select>
                         </td>
                     </tr>
                     {% empty %}
@@ -230,6 +235,19 @@
 
     function closeModal(id) {
         document.getElementById(id).style.display = 'none';
+    }
+
+    function handleAction(selectElement, id, title, termId, details, status) {
+        const action = selectElement.value;
+
+        if (action === 'edit') {
+            openEditModal(id, title, termId, details, status);
+        } else if (action === 'delete') {
+            openDeleteModal(id, title);
+        }
+
+        // Reset dropdown back to default "-- Action --"
+        selectElement.value = '';
     }
 
     function openEditModal(id, title, termId, details, status) {

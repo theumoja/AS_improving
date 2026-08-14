@@ -56,15 +56,6 @@
         background: rgba(37, 99, 235, 0.1);
         color: #2563eb;
     }
-    .action-link {
-        font-size: 0.9rem;
-        font-weight: 600;
-        margin-right: 0.75rem;
-        transition: var(--transition);
-    }
-    .action-link.edit { color: var(--accent); }
-    .action-link.delete { color: var(--danger); }
-    .action-link:hover { opacity: 0.7; }
 
     /* Clickable Teacher Link */
     .teacher-link {
@@ -171,12 +162,12 @@
                     {% endfor %}
                 </td>
                 <td style="text-align: right;">
-                    <a href="{% url 'attendance:edit_teacher' teacher.pk %}" class="action-link edit">
-                        <i class="fas fa-edit"></i> Edit
-                    </a>
-                    <a href="{% url 'attendance:delete_teacher' teacher.pk %}" class="action-link delete" onclick="return confirm('Permanently drop this instructor from systems?');">
-                        <i class="fas fa-trash-alt"></i> Delete
-                    </a>
+                    <!-- Action Options Dropdown -->
+                    <select onchange="handleAction(this, '{% url 'attendance:edit_teacher' teacher.pk %}', '{% url 'attendance:delete_teacher' teacher.pk %}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="edit">Edit</option>
+                        <option value="delete">Delete</option>
+                    </select>
                 </td>
             </tr>
             {% empty %}
@@ -223,6 +214,19 @@
 </div>
 
 <script>
+    // Handle Dropdown Actions (Edit & Delete)
+    function handleAction(selectElement, editUrl, deleteUrl) {
+        const action = selectElement.value;
+        if (action === 'edit') {
+            window.location.href = editUrl;
+        } else if (action === 'delete') {
+            if (confirm('Permanently drop this instructor from systems?')) {
+                window.location.href = deleteUrl;
+            }
+        }
+        selectElement.value = ''; // Reset selection back to "-- Action --"
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // Modal Event Handlers
         const modal = document.getElementById('singleAddModal');

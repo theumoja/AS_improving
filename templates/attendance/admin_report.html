@@ -5,6 +5,13 @@
 {% endblock %}
 
 <style>
+    /* Force form native text visibility across browser dark/light themes */
+    select, select option, input, textarea {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+
     .page-header-actions {
         display: flex;
         flex-direction: column;
@@ -122,15 +129,6 @@
         outline: none;
         border-color: var(--primary, #2563eb);
     }
-    .action-link {
-        font-size: 0.9rem;
-        font-weight: 600;
-        margin-left: 0.5rem;
-        text-decoration: none;
-    }
-    .action-link.edit { color: var(--accent); }
-    .action-link.delete { color: var(--danger); }
-    .action-link:hover { opacity: 0.75; }
 </style>
 
 <div class="page-header-actions">
@@ -285,12 +283,12 @@
 
                 <!-- Actions Column -->
                 <td style="text-align: right; white-space: nowrap;">
-                    <a href="{% url 'attendance:edit_course' course.code|default:'malformed_pk' %}" class="action-link edit">
-                        <i class="fas fa-edit"></i> Edit
-                    </a>
-                    <a href="{% url 'attendance:delete_course' course.code|default:'malformed_pk' %}" class="action-link delete" onclick="return confirm('Drop this course entry from tracking arrays?');">
-                        <i class="fas fa-trash-alt"></i> Delete
-                    </a>
+                    <!-- ACTION DROPDOWN SELECT -->
+                    <select onchange="handleAction(this, '{% url 'attendance:edit_course' course.code|default:'malformed_pk' %}', '{% url 'attendance:delete_course' course.code|default:'malformed_pk' %}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="edit">Edit</option>
+                        <option value="delete">Delete</option>
+                    </select>
                 </td>
             </tr>
             {% empty %}
@@ -314,6 +312,22 @@
 </div>
 
 <script>
+    // Action Dropdown Handler
+    function handleAction(selectElement, editUrl, deleteUrl) {
+        const action = selectElement.value;
+
+        if (action === 'edit') {
+            window.location.href = editUrl;
+        } else if (action === 'delete') {
+            if (confirm('Drop this course entry from tracking arrays?')) {
+                window.location.href = deleteUrl;
+            }
+        }
+
+        // Reset dropdown back to default "-- Action --"
+        selectElement.value = '';
+    }
+
     // URL Parameter Filter Redirect
     function updateFilter(paramKey, paramValue) {
         const url = new URL(window.location.href);

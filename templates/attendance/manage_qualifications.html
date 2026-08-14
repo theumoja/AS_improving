@@ -5,6 +5,13 @@
 {% endblock %}
 
 <style>
+    /* Force form native text visibility across browser themes */
+    select, select option, input, textarea {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+
     .page-header-actions {
         display: flex;
         justify-content: space-between;
@@ -55,21 +62,6 @@
         background: #2563eb;
         color: #ffffff;
     }
-
-    /* Action Icon Buttons */
-    .btn-icon {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 0.95rem;
-        padding: 0.35rem 0.5rem;
-        border-radius: var(--radius-sm);
-        transition: background 0.2s;
-    }
-    .btn-edit { color: #2563eb; }
-    .btn-edit:hover { background: rgba(37, 99, 235, 0.1); }
-    .btn-delete { color: #dc2626; }
-    .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
 
     /* Modal Context Interface Components */
     .modal {
@@ -247,14 +239,11 @@
                     {% endif %}
                 </td>
                 <td style="text-align: right;">
-                    <button type="button" class="btn-icon btn-edit" title="Edit Qualification"
-                        onclick="openEditModal('{{ q.id }}', '{{ q.staff.id }}', `{{ q.qualification_name|escapejs }}`, `{{ q.institution|escapejs }}`, '{{ q.year_awarded }}')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button type="button" class="btn-icon btn-delete" title="Delete Qualification"
-                        onclick="openDeleteModal('{{ q.id }}', `{{ q.qualification_name|escapejs }}`)">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
+                    <select onchange="handleAction(this, '{{ q.id }}', '{{ q.staff.id }}', '{{ q.qualification_name|escapejs }}', '{{ q.institution|escapejs }}', '{{ q.year_awarded }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="edit">Edit</option>
+                        <option value="delete">Delete</option>
+                    </select>
                 </td>
             </tr>
             {% empty %}
@@ -345,6 +334,17 @@
 </div>
 
 <script>
+    // Handle Dropdown Selection Actions
+    function handleAction(selectElement, id, staffId, qualName, institution, year) {
+        const action = selectElement.value;
+        if (action === 'edit') {
+            openEditModal(id, staffId, qualName, institution, year);
+        } else if (action === 'delete') {
+            openDeleteModal(id, qualName);
+        }
+        selectElement.value = ''; // Reset selection back to "-- Action --"
+    }
+
     // Global Modal Trigger Functions
     function openEditModal(id, staffId, qualName, institution, year) {
         document.getElementById('modalTitle').textContent = 'Edit Qualification';

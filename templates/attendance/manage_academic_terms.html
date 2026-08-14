@@ -71,14 +71,13 @@
                             {% endif %}
                         </td>
                         <td style="padding: 10px; text-align: center;">
-                            {% if not t.is_current %}
-                                <a href="{% url 'attendance:set_current_term' t.id %}" class="btn" style="padding: 4px 10px; font-size: 0.8rem; background: #10b981; color: white; border-radius: 4px; text-decoration: none; margin-right: 5px;">
-                                    <i class="fas fa-check-circle"></i> Make Active
-                                </a>
-                            {% endif %}
-                            <a href="{% url 'attendance:delete_academic_term' t.id %}" onclick="return confirm('Are you sure you want to delete this term?');" class="btn" style="padding: 4px 10px; font-size: 0.8rem; background: #ef4444; color: white; border-radius: 4px; text-decoration: none;">
-                                <i class="fas fa-trash"></i> Delete
-                            </a>
+                            <select onchange="handleTermAction(this, '{% url 'attendance:set_current_term' t.id %}', '{% url 'attendance:delete_academic_term' t.id %}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                                <option value="">-- Action --</option>
+                                {% if not t.is_current %}
+                                    <option value="make_active">Make Active</option>
+                                {% endif %}
+                                <option value="delete">Delete</option>
+                            </select>
                         </td>
                     </tr>
                     {% empty %}
@@ -91,4 +90,18 @@
         </div>
     </div>
 </div>
+
+<script>
+    function handleTermAction(selectElement, makeActiveUrl, deleteUrl) {
+        const action = selectElement.value;
+        if (action === 'make_active') {
+            window.location.href = makeActiveUrl;
+        } else if (action === 'delete') {
+            if (confirm('Are you sure you want to delete this term?')) {
+                window.location.href = deleteUrl;
+            }
+        }
+        selectElement.value = ''; // Reset selection back to "-- Action --"
+    }
+</script>
 {% endblock %}

@@ -5,6 +5,13 @@
 {% endblock %}
 
 <style>
+    /* Force form native text visibility across browser dark/light themes */
+    select, select option, input, textarea {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+
     .btn-action {
         padding: 4px 8px;
         border-radius: 4px;
@@ -115,14 +122,12 @@
                             {% endif %}
                         </td>
                         <td style="padding: 10px; text-align: center;">
-                            <button class="btn-action btn-edit" 
-                                    onclick="openEditModal('{{ aff.id }}', '{{ aff.name|escapejs }}', '{{ aff.code|escapejs }}', '{{ aff.contact_person|default:''|escapejs }}', '{{ aff.email|default:''|escapejs }}', '{{ aff.phone|default:''|escapejs }}', '{{ aff.revenue_share_percentage }}', '{{ aff.is_active|yesno:'true,false' }}')">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                            <button class="btn-action btn-delete" 
-                                    onclick="openDeleteModal('{{ aff.id }}', '{{ aff.name|escapejs }}')">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
+                            <!-- ACTION DROPDOWN SELECT -->
+                            <select onchange="handleAction(this, '{{ aff.id }}', '{{ aff.name|escapejs }}', '{{ aff.code|escapejs }}', '{{ aff.contact_person|default:''|escapejs }}', '{{ aff.email|default:''|escapejs }}', '{{ aff.phone|default:''|escapejs }}', '{{ aff.revenue_share_percentage }}', '{{ aff.is_active|yesno:'true,false' }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                                <option value="">-- Action --</option>
+                                <option value="edit">Edit</option>
+                                <option value="delete">Delete</option>
+                            </select>
                         </td>
                     </tr>
                     {% empty %}
@@ -270,6 +275,19 @@
 
     function closeModal(id) {
         document.getElementById(id).style.display = 'none';
+    }
+
+    function handleAction(selectElement, id, name, code, contactPerson, email, phone, revenueShare, isActive) {
+        const action = selectElement.value;
+
+        if (action === 'edit') {
+            openEditModal(id, name, code, contactPerson, email, phone, revenueShare, isActive);
+        } else if (action === 'delete') {
+            openDeleteModal(id, name);
+        }
+
+        // Reset dropdown back to default "-- Action --"
+        selectElement.value = '';
     }
 
     function openEditModal(id, name, code, contactPerson, email, phone, revenueShare, isActive) {

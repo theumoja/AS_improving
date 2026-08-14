@@ -79,21 +79,6 @@
     .badge-linked { background: rgba(16, 185, 129, 0.1); color: #059669; }
     .badge-unlinked { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
 
-    /* Action Icon Buttons */
-    .btn-icon {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 0.95rem;
-        padding: 0.35rem 0.5rem;
-        border-radius: var(--radius-sm);
-        transition: background 0.2s;
-    }
-    .btn-edit { color: #2563eb; }
-    .btn-edit:hover { background: rgba(37, 99, 235, 0.1); }
-    .btn-delete { color: #dc2626; }
-    .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
-
     /* Modal Context Interfaces */
     .modal {
         display: none;
@@ -258,18 +243,14 @@
                 </td>
 
                 <td style="text-align: right;">
-                    <!-- Quick Edit Button -->
-                    <button type="button" class="btn-icon btn-edit" title="Manage Links"
-                        onclick="openEditModal('{{ parent.id }}', '{% for s in linked_list %}{{ s.reg_number }}{% if not forloop.last %},{% endif %}{% endfor %}')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <!-- Unlink All Button -->
-                    {% if linked_list %}
-                    <button type="button" class="btn-icon btn-delete" title="Unlink All Students"
-                        onclick="openUnlinkModal('{{ parent.id }}', `{{ parent.name|escapejs }}`)">
-                        <i class="fas fa-unlink"></i>
-                    </button>
-                    {% endif %}
+                    <!-- Action Options Dropdown -->
+                    <select onchange="handleAction(this, '{{ parent.id }}', '{% for s in linked_list %}{{ s.reg_number }}{% if not forloop.last %},{% endif %}{% endfor %}', '{{ parent.name|escapejs }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="manage">Manage Links</option>
+                        {% if linked_list %}
+                        <option value="unlink">Unlink All</option>
+                        {% endif %}
+                    </select>
                 </td>
             </tr>
             {% endwith %}
@@ -352,6 +333,17 @@
 </div>
 
 <script>
+    // Action Dropdown Handler
+    function handleAction(selectElement, parentId, studentIdsCsv, parentName) {
+        const action = selectElement.value;
+        if (action === 'manage') {
+            openEditModal(parentId, studentIdsCsv);
+        } else if (action === 'unlink') {
+            openUnlinkModal(parentId, parentName);
+        }
+        selectElement.value = ''; // Reset back to "-- Action --"
+    }
+
     // Global Modal Functions
     function openEditModal(parentId, studentIdsCsv) {
         document.getElementById('modalTitle').textContent = 'Manage Linked Students';

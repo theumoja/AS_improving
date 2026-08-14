@@ -5,6 +5,13 @@
 {% endblock %}
 
 <style>
+    /* Force form native text visibility across browser themes */
+    select, select option, input, textarea {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+
     .page-header-actions {
         display: flex;
         justify-content: space-between;
@@ -49,21 +56,6 @@
     .score-high { background: rgba(16, 185, 129, 0.1); color: #059669; }
     .score-mid { background: rgba(245, 158, 11, 0.1); color: #d97706; }
     .score-low { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
-
-    /* Action Icon Buttons */
-    .btn-icon {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 0.95rem;
-        padding: 0.35rem 0.5rem;
-        border-radius: var(--radius-sm);
-        transition: background 0.2s;
-    }
-    .btn-edit { color: #2563eb; }
-    .btn-edit:hover { background: rgba(37, 99, 235, 0.1); }
-    .btn-delete { color: #dc2626; }
-    .btn-delete:hover { background: rgba(239, 68, 68, 0.1); }
 
     /* Modal Context Interface Components */
     .modal {
@@ -222,14 +214,11 @@
                     <i class="fas fa-user-check" style="margin-right: 0.3rem; color: var(--text-muted);"></i> {{ eval.evaluator.username|default:"-" }}
                 </td>
                 <td style="text-align: right;">
-                    <button type="button" class="btn-icon btn-edit" title="Edit"
-                        onclick="openEditModal('{{ eval.id }}', '{{ eval.staff.id }}', '{{ eval.score }}', '{{ eval.term.id|default:'' }}', `{{ eval.comments|escapejs }}`)">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button type="button" class="btn-icon btn-delete" title="Delete"
-                        onclick="openDeleteModal('{{ eval.id }}', '{{ eval.staff.username }}')">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
+                    <select onchange="handleAction(this, '{{ eval.id }}', '{{ eval.staff.id }}', '{{ eval.score }}', '{{ eval.term.id|default:'' }}', '{{ eval.comments|escapejs }}', '{{ eval.staff.username|escapejs }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="edit">Edit</option>
+                        <option value="delete">Delete</option>
+                    </select>
                 </td>
             </tr>
             {% empty %}
@@ -320,7 +309,18 @@
 </div>
 
 <script>
-    // Global Modal Functions for Inline Handlers
+    // Handle Dropdown Selection Actions
+    function handleAction(selectElement, id, staffId, score, termId, comments, staffUsername) {
+        const action = selectElement.value;
+        if (action === 'edit') {
+            openEditModal(id, staffId, score, termId, comments);
+        } else if (action === 'delete') {
+            openDeleteModal(id, staffUsername);
+        }
+        selectElement.value = ''; // Reset dropdown selection back to "-- Action --"
+    }
+
+    // Global Modal Functions
     function openEditModal(id, staffId, score, termId, comments) {
         document.getElementById('modalTitle').textContent = 'Edit Evaluation';
         document.getElementById('formAction').value = 'edit';

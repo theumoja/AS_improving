@@ -133,19 +133,18 @@
                             <span style="padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; background: #d1fae5; color: #065f46;">Configured</span>
                         </td>
                         <td style="padding: 10px; text-align: center;">
-                            <!-- EDIT BUTTON -->
-                            <button onclick="openEditModal('{{ t.id }}', '{{ t.amount }}', '{{ t.course.name|escapejs }}', '{{ t.fee_element_id }}')" class="action-btn" style="background: #3b82f6; color: white; margin-right: 4px;">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                            
-                            <!-- DELETE FORM -->
-                            <form method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this tuition rate?');">
+                            <!-- ACTION DROPDOWN SELECT -->
+                            <select onchange="handleAction(this, '{{ t.id }}', '{{ t.amount }}', '{{ t.course.name|escapejs }}', '{{ t.fee_element_id }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                                <option value="">-- Action --</option>
+                                <option value="edit">Edit Amount</option>
+                                <option value="delete">Delete</option>
+                            </select>
+
+                            <!-- HIDDEN DELETE FORM -->
+                            <form id="delete-form-{{ t.id }}" method="POST" style="display: none;">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="tuition_id" value="{{ t.id }}">
-                                <button type="submit" class="action-btn" style="background: #ef4444; color: white;">
-                                    <i class="fas fa-trash"></i> Delete
-                                </button>
                             </form>
                         </td>
                     </tr>
@@ -195,6 +194,21 @@
     function selectAllCourses(checked) {
         const checkboxes = document.querySelectorAll('.course-checkbox');
         checkboxes.forEach(cb => cb.checked = checked);
+    }
+
+    function handleAction(selectElement, id, amount, courseName, feeElementId) {
+        const action = selectElement.value;
+
+        if (action === 'edit') {
+            openEditModal(id, amount, courseName, feeElementId);
+        } else if (action === 'delete') {
+            if (confirm('Are you sure you want to delete this tuition rate?')) {
+                document.getElementById('delete-form-' + id).submit();
+            }
+        }
+
+        // Reset dropdown back to default "-- Action --"
+        selectElement.value = '';
     }
 
     function openEditModal(id, amount, courseName, feeElementId) {

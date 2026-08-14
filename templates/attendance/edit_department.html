@@ -94,6 +94,7 @@
         <form method="POST" action="">
             {% csrf_token %}
             
+            <!-- Department Name Field -->
             <div class="form-group">
                 <label for="department_name">Department Name Title</label>
                 <input 
@@ -105,6 +106,32 @@
                     placeholder="e.g. Computing and Information Technology"
                     value="{{ department.name }}"
                 >
+            </div>
+
+            <!-- Faculty Assignment Dropdown -->
+            <div class="form-group">
+                <label for="faculty">Assigned Faculty</label>
+                <select id="faculty" name="faculty" class="form-control">
+                    <option value="">-- No Faculty Assigned --</option>
+                    {% for faculty in faculties %}
+                        <option value="{{ faculty.id }}" {% if department.faculty and department.faculty.id == faculty.id %}selected{% endif %}>
+                            {{ faculty.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Head of Department (HOD) Dropdown -->
+            <div class="form-group">
+                <label for="hod">Head of Department (HOD)</label>
+                <select id="hod" name="hod" class="form-control">
+                    <option value="">-- No HOD Assigned --</option>
+                    {% for teacher in teachers %}
+                        <option value="{{ teacher.id }}" {% if department.hod and department.hod.id == teacher.id %}selected{% endif %}>
+                            {{ teacher.name }}
+                        </option>
+                    {% endfor %}
+                </select>
             </div>
 
             <div class="card-footer-actions">

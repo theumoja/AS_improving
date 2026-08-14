@@ -32,14 +32,21 @@ class User(AbstractUser):
 
 class Institution(models.Model):
     TYPE_CHOICES = [
-        ('TECHNICAL_COLLEGE', 'Technical College'),
-        ('UNIVERSITY', 'University'),
-        ('INSTITUTE', 'Institute'),
-        ('OTHER', 'Other'),
+        ("TECHNICAL_COLLEGE", "Technical College"),
+        ("UNIVERSITY", "University"),
+        ("INSTITUTE", "Institute"),
+        ("OTHER", "Other"),
     ]
 
+    # Added logo field
+    logo = models.ImageField(
+        upload_to="institution_logos/", blank=True, null=True
+    )
+
     name = models.CharField(max_length=255)
-    institution_type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='TECHNICAL_COLLEGE')
+    institution_type = models.CharField(
+        max_length=50, choices=TYPE_CHOICES, default="TECHNICAL_COLLEGE"
+    )
     slogan = models.CharField(max_length=255, blank=True, null=True)
     address = models.TextField(help_text="Full location and P. O. Box address")
     telephone_1 = models.CharField(max_length=20)
@@ -47,9 +54,9 @@ class Institution(models.Model):
     website = models.URLField(blank=True, null=True)
     email = models.EmailField()
     academic_units = models.CharField(
-        max_length=255, 
-        blank=True, 
-        help_text="Comma-separated academic units e.g., COLLEGES, FACULTIES, DEPARTMENTS"
+        max_length=255,
+        blank=True,
+        help_text="Comma-separated academic units e.g., COLLEGES, FACULTIES, DEPARTMENTS",
     )
     date_created = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)
@@ -71,12 +78,6 @@ class Faculty(models.Model):
         return self.name
 
 
-class Department(models.Model):
-    faculty = models.ForeignKey(Faculty, on_delete=models.SET_NULL, null=True, blank=True, related_name='departments')
-    name = models.CharField(max_length=255, unique=True)
-
-    def __str__(self):
-        return self.name
 
 
 # ==================== ACADEMIC PERIOD TRACKING ====================
@@ -113,6 +114,15 @@ class AcademicTerm(models.Model):
 
 
 # ===================================================================
+# ===================================================================
+class Department(models.Model):
+    faculty = models.ForeignKey(Faculty, on_delete=models.SET_NULL, null=True, blank=True, related_name='departments')
+    name = models.CharField(max_length=255, unique=True)
+    hod = models.ForeignKey('TeacherProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='headed_departments')
+
+    def __str__(self):
+        return self.name
+
 
 class Course(models.Model):
     code = models.CharField(max_length=20, primary_key=True)
@@ -858,3 +868,5 @@ class CourseUnitDocument(models.Model):
 
     def __str__(self):
         return f"{self.course_unit.code} - {self.title}"
+
+

@@ -4,6 +4,15 @@
 {% include "attendance/sidebar.html" %}
 {% endblock %}
 
+<style>
+    /* Force dropdown native text visibility across browser dark/light themes */
+    select, select option, input, textarea {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+</style>
+
 <div style="display: flex; gap: 1.5rem;">
     <div style="flex: 1; padding: 1rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -56,12 +65,12 @@
                         <td style="padding: 10px;">{{ fee.amount }}</td>
                         <td style="padding: 10px; color: #64748b;">{{ fee.description|default:"-" }}</td>
                         <td style="padding: 10px; text-align: center;">
-                            <button onclick="document.getElementById('editFeeModal-{{ fee.id }}').style.display='flex'" style="background: #f59e0b; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 4px;">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                            <button onclick="document.getElementById('deleteFeeModal-{{ fee.id }}').style.display='flex'" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
+                            <!-- ACTION DROPDOWN SELECT -->
+                            <select onchange="handleAction(this, '{{ fee.id }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                                <option value="">-- Action --</option>
+                                <option value="edit">Edit</option>
+                                <option value="delete">Delete</option>
+                            </select>
                         </td>
                     </tr>
 
@@ -157,4 +166,19 @@
     </div>
 </div>
 {% endif %}
+
+<script>
+    function handleAction(selectElement, feeId) {
+        const action = selectElement.value;
+
+        if (action === 'edit') {
+            document.getElementById('editFeeModal-' + feeId).style.display = 'flex';
+        } else if (action === 'delete') {
+            document.getElementById('deleteFeeModal-' + feeId).style.display = 'flex';
+        }
+
+        // Reset dropdown back to default "-- Action --"
+        selectElement.value = '';
+    }
+</script>
 {% endblock %}

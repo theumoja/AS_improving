@@ -18,6 +18,13 @@
         --primary-hover: #1d4ed8;
     }
 
+    /* Force form native text visibility across browser dark/light themes */
+    select, select option, input, textarea {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+
     /* Page Header */
     .page-header-actions {
         display: flex;
@@ -179,26 +186,6 @@
         color: var(--slate-800);
     }
 
-    .btn-edit {
-        background-color: #ffffff;
-        border-color: rgba(37, 99, 235, 0.3);
-        color: var(--primary-blue);
-    }
-    .btn-edit:hover {
-        background-color: rgba(37, 99, 235, 0.05);
-        border-color: var(--primary-blue);
-    }
-
-    .btn-delete {
-        background-color: #ffffff;
-        border-color: rgba(220, 38, 38, 0.25);
-        color: #dc2626;
-    }
-    .btn-delete:hover {
-        background-color: #fef2f2;
-        border-color: #dc2626;
-    }
-
     /* Modal Styling */
     .modal {
         display: none;
@@ -324,25 +311,13 @@
                             <span>Get</span>
                         </a>
 
-                        <!-- Edit/Delete Controls -->
+                        <!-- Edit/Delete Action Dropdown -->
                         {% if request.user.role == 'ADMIN' or request.user.role == 'TEACHER' and doc.course_unit.course in request.user.teacher_profile.courses.all %}
-                            <button class="btn-sm btn-edit openEditModalBtn" 
-                                    data-id="{{ doc.id }}" 
-                                    data-title="{{ doc.title }}" 
-                                    data-description="{{ doc.description }}" 
-                                    data-course-unit="{{ doc.course_unit.code }}"
-                                    title="Edit Document">
-                                <i class="fas fa-pen"></i>
-                            </button>
-
-                            <form method="POST" action="" onsubmit="return confirm('Are you sure you want to delete this document?');" style="display:inline;">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="delete_document">
-                                <input type="hidden" name="document_id" value="{{ doc.id }}">
-                                <button type="submit" class="btn-sm btn-delete" title="Delete Document">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </form>
+                            <select onchange="handleAction(this, '{{ doc.id }}', '{{ doc.title|escapejs }}', '{{ doc.description|default:''|escapejs }}', '{{ doc.course_unit.code|escapejs }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--slate-300); cursor: pointer;">
+                                <option value="">-- Action --</option>
+                                <option value="edit">Edit</option>
+                                <option value="delete">Delete</option>
+                            </select>
                         {% endif %}
                     </div>
                 </td>
@@ -454,8 +429,53 @@
 </div>
 {% endif %}
 
-<!-- JavaScript for Modals handling -->
+<!-- JavaScript for Action Handlers & Modals -->
 <script>
+    function handleAction(selectElement, id, title, description, courseUnitCode) {
+        const action = selectElement.value;
+
+        if (action === 'edit') {
+            const editModal = document.getElementById('editModal');
+            if (editModal) {
+                document.getElementById('edit_document_id').value = id;
+                document.getElementById('edit_title').value = title;
+                document.getElementById('edit_description').value = description;
+                document.getElementById('edit_course_unit').value = courseUnitCode;
+                editModal.classList.add('active');
+            }
+        } else if (action === 'delete') {
+            if (confirm('Are you sure you want to delete this document?')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '';
+
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = '{{ csrf_token }}';
+                form.appendChild(csrfInput);
+
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'delete_document';
+                form.appendChild(actionInput);
+
+                const idInput = document.createElement('input');
+                idInput.type = 'hidden';
+                idInput.name = 'document_id';
+                idInput.value = id;
+                form.appendChild(idInput);
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        // Reset dropdown back to default "-- Action --"
+        selectElement.value = '';
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const uploadModal = document.getElementById('uploadModal');
         const openUploadBtn = document.getElementById('openUploadModalBtn');
@@ -465,18 +485,6 @@
         }
 
         const editModal = document.getElementById('editModal');
-        const editButtons = document.querySelectorAll('.openEditModalBtn');
-
-        editButtons.forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.getElementById('edit_document_id').value = this.dataset.id;
-                document.getElementById('edit_title').value = this.dataset.title;
-                document.getElementById('edit_description').value = this.dataset.description;
-                document.getElementById('edit_course_unit').value = this.dataset.courseUnit;
-                
-                editModal.classList.add('active');
-            });
-        });
 
         const closeBtns = document.querySelectorAll('.closeModalBtn');
         closeBtns.forEach(btn => {

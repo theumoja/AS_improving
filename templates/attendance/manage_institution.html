@@ -24,16 +24,24 @@
         align-items: center;
         gap: 0.75rem;
     }
+    /* Circular Header Icon / Logo Container */
     .header-icon {
-        width: 42px;
-        height: 42px;
+        width: 48px;
+        height: 48px;
         background: rgba(37, 99, 235, 0.1);
         color: #2563eb;
-        border-radius: var(--radius-sm);
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 1.25rem;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    .header-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
     }
     .profile-card {
         background: #ffffff;
@@ -100,13 +108,39 @@
         gap: 1rem;
         margin-top: 2rem;
     }
+
+    /* Circular Logo Preview Styles */
+    .logo-preview-box {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        margin-bottom: 0.75rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: #f8fafc;
+    }
+    .logo-preview-img {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #2563eb;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+        flex-shrink: 0;
+    }
 </style>
 
 <div class="institution-container">
     <div class="page-header-actions">
         <div class="header-title-group">
+            <!-- Header Icon renders circular logo if uploaded -->
             <div class="header-icon">
-                <i class="fas fa-university"></i>
+                {% if institution and institution.logo %}
+                    <img src="{{ institution.logo.url }}" alt="Logo">
+                {% else %}
+                    <i class="fas fa-university"></i>
+                {% endif %}
             </div>
             <div>
                 <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;">Institution Configuration</h2>
@@ -126,12 +160,30 @@
             </div>
         {% endif %}
 
-        <form method="POST" action="">
+        <form method="POST" action="" enctype="multipart/form-data">
             {% csrf_token %}
 
             <!-- 1. GENERAL IDENTIFICATION -->
             <div class="section-divider">
                 <i class="fas fa-id-card" style="color: #2563eb;"></i> Primary Identification
+            </div>
+
+            <!-- CIRCULAR LOGO UPLOAD & PREVIEW -->
+            <div class="form-group">
+                <label for="logo">Institution Logo / Emblem</label>
+                {% if institution.logo %}
+                    <div class="logo-preview-box">
+                        <img src="{{ institution.logo.url }}" alt="Institution Logo" class="logo-preview-img">
+                        <div>
+                            <span style="display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem;">Current Logo</span>
+                            <label style="font-size: 0.85rem; font-weight: normal; color: #dc2626; cursor: pointer; display: flex; align-items: center; gap: 0.35rem; margin: 0;">
+                                <input type="checkbox" name="clear_logo" value="1"> Remove Logo
+                            </label>
+                        </div>
+                    </div>
+                {% endif %}
+                <input type="file" id="logo" name="logo" class="form-control" accept="image/*">
+                <small style="color: var(--text-muted); display: block; margin-top: 0.3rem;">Allowed formats: PNG, JPG, JPEG, SVG, WEBP.</small>
             </div>
 
             <div class="form-group">
