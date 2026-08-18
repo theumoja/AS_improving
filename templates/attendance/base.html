@@ -96,6 +96,15 @@
         }
         .nav-brand i { font-size: 1.6rem; color: #bfdbfe; }
         .nav-brand span { background: rgba(255,255,255,0.12); padding: 0.2rem 0.8rem; border-radius: 50px; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.03em; margin-left: 0.25rem; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); }
+        
+        /* ----- Circular Logos ----- */
+        .nav-logo { 
+            width: 40px; 
+            height: 40px; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
 
         .universal-menu-btn {
             background: rgba(255,255,255,0.1);
@@ -138,6 +147,14 @@
         .drawer .close-btn:hover { color: var(--danger); transform: rotate(90deg); }
         .drawer .drawer-brand { font-size: 1.2rem; font-weight: 700; color: #1a2a3a; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(0,0,0,0.12); cursor: pointer; }
         .drawer .drawer-brand i { color: var(--primary); }
+        
+        .drawer-logo { 
+            width: 35px; 
+            height: 35px; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
 
         .drawer .drawer-links { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; }
         .drawer .drawer-heading { font-size: 0.7rem; font-weight: 700; color: #2c3e50; text-transform: uppercase; letter-spacing: 0.08em; padding: 1rem 0.75rem 0.25rem 0.75rem; opacity: 0.7; }
@@ -305,9 +322,14 @@
     <nav>
         <div class="nav-brand-container">
             <a href="{% url 'attendance:home' %}" class="nav-brand">
-                <i class="fas fa-graduation-cap"></i>
-                <span>UTC Bushenyi</span>
-                
+                {% if institution and institution.logo %}
+                    <img src="{{ institution.logo.url }}" alt="Logo" class="nav-logo" />
+                {% elif system_settings and system_settings.logo %}
+                    <img src="{{ system_settings.logo.url }}" alt="Logo" class="nav-logo" />
+                {% else %}
+                    <i class="fas fa-graduation-cap"></i>
+                {% endif %}
+                <span>{% if institution %}{{ institution.name }}{% elif system_settings %}{{ system_settings.name }}{% else %}UTC Bushenyi{% endif %}</span>
             </a>
         </div>
         <button class="universal-menu-btn" id="universalMenuBtn" aria-label="Toggle menu">
@@ -320,7 +342,14 @@
     <div class="drawer" id="drawer">
         <button class="close-btn" id="drawerCloseBtn"><i class="fas fa-times"></i></button>
         <a href="{% url 'attendance:home' %}" class="drawer-brand">
-            <i class="fas fa-graduation-cap"></i> UTC Bushenyi
+            {% if institution and institution.logo %}
+                <img src="{{ institution.logo.url }}" alt="Logo" class="drawer-logo" />
+            {% elif system_settings and system_settings.logo %}
+                <img src="{{ system_settings.logo.url }}" alt="Logo" class="drawer-logo" />
+            {% else %}
+                <i class="fas fa-graduation-cap"></i>
+            {% endif %}
+            {% if institution %}{{ institution.name }}{% elif system_settings %}{{ system_settings.name }}{% else %}UTC Bushenyi{% endif %}
         </a>
 
         <div class="drawer-links">
