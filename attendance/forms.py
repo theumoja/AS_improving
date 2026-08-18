@@ -38,3 +38,20 @@ class MarksEntryForm(forms.ModelForm):
     class Meta:
         model = MarksEntry
         fields = ['marks_obtained', 'grade', 'remarks']
+
+
+
+from django import forms
+from .models import CurriculumDevelopment
+
+class CurriculumDevelopmentForm(forms.ModelForm):
+    class Meta:
+        model = CurriculumDevelopment
+        fields = ['course', 'title', 'version', 'status', 'rationale']
+        widgets = {
+            'course': forms.Select(attrs={'class': 'form-input'}),
+            'title': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Revised CS Curriculum'}),
+            'version': forms.TextInput(attrs={'class': 'form-input', 'placeholder': '1.0'}),
+            'status': forms.Select(attrs={'class': 'form-input'}),
+            'rationale': forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Reason for proposal or update...'}),
+        }

@@ -1,0 +1,228 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+{% if messages %}
+    <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+            <div style="padding: 1rem; border-radius: var(--radius-sm); font-weight: 500; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 10px;
+                {% if message.tags == 'success' %} background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0;
+                {% else %} background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; {% endif %}">
+                <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2><i class="fas fa-check-double"></i> Curriculum Approvals</h2>
+        <p style="color: var(--text-muted); margin: 0;">Review board workflows, committee sign-offs, and official curriculum approval records.</p>
+    </div>
+    <button onclick="document.getElementById('addModal').style.display='block'" 
+            style="background: #2b3e85; color: white; padding: 0.6rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+        <i class="fas fa-plus"></i> Add Approval Log
+    </button>
+</div>
+
+<!-- DATA TABLE -->
+<div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+        <thead>
+            <tr style="background: #2b3e85; color: white;">
+                <th style="padding: 1rem;">Curriculum / Proposal</th>
+                <th style="padding: 1rem;">Stage</th>
+                <th style="padding: 1rem;">Reviewed By</th>
+                <th style="padding: 1rem; text-align: center;">Approval Status</th>
+                <th style="padding: 1rem;">Review Date</th>
+                <th style="padding: 1rem;">Remarks</th>
+                <th style="padding: 1rem; text-align: center;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in approvals %}
+            <tr style="border-bottom: 1px solid var(--border); background: {% cycle '#ffffff' '#f8fafc' %};">
+                <td style="padding: 1rem; font-weight: 600; color: #1e293b;">
+                    {{ app.curriculum.title|default:app.curriculum.course.name|default:"Curriculum Proposal" }}
+                </td>
+                <td style="padding: 1rem; color: #475569;">
+                    {{ app.approval_stage }}
+                </td>
+                <td style="padding: 1rem; color: #475569;">
+                    {{ app.reviewed_by.get_full_name|default:app.reviewed_by.username|default:"Academic Board" }}
+                </td>
+                <td style="padding: 1rem; text-align: center;">
+                    {% if app.status == 'APPROVED' %}
+                        <span style="background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.8rem;">
+                            Approved
+                        </span>
+                    {% elif app.status == 'REJECTED' %}
+                        <span style="background: #fee2e2; color: #991b1b; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.8rem;">
+                            Rejected
+                        </span>
+                    {% elif app.status == 'REVISION_REQUESTED' %}
+                        <span style="background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.8rem;">
+                            Revision Requested
+                        </span>
+                    {% else %}
+                        <span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.8rem;">
+                            Pending Review
+                        </span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem; color: #64748b;">
+                    {{ app.decision_date|date:"M d, Y"|default:"Pending" }}
+                </td>
+                <td style="padding: 1rem; color: #475569;">
+                    {{ app.comments|default:"None" }}
+                </td>
+                <td style="padding: 1rem; text-align: center; white-space: nowrap;">
+                    <!-- ACTION DROPDOWN SELECT -->
+                    <select onchange="handleAction(this, 'editModal-{{ app.id }}', 'deleteModal-{{ app.id }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="edit">Edit</option>
+                        <option value="delete">Delete</option>
+                    </select>
+                </td>
+            </tr>
+
+            <!-- EDIT MODAL -->
+            <div id="editModal-{{ app.id }}" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+                <div style="background:#fff; margin:10% auto; padding:20px; width:400px; border-radius:8px;">
+                    <h3>Edit Approval Record</h3>
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="edit">
+                        <input type="hidden" name="approval_id" value="{{ app.id }}">
+                        
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Curriculum Proposal</label>
+                            <select name="curriculum" required style="width:100%; padding:8px;">
+                                {% for c in curricula %}
+                                    <option value="{{ c.id }}" {% if c.id == app.curriculum.id %}selected{% endif %}>{{ c.title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Approval Stage</label>
+                            <input type="text" name="approval_stage" value="{{ app.approval_stage }}" required style="width:100%; padding:8px;">
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Status</label>
+                            <select name="status" style="width:100%; padding:8px;">
+                                {% for key, val in status_choices %}
+                                    <option value="{{ key }}" {% if key == app.status %}selected{% endif %}>{{ val }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Comments</label>
+                            <textarea name="comments" rows="3" style="width:100%; padding:8px;">{{ app.comments }}</textarea>
+                        </div>
+
+                        <div style="text-align:right;">
+                            <button type="button" onclick="document.getElementById('editModal-{{ app.id }}').style.display='none'" style="padding:6px 12px; margin-right:8px;">Cancel</button>
+                            <button type="submit" style="background:#2b3e85; color:white; padding:6px 12px; border:none; border-radius:4px;">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- DELETE MODAL -->
+            <div id="deleteModal-{{ app.id }}" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+                <div style="background:#fff; margin:15% auto; padding:20px; width:350px; border-radius:8px; text-align:center;">
+                    <h3>Confirm Delete</h3>
+                    <p>Are you sure you want to delete this record?</p>
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="approval_id" value="{{ app.id }}">
+                        
+                        <button type="button" onclick="document.getElementById('deleteModal-{{ app.id }}').style.display='none'" style="padding:6px 12px; margin-right:8px;">Cancel</button>
+                        <button type="submit" style="background:#ef4444; color:white; padding:6px 12px; border:none; border-radius:4px;">Delete</button>
+                    </form>
+                </div>
+            </div>
+
+            {% empty %}
+            <tr>
+                <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">No curriculum approval logs present.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ADD MODAL -->
+<div id="addModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+    <div style="background:#fff; margin:10% auto; padding:20px; width:400px; border-radius:8px;">
+        <h3>Add Approval Record</h3>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Curriculum Proposal</label>
+                <select name="curriculum" required style="width:100%; padding:8px;">
+                    <option value="">-- Select Curriculum --</option>
+                    {% for c in curricula %}
+                        <option value="{{ c.id }}">{{ c.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Approval Stage</label>
+                <input type="text" name="approval_stage" placeholder="e.g. Faculty Board" required style="width:100%; padding:8px;">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Status</label>
+                <select name="status" style="width:100%; padding:8px;">
+                    {% for key, val in status_choices %}
+                        <option value="{{ key }}">{{ val }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Comments</label>
+                <textarea name="comments" rows="3" placeholder="Optional comments..." style="width:100%; padding:8px;"></textarea>
+            </div>
+
+            <div style="text-align:right;">
+                <button type="button" onclick="document.getElementById('addModal').style.display='none'" style="padding:6px 12px; margin-right:8px;">Cancel</button>
+                <button type="submit" style="background:#2b3e85; color:white; padding:6px 12px; border:none; border-radius:4px;">Create Log</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function handleAction(selectElement, editTarget, deleteTarget) {
+    const action = selectElement.value;
+    if (!action) return;
+    
+    const target = action === 'edit' ? editTarget : deleteTarget;
+    if (target) {
+        if (target.startsWith('/') || target.startsWith('http')) {
+            window.location.href = target;
+        } else {
+            const modal = document.getElementById(target);
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }
+    }
+    selectElement.value = '';
+}
+</script>
+
+{% endblock %}

@@ -220,4 +220,15 @@ urlpatterns = [
     path('admin_ui/transfers/', views_admin.manage_student_transfers, name='manage_student_transfers'),
 
     path('course-documents/', views_users.manage_course_documents, name='manage_course_documents'),
+
+
+    # ==================== PROGRAMS & CURRICULUM MODULE ====================
+    path('curriculum/dashboard/', views_admin.curriculum_dashboard, name='curriculum_dashboard'),
+    path('curriculum/settings/', views_admin.programme_settings, name='programme_settings'),
+    path('curriculum/search/', views_admin.summarized_search, name='summarized_search'),
+    path('curriculum/structures/', views_admin.curriculum_structures, name='curriculum_structures'),
+    path('curriculum/development/', views_admin.curriculum_development, name='curriculum_development'),
+    path('curriculum/approvals/', views_admin.curriculum_approvals, name='curriculum_approvals'),
+    path('curriculum/review/', views_admin.curriculum_review, name='curriculum_review'),
+    path('curriculum/cbe-settings/', views_admin.cbe_form_settings, name='cbe_form_settings'),
 ]

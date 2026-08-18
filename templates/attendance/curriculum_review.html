@@ -1,0 +1,244 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+{% if messages %}
+    <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+            <div style="padding: 1rem; border-radius: var(--radius-sm); font-weight: 500; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 10px;
+                {% if message.tags == 'success' %} background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0;
+                {% else %} background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; {% endif %}">
+                <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2><i class="fas fa-history"></i> Curriculum Review</h2>
+        <p style="color: var(--text-muted); margin: 0;">Manage periodic quality assurance reviews, stakeholder audits, and curriculum lifespan evaluations.</p>
+    </div>
+    <button onclick="document.getElementById('addModal').style.display='block'" 
+            style="background: #2b3e85; color: white; padding: 0.6rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+        <i class="fas fa-plus"></i> Add Review Record
+    </button>
+</div>
+
+<!-- DATA TABLE -->
+<div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+        <thead>
+            <tr style="background: #2b3e85; color: white;">
+                <th style="padding: 1rem;">Programme</th>
+                <th style="padding: 1rem;">Review Cycle</th>
+                <th style="padding: 1rem;">Review Board</th>
+                <th style="padding: 1rem; text-align: center;">Status</th>
+                <th style="padding: 1rem;">Next Scheduled Review</th>
+                <th style="padding: 1rem; text-align: center;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rev in reviews %}
+            <tr style="border-bottom: 1px solid var(--border); background: {% cycle '#ffffff' '#f8fafc' %};">
+                <td style="padding: 1rem; font-weight: 600; color: #1e293b;">
+                    {{ rev.course.name }} ({{ rev.course.code }})
+                </td>
+                <td style="padding: 1rem; color: #475569;">
+                    {{ rev.review_cycle }}
+                </td>
+                <td style="padding: 1rem; color: #475569;">
+                    {{ rev.review_board }}
+                </td>
+                <td style="padding: 1rem; text-align: center;">
+                    {% if rev.status == 'COMPLETED' %}
+                        <span style="background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.8rem;">
+                            Completed
+                        </span>
+                    {% elif rev.status == 'IN_PROGRESS' %}
+                        <span style="background: #f3e8ff; color: #6b21a8; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.8rem;">
+                            In Progress
+                        </span>
+                    {% elif rev.status == 'ARCHIVED' %}
+                        <span style="background: #f1f5f9; color: #475569; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.8rem;">
+                            Archived
+                        </span>
+                    {% else %}
+                        <span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 12px; font-weight: bold; font-size: 0.8rem;">
+                            Scheduled
+                        </span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem; color: #64748b;">
+                    {{ rev.next_review_date|date:"M d, Y" }}
+                </td>
+                <td style="padding: 1rem; text-align: center; white-space: nowrap;">
+                    <!-- ACTION DROPDOWN SELECT -->
+                    <select onchange="handleAction(this, 'editModal-{{ rev.id }}', 'deleteModal-{{ rev.id }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="edit">Edit</option>
+                        <option value="delete">Delete</option>
+                    </select>
+                </td>
+            </tr>
+
+            <!-- EDIT MODAL -->
+            <div id="editModal-{{ rev.id }}" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+                <div style="background:#fff; margin:5% auto; padding:20px; width:450px; border-radius:8px;">
+                    <h3>Edit Review Record</h3>
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="edit">
+                        <input type="hidden" name="review_id" value="{{ rev.id }}">
+                        
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Programme / Course</label>
+                            <select name="course" required style="width:100%; padding:8px;">
+                                {% for c in courses %}
+                                    <option value="{{ c.code }}" {% if c.code == rev.course.code %}selected{% endif %}>{{ c.name }} ({{ c.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Review Cycle</label>
+                            <input type="text" name="review_cycle" value="{{ rev.review_cycle }}" required style="width:100%; padding:8px;">
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Review Board</label>
+                            <input type="text" name="review_board" value="{{ rev.review_board }}" required style="width:100%; padding:8px;">
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Status</label>
+                            <select name="status" style="width:100%; padding:8px;">
+                                {% for key, val in status_choices %}
+                                    <option value="{{ key }}" {% if key == rev.status %}selected{% endif %}>{{ val }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Next Review Date</label>
+                            <input type="date" name="next_review_date" value="{{ rev.next_review_date|date:'Y-m-d' }}" required style="width:100%; padding:8px;">
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Findings & Recommendations</label>
+                            <textarea name="findings_and_recommendations" rows="3" style="width:100%; padding:8px;">{{ rev.findings_and_recommendations|default:'' }}</textarea>
+                        </div>
+
+                        <div style="text-align:right;">
+                            <button type="button" onclick="document.getElementById('editModal-{{ rev.id }}').style.display='none'" style="padding:6px 12px; margin-right:8px;">Cancel</button>
+                            <button type="submit" style="background:#2b3e85; color:white; padding:6px 12px; border:none; border-radius:4px;">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- DELETE MODAL -->
+            <div id="deleteModal-{{ rev.id }}" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+                <div style="background:#fff; margin:15% auto; padding:20px; width:350px; border-radius:8px; text-align:center;">
+                    <h3>Confirm Delete</h3>
+                    <p>Are you sure you want to delete this review record?</p>
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="review_id" value="{{ rev.id }}">
+                        
+                        <button type="button" onclick="document.getElementById('deleteModal-{{ rev.id }}').style.display='none'" style="padding:6px 12px; margin-right:8px;">Cancel</button>
+                        <button type="submit" style="background:#ef4444; color:white; padding:6px 12px; border:none; border-radius:4px;">Delete</button>
+                    </form>
+                </div>
+            </div>
+
+            {% empty %}
+            <tr>
+                <td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">No periodic curriculum review records registered.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ADD MODAL -->
+<div id="addModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+    <div style="background:#fff; margin:5% auto; padding:20px; width:450px; border-radius:8px;">
+        <h3>Add Review Record</h3>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Programme / Course</label>
+                <select name="course" required style="width:100%; padding:8px;">
+                    <option value="">-- Select Programme --</option>
+                    {% for c in courses %}
+                        <option value="{{ c.code }}">{{ c.name }} ({{ c.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Review Cycle</label>
+                <input type="text" name="review_cycle" placeholder="e.g. 5-Year Periodic Review 2026" required style="width:100%; padding:8px;">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Review Board</label>
+                <input type="text" name="review_board" placeholder="e.g. Quality Assurance Board" required style="width:100%; padding:8px;">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Status</label>
+                <select name="status" style="width:100%; padding:8px;">
+                    {% for key, val in status_choices %}
+                        <option value="{{ key }}">{{ val }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Next Review Date</label>
+                <input type="date" name="next_review_date" required style="width:100%; padding:8px;">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Findings & Recommendations</label>
+                <textarea name="findings_and_recommendations" rows="3" placeholder="Optional audit details..." style="width:100%; padding:8px;"></textarea>
+            </div>
+
+            <div style="text-align:right;">
+                <button type="button" onclick="document.getElementById('addModal').style.display='none'" style="padding:6px 12px; margin-right:8px;">Cancel</button>
+                <button type="submit" style="background:#2b3e85; color:white; padding:6px 12px; border:none; border-radius:4px;">Create Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function handleAction(selectElement, editTarget, deleteTarget) {
+    const action = selectElement.value;
+    if (!action) return;
+    
+    const target = action === 'edit' ? editTarget : deleteTarget;
+    if (target) {
+        if (target.startsWith('/') || target.startsWith('http')) {
+            window.location.href = target;
+        } else {
+            const modal = document.getElementById(target);
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }
+    }
+    selectElement.value = '';
+}
+</script>
+
+{% endblock %}

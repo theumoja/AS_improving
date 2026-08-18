@@ -1,0 +1,99 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+{% if messages %}
+    <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+            <div style="padding: 1rem; border-radius: var(--radius-sm); font-weight: 500; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 10px;
+                {% if message.tags == 'success' %} background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0;
+                {% else %} background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; {% endif %}">
+                <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div style="margin-bottom: 2rem;">
+    <h2><i class="fas fa-search"></i> Summarized Curriculum Search</h2>
+    <p style="color: var(--text-muted); margin: 0;">Cross-search across programmes, course units, and Competency-Based Education (CBE) settings.</p>
+</div>
+
+{# Search Form #}
+<form method="GET" style="margin-bottom: 2rem; display: flex; gap: 0.75rem;">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search by programme name, unit title, or CBE competency code..." 
+           style="flex: 1; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.95rem;">
+    <button type="submit" class="btn" style="background: #2b3e85; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer;">
+        <i class="fas fa-search"></i> Search
+    </button>
+</form>
+
+{% if query %}
+    {# Search Results Section #}
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+        {# Courses / Programmes #}
+        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem;">
+            <h3 style="margin-top: 0; color: #1e293b; font-size: 1.1rem;"><i class="fas fa-scroll"></i> Programmes ({{ results.courses|length }})</h3>
+            {% if results.courses %}
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    {% for course in results.courses %}
+                        <li style="padding: 0.75rem 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>{{ course.name }}</strong> <span style="color: var(--text-muted); font-size: 0.85rem;">({{ course.code }})</span>
+                            </div>
+                            <a href="{% url 'attendance:manage_courses' %}" style="color: #2563eb; font-size: 0.85rem; text-decoration: none;">View Details &rarr;</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color: var(--text-muted); margin: 0; font-size: 0.9rem;">No programmes found matching "{{ query }}".</p>
+            {% endif %}
+        </div>
+
+        {# Course Units #}
+        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem;">
+            <h3 style="margin-top: 0; color: #1e293b; font-size: 1.1rem;"><i class="fas fa-book-open"></i> Course Units ({{ results.units|length }})</h3>
+            {% if results.units %}
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    {% for unit in results.units %}
+                        <li style="padding: 0.75rem 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>{{ unit.name }}</strong> <span style="color: var(--text-muted); font-size: 0.85rem;">({{ unit.code }})</span>
+                            </div>
+                            <a href="{% url 'attendance:manage_course_units' %}" style="color: #2563eb; font-size: 0.85rem; text-decoration: none;">View Details &rarr;</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color: var(--text-muted); margin: 0; font-size: 0.9rem;">No course units found matching "{{ query }}".</p>
+            {% endif %}
+        </div>
+
+        {# CBE Form Settings #}
+        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem;">
+            <h3 style="margin-top: 0; color: #1e293b; font-size: 1.1rem;"><i class="fas fa-tasks"></i> CBE Competencies ({{ results.cbe_forms|length }})</h3>
+            {% if results.cbe_forms %}
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    {% for cbe in results.cbe_forms %}
+                        <li style="padding: 0.75rem 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>{{ cbe.competency_code }}</strong> - {{ cbe.title|default:cbe.course_unit.name }}
+                            </div>
+                            <a href="{% url 'attendance:cbe_form_settings' %}" style="color: #2563eb; font-size: 0.85rem; text-decoration: none;">View Details &rarr;</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color: var(--text-muted); margin: 0; font-size: 0.9rem;">No CBE form configurations found matching "{{ query }}".</p>
+            {% endif %}
+        </div>
+
+    </div>
+{% endif %}
+
+{% endblock %}

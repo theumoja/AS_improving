@@ -145,6 +145,7 @@ class CourseUnit(models.Model):
     code = models.CharField(max_length=20, primary_key=True)
     name = models.CharField(max_length=255)
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='units')
+    credit_units = models.PositiveIntegerField(default=3)
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -870,3 +871,108 @@ class CourseUnitDocument(models.Model):
         return f"{self.course_unit.code} - {self.title}"
 
 
+
+
+# ==================== PROGRAMMES & CURRICULUM EXTENSIONS ====================
+
+class ProgrammeSetting(models.Model):
+    course = models.OneToOneField('Course', on_delete=models.CASCADE, related_name='settings')
+    total_credit_units = models.PositiveIntegerField(default=120)
+    duration_years = models.PositiveIntegerField(default=3)
+    pass_mark = models.DecimalField(max_digits=5, decimal_places=2, default=50.00)
+    grading_system = models.CharField(max_length=50, default='GPA 5.0')
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Settings - {self.course.name}"
+
+
+class CurriculumStructure(models.Model):
+    course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='curriculum_structures')
+    academic_year_level = models.PositiveIntegerField(default=1, help_text="e.g. Year 1, 2, 3")
+    semester = models.PositiveIntegerField(default=1, help_text="e.g. Semester 1, 2")
+    course_unit = models.ForeignKey('CourseUnit', on_delete=models.CASCADE, related_name='curriculum_positions')
+    is_core = models.BooleanField(default=True, help_text="Core vs Elective unit")
+    credit_units = models.PositiveIntegerField(default=3)
+
+    class Meta:
+        unique_together = ('course', 'academic_year_level', 'semester', 'course_unit')
+
+    def __str__(self):
+        return f"{self.course.code} - Y{self.academic_year_level}S{self.semester}: {self.course_unit.code}"
+
+
+class CurriculumDevelopment(models.Model):
+    STATUS_CHOICES = [
+        ('DRAFT', 'Draft'),
+        ('SUBMITTED', 'Submitted for Review'),
+        ('UNDER_REVIEW', 'Under Review'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    ]
+    title = models.CharField(max_length=255)
+    course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='developments')
+    version = models.CharField(max_length=20, default='1.0')
+    rationale = models.TextField()
+    proposed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='proposed_curricula')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.title} (v{self.version}) - {self.status}"
+
+
+class CurriculumApproval(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending Approval'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+        ('REVISION_REQUESTED', 'Revision Requested'),
+    ]
+    curriculum = models.ForeignKey(CurriculumDevelopment, on_delete=models.CASCADE, related_name='approvals')
+    approval_stage = models.CharField(max_length=100, help_text="e.g., Department Board, Faculty Board, Senate")
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='curriculum_reviews_conducted')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    comments = models.TextField(blank=True, null=True)
+    decision_date = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Approval ({self.approval_stage}): {self.curriculum.title} [{self.status}]"
+
+
+class CurriculumReview(models.Model):
+    STATUS_CHOICES = [
+        ('SCHEDULED', 'Scheduled'),
+        ('IN_PROGRESS', 'In Progress'),
+        ('COMPLETED', 'Completed'),
+        ('ARCHIVED', 'Archived'),
+    ]
+    course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='reviews')
+    review_cycle = models.CharField(max_length=50, help_text="e.g., 5-Year Periodic Review 2026")
+    review_board = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='SCHEDULED')
+    findings_and_recommendations = models.TextField(blank=True, null=True)
+    next_review_date = models.DateField()
+
+    def __str__(self):
+        return f"Review: {self.course.code} - {self.review_cycle}"
+
+
+class CBEFormSetting(models.Model):
+    ASSESSMENT_METHODS = [
+        ('PRACTICAL', 'Practical Demonstration'),
+        ('PORTFOLIO', 'Portfolio Assessment'),
+        ('WRITTEN', 'Written Examination'),
+        ('PROJECT', 'Project Work'),
+    ]
+    course_unit = models.ForeignKey('CourseUnit', on_delete=models.CASCADE, related_name='cbe_settings')
+    competency_code = models.CharField(max_length=50)
+    competency_description = models.TextField()
+    performance_criteria = models.TextField()
+    assessment_method = models.CharField(max_length=30, choices=ASSESSMENT_METHODS, default='PRACTICAL')
+    weightage_percent = models.DecimalField(max_digits=5, decimal_places=2, default=20.00)
+    passing_threshold = models.DecimalField(max_digits=5, decimal_places=2, default=60.00)
+
+    def __str__(self):
+        return f"CBE: {self.course_unit.code} - {self.competency_code}"

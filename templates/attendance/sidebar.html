@@ -179,21 +179,40 @@
     {# ========================================================================= #}
     {# 4. CONTEXT: PROGRAMS AND CURRICULUM MANAGEMENT                            #}
     {# ========================================================================= #}
-    {% elif 'courses' in request.path or 'course-units' in request.path or 'course-documents' in request.path or request.resolver_match.url_name in 'manage_courses,edit_course,delete_course,manage_course_units,edit_course_unit,delete_course_unit,bulk_upload_courses,manage_course_documents' %}
+    {% elif 'courses' in request.path or 'course-units' in request.path or 'curriculum' in request.path or request.resolver_match.url_name in 'curriculum_dashboard,manage_courses,edit_course,delete_course,programme_settings,manage_course_units,edit_course_unit,delete_course_unit,summarized_search,curriculum_structures,curriculum_development,curriculum_approvals,curriculum_review,cbe_form_settings' %}
         
         <span class="sidebar-divider"></span>
         <div class="sidebar-heading">Programs & Curriculum</div>
 
+        <a href="{% url 'attendance:curriculum_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'curriculum_dashboard' %}active{% endif %}">
+            <i class="fas fa-chart-pie"></i> Dashboard
+        </a>
         <a href="{% url 'attendance:manage_courses' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_courses' %}active{% endif %}">
             <i class="fas fa-scroll"></i> Programmes
         </a>
-
+        <a href="{% url 'attendance:programme_settings' %}" class="sidebar-link {% if request.resolver_match.url_name == 'programme_settings' %}active{% endif %}">
+            <i class="fas fa-sliders-h"></i> Programme Settings
+        </a>
         <a href="{% url 'attendance:manage_course_units' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_course_units' %}active{% endif %}">
             <i class="fas fa-book-open"></i> Course Units
         </a>
-
-        <a href="{% url 'attendance:manage_course_documents' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_course_documents' %}active{% endif %}">
-            <i class="fas fa-file-alt"></i> Course Documents
+        <a href="{% url 'attendance:summarized_search' %}" class="sidebar-link {% if request.resolver_match.url_name == 'summarized_search' %}active{% endif %}">
+            <i class="fas fa-search"></i> Summarized Search
+        </a>
+        <a href="{% url 'attendance:curriculum_structures' %}" class="sidebar-link {% if request.resolver_match.url_name == 'curriculum_structures' %}active{% endif %}">
+            <i class="fas fa-sitemap"></i> Curriculum Structures
+        </a>
+        <a href="{% url 'attendance:curriculum_development' %}" class="sidebar-link {% if request.resolver_match.url_name == 'curriculum_development' %}active{% endif %}">
+            <i class="fas fa-drafting-compass"></i> Curriculum Development
+        </a>
+        <a href="{% url 'attendance:curriculum_approvals' %}" class="sidebar-link {% if request.resolver_match.url_name == 'curriculum_approvals' %}active{% endif %}">
+            <i class="fas fa-check-double"></i> Curriculum Approvals
+        </a>
+        <a href="{% url 'attendance:curriculum_review' %}" class="sidebar-link {% if request.resolver_match.url_name == 'curriculum_review' %}active{% endif %}">
+            <i class="fas fa-history"></i> Curriculum Review
+        </a>
+        <a href="{% url 'attendance:cbe_form_settings' %}" class="sidebar-link {% if request.resolver_match.url_name == 'cbe_form_settings' %}active{% endif %}">
+            <i class="fas fa-tasks"></i> CBE Form Settings
         </a>
 
     {# ========================================================================= #}

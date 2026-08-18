@@ -1,0 +1,280 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+{% if messages %}
+    <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+            <div style="padding: 1rem; border-radius: var(--radius-sm); font-weight: 500; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 10px;
+                {% if message.tags == 'success' %} background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0;
+                {% else %} background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; {% endif %}">
+                <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+{# Header Section #}
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2 style="margin: 0;"><i class="fas fa-sitemap"></i> Curriculum Structures</h2>
+        <p style="color: var(--text-muted); margin: 0.25rem 0 0 0;">Detailed structural map connecting academic programmes to their constituent course units.</p>
+    </div>
+    <button onclick="openAddModal()" style="background: #2b3e85; color: white; padding: 0.65rem 1.25rem; border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-plus-circle"></i> Add Structure Units
+    </button>
+</div>
+
+{# Table Display #}
+<div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+        <thead>
+            <tr style="background: #2b3e85; color: white;">
+                <th style="padding: 1rem;">Programme</th>
+                <th style="padding: 1rem;">Course Unit</th>
+                <th style="padding: 1rem;">Year / Semester</th>
+                <th style="padding: 1rem;">Credit Hours / Value</th>
+                <th style="padding: 1rem; text-align: center;">Type</th>
+                <th style="padding: 1rem; text-align: center;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in structures %}
+            <tr style="border-bottom: 1px solid var(--border); background: {% cycle '#ffffff' '#f8fafc' %};">
+                <td style="padding: 1rem; font-weight: 600; color: #1e293b;">
+                    {{ item.course.name }} <span style="color: var(--text-muted); font-size: 0.85rem;">({{ item.course.code }})</span>
+                </td>
+                <td style="padding: 1rem; color: #334155;">
+                    {{ item.course_unit.name }} <span style="color: var(--text-muted); font-size: 0.85rem;">({{ item.course_unit.code }})</span>
+                </td>
+                <td style="padding: 1rem; color: #475569;">
+                    Year {{ item.academic_year_level|default:"1" }}, Sem {{ item.semester|default:"1" }}
+                </td>
+                <td style="padding: 1rem; color: #475569;">
+                    {{ item.credit_units|default:"3" }} Credits
+                </td>
+                <td style="padding: 1rem; text-align: center;">
+                    <span style="background: #e2e8f0; color: #334155; padding: 4px 10px; border-radius: 12px; font-weight: 600; font-size: 0.8rem;">
+                        {% if item.is_core %}Core{% else %}Elective{% endif %}
+                    </span>
+                </td>
+                <td style="padding: 1rem; text-align: center; white-space: nowrap;">
+                    <!-- ACTION DROPDOWN SELECT -->
+                    <select onchange="handleAction(this, () => openEditModal('{{ item.id }}', '{{ item.course.pk }}', '{{ item.course_unit.pk }}', '{{ item.academic_year_level }}', '{{ item.semester }}', '{% if item.is_core %}Core{% else %}Elective{% endif %}', '{{ item.credit_units|default:3 }}'), () => openDeleteModal('{{ item.id }}', '{{ item.course_unit.name|escapejs }}'))" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="edit">Edit</option>
+                        <option value="delete">Delete</option>
+                    </select>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">No curriculum structures currently configured.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# --- ADD STRUCTURE MODAL (MULTI-SELECT) --- #}
+<div id="addModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; padding: 1rem;">
+    <div style="background: white; border-radius: var(--radius-sm); max-width: 520px; width: 100%; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h3 style="margin: 0; color: #1e293b;"><i class="fas fa-plus-circle"></i> Add Structure Mapping</h3>
+            <button onclick="closeModal('addModal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: #64748b;">&times;</button>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Programme / Course</label>
+                <select name="course_id" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px;">
+                    <option value="">-- Select Programme --</option>
+                    {% for c in courses %}
+                        <option value="{{ c.pk }}">{{ c.name }} ({{ c.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">
+                    Course Units <span style="color: var(--text-muted); font-weight: normal; font-size: 0.75rem;">(Hold Ctrl / Cmd to select multiple)</span>
+                </label>
+                <select name="course_unit_ids" multiple required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px; height: 140px;">
+                    {% for u in course_units %}
+                        <option value="{{ u.pk }}">{{ u.name }} ({{ u.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Year</label>
+                    <input type="number" name="year" value="1" min="1" max="7" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Semester</label>
+                    <input type="number" name="semester" value="1" min="1" max="3" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Credit Units</label>
+                    <input type="number" name="credit_units" value="3" min="1" max="30" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Category / Type</label>
+                <select name="category" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px;">
+                    <option value="Core">Core</option>
+                    <option value="Elective">Elective</option>
+                    <option value="Audit">Audit</option>
+                </select>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button type="button" onclick="closeModal('addModal')" style="padding: 0.6rem 1.25rem; border: 1px solid var(--border); background: white; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <button type="submit" style="padding: 0.6rem 1.25rem; background: #2b3e85; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">Save Mappings</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# --- EDIT STRUCTURE MODAL --- #}
+<div id="editModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; padding: 1rem;">
+    <div style="background: white; border-radius: var(--radius-sm); max-width: 500px; width: 100%; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h3 style="margin: 0; color: #1e293b;"><i class="fas fa-edit"></i> Edit Structure Mapping</h3>
+            <button onclick="closeModal('editModal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: #64748b;">&times;</button>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="structure_id" id="edit_structure_id">
+            
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Programme / Course</label>
+                <select name="course_id" id="edit_course_id" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px;">
+                    {% for c in courses %}
+                        <option value="{{ c.pk }}">{{ c.name }} ({{ c.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Course Unit</label>
+                <select name="course_unit_id" id="edit_course_unit_id" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px;">
+                    {% for u in course_units %}
+                        <option value="{{ u.pk }}">{{ u.name }} ({{ u.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Year</label>
+                    <input type="number" name="year" id="edit_year" min="1" max="7" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Semester</label>
+                    <input type="number" name="semester" id="edit_semester" min="1" max="3" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px;">
+                </div>
+                <div>
+                    <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Credit Units</label>
+                    <input type="number" name="credit_units" id="edit_credit_units" min="1" max="30" required style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem;">Category / Type</label>
+                <select name="category" id="edit_category" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px;">
+                    <option value="Core">Core</option>
+                    <option value="Elective">Elective</option>
+                    <option value="Audit">Audit</option>
+                </select>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button type="button" onclick="closeModal('editModal')" style="padding: 0.6rem 1.25rem; border: 1px solid var(--border); background: white; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <button type="submit" style="padding: 0.6rem 1.25rem; background: #2b3e85; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">Update Mapping</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# --- DELETE CONFIRMATION MODAL --- #}
+<div id="deleteModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; padding: 1rem;">
+    <div style="background: white; border-radius: var(--radius-sm); max-width: 420px; width: 100%; padding: 1.5rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0; color: #dc2626;"><i class="fas fa-exclamation-triangle"></i> Confirm Delete</h3>
+            <button onclick="closeModal('deleteModal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: #64748b;">&times;</button>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="structure_id" id="delete_structure_id">
+            
+            <p style="color: #475569; margin-bottom: 1.5rem; font-size: 0.95rem;">
+                Are you sure you want to remove the curriculum mapping for <strong id="delete_unit_name"></strong>? This action cannot be undone.
+            </p>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button type="button" onclick="closeModal('deleteModal')" style="padding: 0.6rem 1.25rem; border: 1px solid var(--border); background: white; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <button type="submit" style="padding: 0.6rem 1.25rem; background: #dc2626; color: white; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">Delete</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function handleAction(selectElement, editTarget, deleteTarget) {
+        const action = selectElement.value;
+        if (!action) return;
+        
+        const target = action === 'edit' ? editTarget : deleteTarget;
+        if (typeof target === 'function') {
+            target();
+        } else if (typeof target === 'string') {
+            if (target.startsWith('/') || target.startsWith('http')) {
+                window.location.href = target;
+            } else {
+                const modal = document.getElementById(target);
+                if (modal) {
+                    modal.style.display = 'flex';
+                }
+            }
+        }
+        selectElement.value = '';
+    }
+
+    function openAddModal() {
+        document.getElementById('addModal').style.display = 'flex';
+    }
+
+    function openEditModal(id, courseId, unitId, year, semester, category, creditUnits) {
+        document.getElementById('edit_structure_id').value = id;
+        document.getElementById('edit_course_id').value = courseId;
+        document.getElementById('edit_course_unit_id').value = unitId;
+        document.getElementById('edit_year').value = year;
+        document.getElementById('edit_semester').value = semester;
+        document.getElementById('edit_category').value = category;
+        document.getElementById('edit_credit_units').value = creditUnits || 3;
+        document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function openDeleteModal(id, unitName) {
+        document.getElementById('delete_structure_id').value = id;
+        document.getElementById('delete_unit_name').innerText = unitName;
+        document.getElementById('deleteModal').style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+</script>
+
+{% endblock %}

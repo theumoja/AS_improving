@@ -1,0 +1,232 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+{% if messages %}
+    <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+            <div style="padding: 1rem; border-radius: var(--radius-sm); font-weight: 500; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 10px;
+                {% if message.tags == 'success' %} background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0;
+                {% else %} background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; {% endif %}">
+                <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h2><i class="fas fa-tasks"></i> CBE Form Settings</h2>
+        <p style="color: var(--text-muted); margin: 0;">Configure Competency-Based Education (CBE) parameters, evaluation rubrics, and unit assessment codes.</p>
+    </div>
+    <button onclick="document.getElementById('addModal').style.display='block'" 
+            style="background: #2b3e85; color: white; padding: 0.6rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+        <i class="fas fa-plus"></i> Add CBE Setting
+    </button>
+</div>
+
+<!-- DATA TABLE -->
+<div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+        <thead>
+            <tr style="background: #2b3e85; color: white;">
+                <th style="padding: 1rem;">Course Unit</th>
+                <th style="padding: 1rem;">Competency Code</th>
+                <th style="padding: 1rem;">Assessment Method</th>
+                <th style="padding: 1rem; text-align: center;">Weightage (%)</th>
+                <th style="padding: 1rem; text-align: center;">Pass Threshold (%)</th>
+                <th style="padding: 1rem; text-align: center;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cbe in cbe_settings %}
+            <tr style="border-bottom: 1px solid var(--border); background: {% cycle '#ffffff' '#f8fafc' %};">
+                <td style="padding: 1rem; font-weight: 600; color: #1e293b;">
+                    {{ cbe.course_unit.name }} ({{ cbe.course_unit.code }})
+                </td>
+                <td style="padding: 1rem; color: #475569; font-family: monospace; font-weight: 600;">
+                    {{ cbe.competency_code }}
+                </td>
+                <td style="padding: 1rem; color: #475569;">
+                    {{ cbe.get_assessment_method_display }}
+                </td>
+                <td style="padding: 1rem; text-align: center; font-weight: 600; color: #1e293b;">
+                    {{ cbe.weightage_percent }}%
+                </td>
+                <td style="padding: 1rem; text-align: center; font-weight: 600; color: #065f46;">
+                    {{ cbe.passing_threshold }}%
+                </td>
+                <td style="padding: 1rem; text-align: center; white-space: nowrap;">
+                    <!-- ACTION DROPDOWN SELECT -->
+                    <select onchange="handleAction(this, 'editModal-{{ cbe.id }}', 'deleteModal-{{ cbe.id }}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                        <option value="">-- Action --</option>
+                        <option value="edit">Edit</option>
+                        <option value="delete">Delete</option>
+                    </select>
+                </td>
+            </tr>
+
+            <!-- EDIT MODAL -->
+            <div id="editModal-{{ cbe.id }}" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+                <div style="background:#fff; margin:5% auto; padding:20px; width:450px; border-radius:8px;">
+                    <h3>Edit CBE Setting</h3>
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="edit">
+                        <input type="hidden" name="cbe_id" value="{{ cbe.id }}">
+                        
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Course Unit</label>
+                            <select name="course_unit" required style="width:100%; padding:8px;">
+                                {% for cu in course_units %}
+                                    <option value="{{ cu.code }}" {% if cu.code == cbe.course_unit.code %}selected{% endif %}>{{ cu.name }} ({{ cu.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Competency Code</label>
+                            <input type="text" name="competency_code" value="{{ cbe.competency_code }}" required style="width:100%; padding:8px;">
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Assessment Method</label>
+                            <select name="assessment_method" style="width:100%; padding:8px;">
+                                {% for key, val in assessment_methods %}
+                                    <option value="{{ key }}" {% if key == cbe.assessment_method %}selected{% endif %}>{{ val }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div style="display:flex; gap:10px; margin-bottom:1rem;">
+                            <div style="flex:1;">
+                                <label style="display:block; margin-bottom:4px; font-weight:600;">Weightage (%)</label>
+                                <input type="number" step="0.01" name="weightage_percent" value="{{ cbe.weightage_percent }}" style="width:100%; padding:8px;">
+                            </div>
+                            <div style="flex:1;">
+                                <label style="display:block; margin-bottom:4px; font-weight:600;">Pass Threshold (%)</label>
+                                <input type="number" step="0.01" name="passing_threshold" value="{{ cbe.passing_threshold }}" style="width:100%; padding:8px;">
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Competency Description</label>
+                            <textarea name="competency_description" rows="2" style="width:100%; padding:8px;">{{ cbe.competency_description }}</textarea>
+                        </div>
+
+                        <div style="margin-bottom:1rem;">
+                            <label style="display:block; margin-bottom:4px; font-weight:600;">Performance Criteria</label>
+                            <textarea name="performance_criteria" rows="2" style="width:100%; padding:8px;">{{ cbe.performance_criteria }}</textarea>
+                        </div>
+
+                        <div style="text-align:right;">
+                            <button type="button" onclick="document.getElementById('editModal-{{ cbe.id }}').style.display='none'" style="padding:6px 12px; margin-right:8px;">Cancel</button>
+                            <button type="submit" style="background:#2b3e85; color:white; padding:6px 12px; border:none; border-radius:4px;">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- DELETE MODAL -->
+            <div id="deleteModal-{{ cbe.id }}" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+                <div style="background:#fff; margin:15% auto; padding:20px; width:350px; border-radius:8px; text-align:center;">
+                    <h3>Confirm Delete</h3>
+                    <p>Are you sure you want to delete CBE setting <strong>{{ cbe.competency_code }}</strong>?</p>
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="cbe_id" value="{{ cbe.id }}">
+                        
+                        <button type="button" onclick="document.getElementById('deleteModal-{{ cbe.id }}').style.display='none'" style="padding:6px 12px; margin-right:8px;">Cancel</button>
+                        <button type="submit" style="background:#ef4444; color:white; padding:6px 12px; border:none; border-radius:4px;">Delete</button>
+                    </form>
+                </div>
+            </div>
+
+            {% empty %}
+            <tr>
+                <td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">No Competency-Based Education (CBE) forms configured.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ADD MODAL -->
+<div id="addModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+    <div style="background:#fff; margin:5% auto; padding:20px; width:450px; border-radius:8px;">
+        <h3>Add CBE Setting</h3>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Course Unit</label>
+                <select name="course_unit" required style="width:100%; padding:8px;">
+                    <option value="">-- Select Course Unit --</option>
+                    {% for cu in course_units %}
+                        <option value="{{ cu.code }}">{{ cu.name }} ({{ cu.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Competency Code</label>
+                <input type="text" name="competency_code" placeholder="e.g. CBE-001" required style="width:100%; padding:8px;">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Assessment Method</label>
+                <select name="assessment_method" style="width:100%; padding:8px;">
+                    {% for key, val in assessment_methods %}
+                        <option value="{{ key }}">{{ val }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-bottom:1rem;">
+                <div style="flex:1;">
+                    <label style="display:block; margin-bottom:4px; font-weight:600;">Weightage (%)</label>
+                    <input type="number" step="0.01" name="weightage_percent" value="20.00" style="width:100%; padding:8px;">
+                </div>
+                <div style="flex:1;">
+                    <label style="display:block; margin-bottom:4px; font-weight:600;">Pass Threshold (%)</label>
+                    <input type="number" step="0.01" name="passing_threshold" value="60.00" style="width:100%; padding:8px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Competency Description</label>
+                <textarea name="competency_description" rows="2" placeholder="Brief explanation..." style="width:100%; padding:8px;"></textarea>
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:4px; font-weight:600;">Performance Criteria</label>
+                <textarea name="performance_criteria" rows="2" placeholder="Evaluation criteria..." style="width:100%; padding:8px;"></textarea>
+            </div>
+
+            <div style="text-align:right;">
+                <button type="button" onclick="document.getElementById('addModal').style.display='none'" style="padding:6px 12px; margin-right:8px;">Cancel</button>
+                <button type="submit" style="background:#2b3e85; color:white; padding:6px 12px; border:none; border-radius:4px;">Create Setting</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function handleAction(selectElement, editModalId, deleteModalId) {
+    const action = selectElement.value;
+    if (action === 'edit') {
+        document.getElementById(editModalId).style.display = 'block';
+    } else if (action === 'delete') {
+        document.getElementById(deleteModalId).style.display = 'block';
+    }
+    selectElement.value = '';
+}
+</script>
+
+{% endblock %}

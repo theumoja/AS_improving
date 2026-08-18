@@ -5271,3 +5271,421 @@ def delete_academic_term(request, pk):
     term.delete()
     messages.success(request, f"Academic term deleted successfully.")
     return redirect('attendance:manage_academic_terms')
+
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import (
+    Course, CourseUnit, ProgrammeSetting, CurriculumStructure,
+    CurriculumDevelopment, CurriculumApproval, CurriculumReview, CBEFormSetting
+)
+
+@login_required
+def curriculum_dashboard(request):
+    context = {
+        'total_programmes': Course.objects.count(),
+        'total_units': CourseUnit.objects.count(),
+        'pending_approvals': CurriculumApproval.objects.filter(status='PENDING').count(),
+        'active_reviews': CurriculumReview.objects.filter(status='IN_PROGRESS').count(),
+        'recent_developments': CurriculumDevelopment.objects.order_by('-updated_at')[:5],
+    }
+    return render(request, 'attendance/curriculum_dashboard.html', context)
+
+
+@login_required
+def programme_settings(request):
+    settings_list = ProgrammeSetting.objects.select_related('course').all()
+    courses_without_settings = Course.objects.filter(settings__isnull=True)
+    return render(request, 'attendance/programme_settings.html', {
+        'settings_list': settings_list,
+        'unconfigured_courses': courses_without_settings
+    })
+
+
+@login_required
+def summarized_search(request):
+    query = request.GET.get('q', '')
+    results = {
+        'courses': Course.objects.filter(name__icontains=query) if query else [],
+        'units': CourseUnit.objects.filter(name__icontains=query) if query else [],
+        'cbe_forms': CBEFormSetting.objects.filter(competency_code__icontains=query) if query else [],
+    }
+    return render(request, 'attendance/summarized_search.html', {'query': query, 'results': results})
+
+
+@login_required
+def curriculum_structures(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # --- ADD MULTIPLE CURRICULUM STRUCTURES ---
+        if action == 'add':
+            course_id = request.POST.get('course_id')
+            course_unit_ids = request.POST.getlist('course_unit_ids')
+            year = int(request.POST.get('year', 1))
+            semester = int(request.POST.get('semester', 1))
+            category = request.POST.get('category', 'Core')
+            credit_units = int(request.POST.get('credit_units', 3))
+
+            if not course_unit_ids:
+                messages.error(request, "Please select at least one course unit.")
+                return redirect('attendance:curriculum_structures')
+
+            try:
+                course = get_object_or_404(Course, pk=course_id)
+                course_units = CourseUnit.objects.filter(pk__in=course_unit_ids)
+
+                created_count = 0
+                for unit in course_units:
+                    CurriculumStructure.objects.create(
+                        course=course,
+                        course_unit=unit,
+                        academic_year_level=year,
+                        semester=semester,
+                        credit_units=credit_units,
+                        is_core=(category == 'Core')
+                    )
+                    created_count += 1
+
+                messages.success(request, f"Successfully linked {created_count} unit(s) to '{course.name}'.")
+            except Exception as e:
+                messages.error(request, f"Error adding curriculum structures: {e}")
+
+        # --- EDIT CURRICULUM STRUCTURE ---
+        elif action == 'edit':
+            structure_id = request.POST.get('structure_id')
+            structure = get_object_or_404(CurriculumStructure, pk=structure_id)
+
+            course_id = request.POST.get('course_id')
+            course_unit_id = request.POST.get('course_unit_id')
+            year = request.POST.get('year')
+            semester = request.POST.get('semester')
+            category = request.POST.get('category')
+            credit_units = request.POST.get('credit_units')
+
+            try:
+                if course_id:
+                    structure.course = get_object_or_404(Course, pk=course_id)
+                if course_unit_id:
+                    structure.course_unit = get_object_or_404(CourseUnit, pk=course_unit_id)
+                if year:
+                    structure.academic_year_level = int(year)
+                if semester:
+                    structure.semester = int(semester)
+                if category:
+                    structure.is_core = (category == 'Core')
+                if credit_units:
+                    structure.credit_units = int(credit_units)
+
+                structure.save()
+                messages.success(request, "Curriculum structure record updated successfully.")
+            except Exception as e:
+                messages.error(request, f"Error updating curriculum structure: {e}")
+
+        # --- DELETE CURRICULUM STRUCTURE ---
+        elif action == 'delete':
+            structure_id = request.POST.get('structure_id')
+            structure = get_object_or_404(CurriculumStructure, pk=structure_id)
+            try:
+                unit_name = structure.course_unit.name
+                structure.delete()
+                messages.success(request, f"Curriculum structure mapping for '{unit_name}' removed successfully.")
+            except Exception as e:
+                messages.error(request, f"Error deleting curriculum structure: {e}")
+
+        return redirect('attendance:curriculum_structures')
+
+    structures = CurriculumStructure.objects.select_related('course', 'course_unit').all()
+    courses = Course.objects.all().order_by('name')
+    course_units = CourseUnit.objects.all().order_by('name')
+
+    context = {
+        'structures': structures,
+        'courses': courses,
+        'course_units': course_units,
+    }
+    return render(request, 'attendance/curriculum_structures.html', context)
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import CurriculumDevelopment, Course
+
+@login_required
+def curriculum_development(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        # ADD ACTION
+        if action == 'add':
+            title = request.POST.get('title')
+            course_id = request.POST.get('course')
+            version = request.POST.get('version', '1.0')
+            rationale = request.POST.get('rationale', '')
+            status = request.POST.get('status', 'DRAFT')
+            
+            course = get_object_or_404(Course, pk=course_id)
+            CurriculumDevelopment.objects.create(
+                title=title,
+                course=course,
+                version=version,
+                rationale=rationale,
+                status=status,
+                proposed_by=request.user
+            )
+            messages.success(request, "Curriculum proposal added successfully.")
+            
+        # EDIT ACTION
+        elif action == 'edit':
+            dev_id = request.POST.get('dev_id')
+            dev = get_object_or_404(CurriculumDevelopment, pk=dev_id)
+            
+            course_id = request.POST.get('course')
+            if course_id:
+                dev.course = get_object_or_404(Course, pk=course_id)
+            
+            dev.title = request.POST.get('title', dev.title)
+            dev.version = request.POST.get('version', dev.version)
+            dev.rationale = request.POST.get('rationale', dev.rationale)
+            dev.status = request.POST.get('status', dev.status)
+            dev.save()
+            messages.success(request, "Curriculum proposal updated successfully.")
+            
+        # DELETE ACTION
+        elif action == 'delete':
+            dev_id = request.POST.get('dev_id')
+            dev = get_object_or_404(CurriculumDevelopment, pk=dev_id)
+            dev.delete()
+            messages.success(request, "Curriculum proposal deleted successfully.")
+            
+        return redirect('attendance:curriculum_development')
+
+    developments = CurriculumDevelopment.objects.select_related('course', 'proposed_by').all()
+    courses = Course.objects.all()
+    status_choices = CurriculumDevelopment.STATUS_CHOICES
+
+    return render(request, 'attendance/curriculum_development.html', {
+        'developments': developments,
+        'courses': courses,
+        'status_choices': status_choices,
+    })
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import CurriculumApproval, CurriculumDevelopment
+
+@login_required
+def curriculum_approvals(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # --- ADD ACTION ---
+        if action == 'add':
+            curriculum_id = request.POST.get('curriculum')
+            approval_stage = request.POST.get('approval_stage')
+            status = request.POST.get('status', 'PENDING')
+            comments = request.POST.get('comments', '')
+
+            if curriculum_id and approval_stage:
+                curriculum = get_object_or_404(CurriculumDevelopment, pk=curriculum_id)
+                CurriculumApproval.objects.create(
+                    curriculum=curriculum,
+                    approval_stage=approval_stage,
+                    reviewed_by=request.user,
+                    status=status,
+                    comments=comments
+                )
+                messages.success(request, "Curriculum approval log created successfully.")
+            else:
+                messages.error(request, "Please fill in all required fields.")
+
+        # --- EDIT ACTION ---
+        elif action == 'edit':
+            approval_id = request.POST.get('approval_id')
+            approval = get_object_or_404(CurriculumApproval, pk=approval_id)
+
+            curriculum_id = request.POST.get('curriculum')
+            if curriculum_id:
+                approval.curriculum = get_object_or_404(CurriculumDevelopment, pk=curriculum_id)
+
+            approval.approval_stage = request.POST.get('approval_stage', approval.approval_stage)
+            approval.status = request.POST.get('status', approval.status)
+            approval.comments = request.POST.get('comments', approval.comments)
+            approval.reviewed_by = request.user
+            approval.save()
+
+            messages.success(request, "Curriculum approval log updated successfully.")
+
+        # --- DELETE ACTION ---
+        elif action == 'delete':
+            approval_id = request.POST.get('approval_id')
+            approval = get_object_or_404(CurriculumApproval, pk=approval_id)
+            approval.delete()
+            messages.success(request, "Curriculum approval log deleted successfully.")
+
+        return redirect(request.path)
+
+    # --- GET REQUEST (LIST) ---
+    approvals = CurriculumApproval.objects.select_related('curriculum', 'reviewed_by').all()
+    curricula = CurriculumDevelopment.objects.all()
+    status_choices = CurriculumApproval.STATUS_CHOICES
+
+    context = {
+        'approvals': approvals,
+        'curricula': curricula,
+        'status_choices': status_choices,
+    }
+    return render(request, 'attendance/curriculum_approvals.html', context)
+
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import CurriculumReview, Course
+
+@login_required
+def curriculum_review(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # --- ADD ACTION ---
+        if action == 'add':
+            course_id = request.POST.get('course')
+            review_cycle = request.POST.get('review_cycle')
+            review_board = request.POST.get('review_board')
+            status = request.POST.get('status', 'SCHEDULED')
+            findings = request.POST.get('findings_and_recommendations', '')
+            next_review_date = request.POST.get('next_review_date')
+
+            if course_id and review_cycle and review_board and next_review_date:
+                course = get_object_or_404(Course, pk=course_id)
+                CurriculumReview.objects.create(
+                    course=course,
+                    review_cycle=review_cycle,
+                    review_board=review_board,
+                    status=status,
+                    findings_and_recommendations=findings,
+                    next_review_date=next_review_date
+                )
+                messages.success(request, "Curriculum review record created successfully.")
+            else:
+                messages.error(request, "Please fill in all required fields.")
+
+        # --- EDIT ACTION ---
+        elif action == 'edit':
+            review_id = request.POST.get('review_id')
+            review = get_object_or_404(CurriculumReview, pk=review_id)
+
+            course_id = request.POST.get('course')
+            if course_id:
+                review.course = get_object_or_404(Course, pk=course_id)
+
+            review.review_cycle = request.POST.get('review_cycle', review.review_cycle)
+            review.review_board = request.POST.get('review_board', review.review_board)
+            review.status = request.POST.get('status', review.status)
+            review.findings_and_recommendations = request.POST.get('findings_and_recommendations', review.findings_and_recommendations)
+            if request.POST.get('next_review_date'):
+                review.next_review_date = request.POST.get('next_review_date')
+            review.save()
+
+            messages.success(request, "Curriculum review record updated successfully.")
+
+        # --- DELETE ACTION ---
+        elif action == 'delete':
+            review_id = request.POST.get('review_id')
+            review = get_object_or_404(CurriculumReview, pk=review_id)
+            review.delete()
+            messages.success(request, "Curriculum review record deleted successfully.")
+
+        return redirect(request.path)
+
+    # --- GET REQUEST (LIST) ---
+    reviews = CurriculumReview.objects.select_related('course').all()
+    courses = Course.objects.all()
+    status_choices = CurriculumReview.STATUS_CHOICES
+
+    context = {
+        'reviews': reviews,
+        'courses': courses,
+        'status_choices': status_choices,
+    }
+    return render(request, 'attendance/curriculum_review.html', context)
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import CBEFormSetting, CourseUnit
+
+@login_required
+def cbe_form_settings(request):
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # --- ADD ACTION ---
+        if action == 'add':
+            course_unit_id = request.POST.get('course_unit')
+            competency_code = request.POST.get('competency_code')
+            assessment_method = request.POST.get('assessment_method', 'PRACTICAL')
+            weightage_percent = request.POST.get('weightage_percent', 20.00)
+            passing_threshold = request.POST.get('passing_threshold', 60.00)
+            competency_description = request.POST.get('competency_description', '')
+            performance_criteria = request.POST.get('performance_criteria', '')
+
+            if course_unit_id and competency_code:
+                course_unit = get_object_or_404(CourseUnit, pk=course_unit_id)
+                CBEFormSetting.objects.create(
+                    course_unit=course_unit,
+                    competency_code=competency_code,
+                    assessment_method=assessment_method,
+                    weightage_percent=weightage_percent,
+                    passing_threshold=passing_threshold,
+                    competency_description=competency_description,
+                    performance_criteria=performance_criteria
+                )
+                messages.success(request, "CBE setting created successfully.")
+            else:
+                messages.error(request, "Please fill in all required fields.")
+
+        # --- EDIT ACTION ---
+        elif action == 'edit':
+            cbe_id = request.POST.get('cbe_id')
+            cbe = get_object_or_404(CBEFormSetting, pk=cbe_id)
+
+            course_unit_id = request.POST.get('course_unit')
+            if course_unit_id:
+                cbe.course_unit = get_object_or_404(CourseUnit, pk=course_unit_id)
+
+            cbe.competency_code = request.POST.get('competency_code', cbe.competency_code)
+            cbe.assessment_method = request.POST.get('assessment_method', cbe.assessment_method)
+            cbe.weightage_percent = request.POST.get('weightage_percent', cbe.weightage_percent)
+            cbe.passing_threshold = request.POST.get('passing_threshold', cbe.passing_threshold)
+            cbe.competency_description = request.POST.get('competency_description', cbe.competency_description)
+            cbe.performance_criteria = request.POST.get('performance_criteria', cbe.performance_criteria)
+            cbe.save()
+
+            messages.success(request, "CBE setting updated successfully.")
+
+        # --- DELETE ACTION ---
+        elif action == 'delete':
+            cbe_id = request.POST.get('cbe_id')
+            cbe = get_object_or_404(CBEFormSetting, pk=cbe_id)
+            cbe.delete()
+            messages.success(request, "CBE setting deleted successfully.")
+
+        return redirect(request.path)
+
+    # --- GET REQUEST (LIST) ---
+    cbe_settings = CBEFormSetting.objects.select_related('course_unit').all()
+    course_units = CourseUnit.objects.all()
+    assessment_methods = CBEFormSetting.ASSESSMENT_METHODS
+
+    context = {
+        'cbe_settings': cbe_settings,
+        'course_units': course_units,
+        'assessment_methods': assessment_methods,
+    }
+    return render(request, 'attendance/cbe_form_settings.html', context)

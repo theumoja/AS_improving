@@ -1,0 +1,111 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+{% if messages %}
+    <div style="margin-bottom: 1.5rem;">
+        {% for message in messages %}
+            <div style="padding: 1rem; border-radius: var(--radius-sm); font-weight: 500; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 10px;
+                {% if message.tags == 'success' %} background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0;
+                {% else %} background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; {% endif %}">
+                <i class="fas {% if message.tags == 'success' %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i>
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div style="margin-bottom: 2rem;">
+    <h2><i class="fas fa-chart-pie"></i> Curriculum Dashboard</h2>
+    <p style="color: var(--text-muted); margin: 0;">High-level overview of academic programmes, units, pending approvals, and development cycles.</p>
+</div>
+
+{# Metrics Summary Cards #}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+    <div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem; display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 50px; height: 50px; border-radius: 50%; background: #eff6ff; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+            <i class="fas fa-scroll"></i>
+        </div>
+        <div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">{{ total_programmes }}</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">Total Programmes</div>
+        </div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem; display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 50px; height: 50px; border-radius: 50%; background: #f0fdf4; color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+            <i class="fas fa-book-open"></i>
+        </div>
+        <div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">{{ total_units }}</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">Total Course Units</div>
+        </div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem; display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 50px; height: 50px; border-radius: 50%; background: #fefce8; color: #a16207; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+            <i class="fas fa-check-double"></i>
+        </div>
+        <div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">{{ pending_approvals }}</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">Pending Approvals</div>
+        </div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem; display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 50px; height: 50px; border-radius: 50%; background: #faf5ff; color: #7e22ce; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+            <i class="fas fa-history"></i>
+        </div>
+        <div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #1e293b;">{{ active_reviews }}</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">Active Reviews</div>
+        </div>
+    </div>
+</div>
+
+{# Recent Curriculum Developments #}
+<div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+    <div style="padding: 1rem 1.25rem; background: #f8fafc; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 1.05rem; color: #1e293b;"><i class="fas fa-drafting-compass"></i> Recent Developments</h3>
+        <a href="{% url 'attendance:curriculum_development' %}" style="font-size: 0.85rem; color: #2563eb; text-decoration: none; font-weight: 600;">View All &rarr;</a>
+    </div>
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+        <thead>
+            <tr style="background: #2b3e85; color: white;">
+                <th style="padding: 0.85rem 1rem;">Programme</th>
+                <th style="padding: 0.85rem 1rem;">Proposed By</th>
+                <th style="padding: 0.85rem 1rem;">Status / Stage</th>
+                <th style="padding: 0.85rem 1rem;">Last Updated</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for dev in recent_developments %}
+            <tr style="border-bottom: 1px solid var(--border); background: {% cycle '#ffffff' '#f8fafc' %};">
+                <td style="padding: 0.85rem 1rem; font-weight: 600; color: #1e293b;">
+                    {{ dev.course.name|default:dev.title|default:"N/A" }}
+                </td>
+                <td style="padding: 0.85rem 1rem; color: #475569;">
+                    {{ dev.proposed_by.get_full_name|default:dev.proposed_by.username|default:"System" }}
+                </td>
+                <td style="padding: 0.85rem 1rem;">
+                    <span style="background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 12px; font-weight: 600; font-size: 0.8rem;">
+                        {{ dev.status|default:dev.stage|default:"Draft" }}
+                    </span>
+                </td>
+                <td style="padding: 0.85rem 1rem; color: #64748b;">
+                    {{ dev.updated_at|date:"M d, Y H:i" }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="padding: 2rem; text-align: center; color: var(--text-muted);">No recent curriculum developments recorded.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
