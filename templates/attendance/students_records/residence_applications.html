@@ -1,0 +1,578 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    :root {
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --primary-light: rgba(37, 99, 235, 0.08);
+        --border-color: #e2e8f0;
+        --bg-subtle: #f8fafc;
+        --text-dark: #0f172a;
+        --text-muted: #64748b;
+    }
+
+    .page-header-actions { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        margin-bottom: 1.5rem; 
+        background: #ffffff; 
+        padding: 1.25rem 1.75rem; 
+        border-radius: 16px; 
+        border: 1px solid var(--border-color); 
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02); 
+    }
+    .header-icon-box {
+        width: 44px; 
+        height: 44px; 
+        border-radius: 12px; 
+        background: var(--primary-light); 
+        color: var(--primary); 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        font-size: 1.25rem;
+    }
+
+    .filter-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+        margin-bottom: 1.5rem;
+    }
+    .filter-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+        gap: 1rem; 
+        align-items: end; 
+    }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+    .filter-group label {
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .form-control-custom {
+        width: 100%;
+        padding: 0.6rem 0.85rem;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        font-size: 0.875rem;
+        background: var(--bg-subtle);
+        color: var(--text-dark);
+        transition: all 0.2s ease;
+    }
+    .form-control-custom:focus {
+        outline: none;
+        border-color: var(--primary);
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .search-wrapper { position: relative; }
+    .search-wrapper i { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.9rem; }
+    .search-input { padding-left: 2.3rem; }
+
+    /* Live Search Dropdown Styles */
+    .live-search-wrapper {
+        position: relative;
+    }
+    .live-search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        max-height: 220px;
+        overflow-y: auto;
+        z-index: 1050;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        display: none;
+        margin-top: 4px;
+    }
+    .live-search-item {
+        padding: 0.65rem 0.85rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .live-search-item:last-child {
+        border-bottom: none;
+    }
+    .live-search-item:hover {
+        background-color: var(--primary-light);
+        color: var(--primary);
+    }
+    .live-search-item .student-reg-tag {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        background: #f1f5f9;
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+    }
+    .live-search-empty {
+        padding: 0.85rem;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        text-align: center;
+    }
+
+    .tab-nav { display: flex; gap: 0.5rem; border-bottom: 2px solid var(--border-color); margin-bottom: 1.5rem; }
+    .tab-btn { 
+        background: transparent; border: none; padding: 0.75rem 1.25rem; font-size: 0.875rem; 
+        font-weight: 600; color: var(--text-muted); cursor: pointer; border-radius: 8px 8px 0 0; 
+        border-bottom: 3px solid transparent; text-decoration: none; transition: all 0.2s;
+    }
+    .tab-btn:hover { color: var(--primary); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--primary-light); }
+
+    .table-card { background: #ffffff; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.03); overflow: hidden; }
+    .table-responsive { overflow-x: auto; }
+    .table-custom { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .table-custom th { background: var(--bg-subtle); color: #334155; padding: 0.9rem 1.25rem; text-align: left; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-color); }
+    .table-custom td { padding: 0.9rem 1.25rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color: #334155; }
+    .table-custom tbody tr:hover { background-color: #fafafa; }
+
+    .badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border-radius: 50px; font-size: 0.75rem; font-weight: 600; }
+    .badge-success { background: #dcfce7; color: #15803d; }
+    .badge-warning { background: #fef3c7; color: #b45309; }
+    .badge-info { background: #e0f2fe; color: #0369a1; }
+    .badge-neutral { background: #f1f5f9; color: #475569; }
+
+    .btn-custom { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.6rem 1.2rem; border-radius: 10px; font-weight: 600; font-size: 0.85rem; border: none; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+    .btn-primary-custom { background: var(--primary); color: #fff; }
+    .btn-primary-custom:hover { background: var(--primary-hover); }
+    .btn-outline-custom { background: transparent; border: 1px solid var(--border-color); color: var(--text-dark); }
+    .btn-outline-custom:hover { background: var(--bg-subtle); }
+
+    /* Modals */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
+    .modal.active { display: flex; }
+    .modal-card { background: #fff; border-radius: 16px; width: 100%; max-width: 500px; padding: 1.75rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+</style>
+
+<!-- Header Actions -->
+<div class="page-header-actions">
+    <div style="display:flex; align-items:center; gap:0.85rem;">
+        <div class="header-icon-box">
+            <i class="fas fa-building"></i>
+        </div>
+        <div>
+            <h2 style="margin:0; font-size:1.25rem; color:var(--text-dark);">Residence Applications</h2>
+            <small style="color:var(--text-muted);">Manage and track student hall allocations</small>
+        </div>
+    </div>
+    <div style="display:flex; gap:0.5rem;">
+        <button class="btn-custom btn-outline-custom" onclick="openModal('uploadModal')">
+            <i class="fas fa-file-upload"></i> Upload CSV
+        </button>
+        <button class="btn-custom btn-primary-custom" onclick="openModal('createModal')">
+            <i class="fas fa-plus"></i> Add Application
+        </button>
+    </div>
+</div>
+
+{% if messages %}
+<div style="margin-bottom: 1rem;">
+    {% for message in messages %}
+    <div style="padding:0.75rem 1rem; border-radius:10px; font-size:0.875rem; margin-bottom:0.5rem; {% if message.tags == 'error' %}background:#fee2e2; color:#991b1b;{% else %}background:#dcfce7; color:#166534;{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Filters & Search Toolbar -->
+<div class="filter-card">
+    <form method="GET" action="" id="filterForm">
+        {% if current_tab %}
+            <input type="hidden" name="status" value="{{ current_tab }}">
+        {% endif %}
+        
+        <div class="filter-grid">
+            <div class="filter-group" style="grid-column: span 2;">
+                <label for="searchInput"><i class="fas fa-search"></i> Search Application</label>
+                <div class="search-wrapper">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" name="q" value="{{ request.GET.q }}" class="form-control-custom search-input" placeholder="Search by student name or reg number...">
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <label for="residenceType"><i class="fas fa-home"></i> Type</label>
+                <select name="residence_type" id="residenceType" class="form-control-custom">
+                    <option value="">All Types</option>
+                    <option value="CAMPUS" {% if request.GET.residence_type == 'CAMPUS' %}selected{% endif %}>Resident (Campus)</option>
+                    <option value="NON_RESIDENT" {% if request.GET.residence_type == 'NON_RESIDENT' %}selected{% endif %}>Non-Resident</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="academicTerm"><i class="fas fa-calendar-alt"></i> Academic Term</label>
+                <select name="academic_term" id="academicTerm" class="form-control-custom">
+                    <option value="">All Terms</option>
+                    {% for term in terms %}
+                        <option value="{{ term.id }}" {% if request.GET.academic_term == term.id|stringformat:"s" %}selected{% endif %}>{{ term }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="hall"><i class="fas fa-hotel"></i> Hall / Hostel</label>
+                <select name="hall" id="hall" class="form-control-custom">
+                    <option value="">All Halls</option>
+                    {% for hall in halls %}
+                        <option value="{{ hall.id }}" {% if request.GET.hall == hall.id|stringformat:"s" %}selected{% endif %}>{{ hall.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display:flex; gap:0.5rem;">
+                <button type="submit" class="btn-custom btn-primary-custom" style="flex: 1;">
+                    <i class="fas fa-filter"></i> Apply
+                </button>
+                <a href="?{% if current_tab %}status={{ current_tab }}{% endif %}" class="btn-custom btn-outline-custom" title="Clear Filters">
+                    <i class="fas fa-redo-alt"></i>
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Navigation Tabs -->
+<div class="tab-nav">
+    <a href="?status=all{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="tab-btn {% if current_tab == 'all' or not current_tab %}active{% endif %}">ALL APPLICATIONS</a>
+    <a href="?status=paid{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="tab-btn {% if current_tab == 'paid' %}active{% endif %}">PAID STUDENTS</a>
+    <a href="?status=pending{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="tab-btn {% if current_tab == 'pending' %}active{% endif %}">PENDING PAYMENT</a>
+</div>
+
+<!-- Main Applications Table Card -->
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table-custom" id="residenceTable">
+            <thead>
+                <tr>
+                    <th>Reg Number</th>
+                    <th>Student Name</th>
+                    <th>Residence Type</th>
+                    <th>Hall / Hostel</th>
+                    <th>Payment Status</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in applications %}
+                <tr data-reg="{{ app.student.reg_number|lower }}" data-name="{{ app.student.name|lower }}">
+                    <td><strong>{{ app.student.reg_number }}</strong></td>
+                    <td>{{ app.student.name }}</td>
+                    <td>
+                        {% if app.residence_type == 'CAMPUS' %}
+                            <span class="badge badge-info"><i class="fas fa-university"></i> Resident</span>
+                        {% else %}
+                            <span class="badge badge-neutral"><i class="fas fa-building"></i> Non-Resident</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ app.hall.name|default:"N/A" }}</td>
+                    <td>
+                        {% if app.payment_status == 'PAID' %}
+                            <span class="badge badge-success"><i class="fas fa-check-circle"></i> Paid</span>
+                        {% else %}
+                            <span class="badge badge-warning"><i class="fas fa-clock"></i> Pending</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <select class="form-control-custom" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.8rem; display: inline-block;" onchange="handleRowAction(this, '{{ app.id }}', '{{ app.academic_term.id }}', '{{ app.residence_type }}', '{{ app.hall.id|default:'' }}', '{{ app.payment_status }}')">
+                            <option value="">Action</option>
+                            <option value="edit">Edit</option>
+                            <option value="delete">Delete</option>
+                        </select>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:3rem 1rem; color:var(--text-muted);">
+                        <i class="fas fa-folder-open" style="font-size: 2rem; margin-bottom: 0.5rem; color: #cbd5e1; display: block;"></i>
+                        No residence application records found matching your parameters.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal 1: Create Residence Application (With Student Search Autocomplete) -->
+<div class="modal" id="createModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+            <h3 style="margin:0;">New Residence Application</h3>
+            <button type="button" onclick="closeModal('createModal')" style="background:none; border:none; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" id="createApplicationForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create">
+            
+            <!-- Live Search Student Input -->
+            <div style="margin-bottom:1rem;" class="live-search-wrapper">
+                <label style="font-size:0.8rem; font-weight:600;">Student (Search Name or Reg No.)</label>
+                <input type="hidden" name="reg_number" id="selected_reg_number" required>
+                <input type="text" id="student_live_input" autocomplete="off" class="form-control-custom" placeholder="Type name or reg number to select..." required>
+                <div id="student_search_results" class="live-search-results"></div>
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; font-weight:600;">Academic Term</label>
+                <select name="academic_term" required class="form-control-custom">
+                    {% for term in terms %}
+                        <option value="{{ term.id }}" {% if term.is_current %}selected{% endif %}>{{ term }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; font-weight:600;">Residence Type</label>
+                <select name="residence_type" class="form-control-custom">
+                    <option value="CAMPUS">Campus Resident</option>
+                    <option value="NON_RESIDENT">Non-Resident</option>
+                </select>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; font-weight:600;">Hall/Hostel Allocation</label>
+                <select name="hall" class="form-control-custom">
+                    <option value="">None / Unassigned</option>
+                    {% for hall in halls %}
+                        <option value="{{ hall.id }}">{{ hall.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="margin-bottom:1.5rem;">
+                <label style="font-size:0.8rem; font-weight:600;">Payment Status</label>
+                <select name="payment_status" class="form-control-custom">
+                    <option value="PENDING">Pending Payment</option>
+                    <option value="PAID">Paid</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+                <button type="button" class="btn-custom btn-outline-custom" style="flex:1;" onclick="closeModal('createModal')">Cancel</button>
+                <button type="submit" class="btn-custom btn-primary-custom" style="flex:1;">Submit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 2: Edit Application -->
+<div class="modal" id="editModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+            <h3 style="margin:0;">Edit Application</h3>
+            <button type="button" onclick="closeModal('editModal')" style="background:none; border:none; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="app_id" id="edit_app_id">
+            
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; font-weight:600;">Academic Term</label>
+                <select name="academic_term" id="edit_academic_term" class="form-control-custom">
+                    {% for term in terms %}
+                        <option value="{{ term.id }}">{{ term }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; font-weight:600;">Residence Type</label>
+                <select name="residence_type" id="edit_residence_type" class="form-control-custom">
+                    <option value="CAMPUS">Campus Resident</option>
+                    <option value="NON_RESIDENT">Non-Resident</option>
+                </select>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; font-weight:600;">Hall/Hostel Allocation</label>
+                <select name="hall" id="edit_hall" class="form-control-custom">
+                    <option value="">None / Unassigned</option>
+                    {% for hall in halls %}
+                        <option value="{{ hall.id }}">{{ hall.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="margin-bottom:1.5rem;">
+                <label style="font-size:0.8rem; font-weight:600;">Payment Status</label>
+                <select name="payment_status" id="edit_payment_status" class="form-control-custom">
+                    <option value="PENDING">Pending Payment</option>
+                    <option value="PAID">Paid</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+                <button type="button" class="btn-custom btn-outline-custom" style="flex:1;" onclick="closeModal('editModal')">Cancel</button>
+                <button type="submit" class="btn-custom btn-primary-custom" style="flex:1;">Update Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 3: CSV Upload -->
+<div class="modal" id="uploadModal">
+    <div class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+            <h3 style="margin:0;">Bulk Upload CSV</h3>
+            <button type="button" onclick="closeModal('uploadModal')" style="background:none; border:none; cursor:pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="upload_csv">
+            <div style="margin-bottom:1.5rem;">
+                <label style="font-size:0.8rem; font-weight:600;">Select CSV File</label>
+                <input type="file" name="csv_file" accept=".csv" required class="form-control-custom" style="padding:0.4rem;">
+                <small style="color:var(--text-muted); display:block; margin-top:0.35rem;">
+                    Headers required: <code>reg_number, term_id, residence_type, hall_id, payment_status</code>
+                </small>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+                <button type="button" class="btn-custom btn-outline-custom" style="flex:1;" onclick="closeModal('uploadModal')">Cancel</button>
+                <button type="submit" class="btn-custom btn-primary-custom" style="flex:1;">Upload Records</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Hidden Delete Form -->
+<form id="deleteForm" method="POST" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="delete">
+    <input type="hidden" name="app_id" id="delete_app_id">
+</form>
+
+<script>
+    // Student Dataset from Django Context
+    const availableStudents = [
+        {% for student in students %}
+        { reg: "{{ student.reg_number|escapejs }}", name: "{{ student.name|escapejs }}" },
+        {% endfor %}
+    ];
+
+    function openModal(id) {
+        document.getElementById(id).classList.add('active');
+    }
+    
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('active');
+        if (id === 'createModal') {
+            resetStudentSearch();
+        }
+    }
+
+    function resetStudentSearch() {
+        document.getElementById('selected_reg_number').value = '';
+        document.getElementById('student_live_input').value = '';
+        document.getElementById('student_search_results').style.display = 'none';
+    }
+
+    // Live Student Search Handlers
+    const studentInput = document.getElementById('student_live_input');
+    const selectedRegInput = document.getElementById('selected_reg_number');
+    const searchResults = document.getElementById('student_search_results');
+
+    studentInput.addEventListener('input', function() {
+        const query = this.value.trim().toLowerCase();
+        selectedRegInput.value = ''; // Invalidate selection until item clicked
+
+        if (!query) {
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        const filtered = availableStudents.filter(s => 
+            s.name.toLowerCase().includes(query) || s.reg.toLowerCase().includes(query)
+        );
+
+        if (filtered.length === 0) {
+            searchResults.innerHTML = '<div class="live-search-empty"><i class="fas fa-exclamation-circle"></i> No registered student found matching term</div>';
+        } else {
+            searchResults.innerHTML = filtered.map(s => `
+                <div class="live-search-item" onclick="selectStudent('${s.reg}', '${s.name.replace(/'/g, "\\'")}')">
+                    <span>${s.name}</span>
+                    <span class="student-reg-tag">${s.reg}</span>
+                </div>
+            `).join('');
+        }
+        searchResults.style.display = 'block';
+    });
+
+    function selectStudent(reg, name) {
+        selectedRegInput.value = reg;
+        studentInput.value = `${name} (${reg})`;
+        searchResults.style.display = 'none';
+    }
+
+    // Enforce selecting a valid option on blur
+    studentInput.addEventListener('blur', function() {
+        setTimeout(() => {
+            if (!selectedRegInput.value) {
+                studentInput.value = '';
+                searchResults.style.display = 'none';
+            }
+        }, 200);
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.live-search-wrapper')) {
+            searchResults.style.display = 'none';
+        }
+    });
+
+    function handleRowAction(selectElement, appId, termId, resType, hallId, payStatus) {
+        const action = selectElement.value;
+        if (action === 'edit') {
+            document.getElementById('edit_app_id').value = appId;
+            document.getElementById('edit_academic_term').value = termId;
+            document.getElementById('edit_residence_type').value = resType;
+            document.getElementById('edit_hall').value = hallId;
+            document.getElementById('edit_payment_status').value = payStatus;
+            openModal('editModal');
+        } else if (action === 'delete') {
+            if (confirm('Are you sure you want to delete this application record?')) {
+                document.getElementById('delete_app_id').value = appId;
+                document.getElementById('deleteForm').submit();
+            }
+        }
+        selectElement.value = '';
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('#residenceTable tbody tr[data-reg]');
+
+        rows.forEach(row => {
+            const reg = row.getAttribute('data-reg');
+            const name = row.getAttribute('data-name');
+            if (reg.includes(query) || name.includes(query)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

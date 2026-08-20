@@ -58,6 +58,12 @@
                 <i class="fas fa-chart-pie"></i>
                 <span class="module-title">Administration</span>
             </a>
+
+            {# --- STUDENTS' RECORDS MANAGEMENT --- #}
+            <a href="{% url 'attendance:students_records_dashboard' %}" class="main-module-card">
+                <i class="fas fa-id-card"></i>
+                <span class="module-title">Students' Records Management</span>
+            </a>
             
             {# --- MOVED FROM SUB-MODULES --- #}
             {% if user.role == 'ADMIN' %}

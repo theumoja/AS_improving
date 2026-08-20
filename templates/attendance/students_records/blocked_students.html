@@ -1,0 +1,412 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    /* ----- Page Header ----- */
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        background: #fff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .header-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(10, 42, 74, 0.06);
+        color: var(--primary);
+        padding: 0.35rem 0.85rem;
+        border-radius: 50px;
+        font-size: 0.825rem;
+        font-weight: 600;
+        border: 1px solid rgba(10, 42, 74, 0.12);
+    }
+
+    /* ----- Professional Filter Toolbar ----- */
+    .filter-card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .filter-toolbar-grid {
+        display: grid;
+        grid-template-columns: 2.2fr 1.2fr 1.4fr auto;
+        gap: 1.25rem;
+        align-items: end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .filter-group label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+    }
+
+    /* Input & Select Custom Styling */
+    .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .search-input-wrapper i.search-icon {
+        position: absolute;
+        left: 1rem;
+        color: #94a3b8;
+        font-size: 0.95rem;
+        pointer-events: none;
+    }
+
+    .search-input-wrapper input {
+        width: 100%;
+        padding: 0.65rem 2.5rem 0.65rem 2.6rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 0.9rem;
+        color: var(--text-main);
+        background: #f8fafc;
+        transition: all 0.2s ease;
+    }
+
+    .search-input-wrapper input:focus {
+        outline: none;
+        background: #fff;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .search-clear-btn {
+        position: absolute;
+        right: 0.75rem;
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        font-size: 0.85rem;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 0.25rem;
+        border-radius: 50%;
+        transition: all 0.2s;
+    }
+
+    .search-clear-btn:hover {
+        color: var(--danger);
+        background: #fee2e2;
+    }
+
+    .custom-select {
+        width: 100%;
+        padding: 0.65rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 0.9rem;
+        color: var(--text-main);
+        background: #f8fafc url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") no-repeat right 0.75rem center/1.25rem 1.25rem;
+        appearance: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .custom-select:focus {
+        outline: none;
+        background-color: #fff;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .btn-reset-filter {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.25rem;
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        height: 40px;
+    }
+
+    .btn-reset-filter:hover {
+        background: #e2e8f0;
+        color: var(--text-main);
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-badge.blocked {
+        background: #fee2e2;
+        color: #dc2626;
+        border: 1px solid #fca5a5;
+    }
+
+    .status-badge.active {
+        background: #d1fae5;
+        color: #059669;
+        border: 1px solid #6ee7b7;
+    }
+
+    @media (max-width: 992px) {
+        .filter-toolbar-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .filter-toolbar-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<!-- Header -->
+<div class="page-header-actions">
+    <div style="display:flex; align-items:center; gap:0.85rem;">
+        <div style="width:42px; height:42px; border-radius:var(--radius-sm); background:rgba(217, 119, 6, 0.1); color:#d97706; display:flex; align-items:center; justify-content:center; font-size:1.25rem;">
+            <i class="fas fa-user-slash"></i>
+        </div>
+        <h2 style="margin:0; font-size:1.4rem;">Blocked / Unblocked Students</h2>
+    </div>
+    <div class="header-badge">
+        <i class="fas fa-users"></i>
+        <span>Showing <strong id="visibleCount">0</strong> of <strong id="totalCount">0</strong></span>
+    </div>
+</div>
+
+<!-- Pure JS Filter Controls -->
+<div class="filter-card">
+    <div class="filter-toolbar-grid">
+        <!-- Live Instant Search -->
+        <div class="filter-group">
+            <label for="studentSearchInput">Quick Search</label>
+            <div class="search-input-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="studentSearchInput" placeholder="Search by name or reg number..." autocomplete="off">
+                <button type="button" id="clearSearchBtn" class="search-clear-btn" title="Clear search">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Block Status Filter -->
+        <div class="filter-group">
+            <label for="statusFilterSelect">Block Status</label>
+            <select id="statusFilterSelect" class="custom-select">
+                <option value="ALL">All Statuses</option>
+                <option value="BLOCKED">Blocked Only</option>
+                <option value="UNBLOCKED">Active / Unblocked</option>
+            </select>
+        </div>
+
+        <!-- Course / Programme Filter -->
+        <div class="filter-group">
+            <label for="courseFilterSelect">Course / Programme</label>
+            <select id="courseFilterSelect" class="custom-select">
+                <option value="ALL">All Courses & Programmes</option>
+                <!-- Populated dynamically via JS from loaded rows -->
+            </select>
+        </div>
+
+        <!-- Reset Button -->
+        <div class="filter-group">
+            <button type="button" id="resetFiltersBtn" class="btn-reset-filter">
+                <i class="fas fa-redo-alt"></i> Reset
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Table Card -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <div class="table-wrapper">
+        <table class="table" id="studentsTable">
+            <thead>
+                <tr>
+                    <th>Reg Number</th>
+                    <th>Student Name</th>
+                    <th>Course / Programme</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="studentsTableBody">
+                {% for student in students %}
+                <tr class="student-row" 
+                    data-reg="{{ student.reg_number|default_if_none:''|escape }}" 
+                    data-name="{{ student.name|default_if_none:''|escape }}" 
+                    data-course="{{ student.course.name|default_if_none:'Unassigned'|escape }}" 
+                    data-status="{% if student.is_blocked %}BLOCKED{% else %}UNBLOCKED{% endif %}">
+                    <td style="font-weight: 600; color: var(--primary);">{{ student.reg_number }}</td>
+                    <td>{{ student.name }}</td>
+                    <td>{{ student.course.name|default:"Unassigned" }}</td>
+                    <td>
+                        {% if student.is_blocked %}
+                            <span class="status-badge blocked"><i class="fas fa-lock"></i> Blocked</span>
+                        {% else %}
+                            <span class="status-badge active"><i class="fas fa-check-circle"></i> Active</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <form method="POST" action="{% url 'attendance:blocked_students' %}" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="reg_number" value="{{ student.reg_number }}">
+                            {% if student.is_blocked %}
+                                <button type="submit" name="action" value="unblock" class="btn" style="background:#059669; padding:0.35rem 0.85rem; font-size:0.85rem;">
+                                    <i class="fas fa-unlock"></i> Unblock
+                                </button>
+                            {% else %}
+                                <button type="submit" name="action" value="block" class="btn" style="background:#dc2626; padding:0.35rem 0.85rem; font-size:0.85rem;">
+                                    <i class="fas fa-ban"></i> Block
+                                </button>
+                            {% endif %}
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr id="initialEmptyRow">
+                    <td colspan="5" style="text-align:center; padding:3rem 1.5rem; color:var(--text-muted);">
+                        <i class="fas fa-user-graduate" style="font-size:2rem; margin-bottom:0.5rem; display:block; opacity:0.5;"></i>
+                        No student records found in the system.
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr id="noResultsRow" style="display: none;">
+                    <td colspan="5" style="text-align:center; padding:3rem 1.5rem; color:var(--text-muted);">
+                        <i class="fas fa-search" style="font-size:2rem; margin-bottom:0.5rem; display:block; opacity:0.4;"></i>
+                        No students match your selected filters.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Front-End Filtering JS -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('studentSearchInput');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+        const statusSelect = document.getElementById('statusFilterSelect');
+        const courseSelect = document.getElementById('courseFilterSelect');
+        const resetBtn = document.getElementById('resetFiltersBtn');
+        
+        const studentRows = document.querySelectorAll('.student-row');
+        const noResultsRow = document.getElementById('noResultsRow');
+        const visibleCountEl = document.getElementById('visibleCount');
+        const totalCountEl = document.getElementById('totalCount');
+
+        // Total count setup
+        if (totalCountEl) totalCountEl.textContent = studentRows.length;
+
+        // 1. Automatically populate Course dropdown from distinct rendered rows
+        const courses = new Set();
+        studentRows.forEach(row => {
+            const course = row.getAttribute('data-course');
+            if (course && course.trim() !== '') {
+                courses.add(course.trim());
+            }
+        });
+
+        Array.from(courses).sort().forEach(courseName => {
+            const option = document.createElement('option');
+            option.value = courseName;
+            option.textContent = courseName;
+            courseSelect.appendChild(option);
+        });
+
+        // 2. Pure Front-End Filter Engine
+        function applyFilters() {
+            const query = searchInput.value.toLowerCase().trim();
+            const selectedStatus = statusSelect.value;
+            const selectedCourse = courseSelect.value;
+            let visibleCount = 0;
+
+            studentRows.forEach(row => {
+                const reg = (row.getAttribute('data-reg') || '').toLowerCase();
+                const name = (row.getAttribute('data-name') || '').toLowerCase();
+                const course = row.getAttribute('data-course') || '';
+                const status = row.getAttribute('data-status') || '';
+
+                const matchesQuery = !query || reg.includes(query) || name.includes(query);
+                const matchesStatus = (selectedStatus === 'ALL') || (status === selectedStatus);
+                const matchesCourse = (selectedCourse === 'ALL') || (course === selectedCourse);
+
+                if (matchesQuery && matchesStatus && matchesCourse) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Update badge UI & No Results state
+            if (visibleCountEl) visibleCountEl.textContent = visibleCount;
+            if (noResultsRow) {
+                noResultsRow.style.display = (visibleCount === 0 && studentRows.length > 0) ? '' : 'none';
+            }
+
+            // Show or hide search clear icon
+            if (clearSearchBtn) {
+                clearSearchBtn.style.display = query.length > 0 ? 'flex' : 'none';
+            }
+        }
+
+        // 3. Event Listeners
+        searchInput.addEventListener('input', applyFilters);
+        statusSelect.addEventListener('change', applyFilters);
+        courseSelect.addEventListener('change', applyFilters);
+
+        clearSearchBtn.addEventListener('click', function () {
+            searchInput.value = '';
+            applyFilters();
+            searchInput.focus();
+        });
+
+        resetBtn.addEventListener('click', function () {
+            searchInput.value = '';
+            statusSelect.value = 'ALL';
+            courseSelect.value = 'ALL';
+            applyFilters();
+        });
+
+        // Initialize state
+        applyFilters();
+    });
+</script>
+{% endblock %}

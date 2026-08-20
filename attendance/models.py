@@ -1,8 +1,8 @@
-from django.db import models
-from django.contrib.auth.models import AbstractUser
-from django.utils import timezone
-from django.core.exceptions import ValidationError
 from decimal import Decimal
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.utils import timezone
 
 
 class User(AbstractUser):
@@ -38,11 +38,7 @@ class Institution(models.Model):
         ("OTHER", "Other"),
     ]
 
-    # Added logo field
-    logo = models.ImageField(
-        upload_to="institution_logos/", blank=True, null=True
-    )
-
+    logo = models.ImageField(upload_to="institution_logos/", blank=True, null=True)
     name = models.CharField(max_length=255)
     institution_type = models.CharField(
         max_length=50, choices=TYPE_CHOICES, default="TECHNICAL_COLLEGE"
@@ -78,8 +74,6 @@ class Faculty(models.Model):
         return self.name
 
 
-
-
 # ==================== ACADEMIC PERIOD TRACKING ====================
 
 class AcademicTerm(models.Model):
@@ -113,8 +107,8 @@ class AcademicTerm(models.Model):
         return f"{self.academic_year} - {self.get_term_display()}"
 
 
-# ===================================================================
-# ===================================================================
+# ==================== DEPARTMENTS & COURSES ====================
+
 class Department(models.Model):
     faculty = models.ForeignKey(Faculty, on_delete=models.SET_NULL, null=True, blank=True, related_name='departments')
     name = models.CharField(max_length=255, unique=True)
@@ -161,11 +155,25 @@ class TeacherProfile(models.Model):
 
 
 class StudentProfile(models.Model):
+    GENDER_CHOICES = [
+        ('MALE', 'Male'),
+        ('FEMALE', 'Female'),
+    ]
+
     reg_number = models.CharField(max_length=50, primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     name = models.CharField(max_length=255)
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='students')
     stream = models.ForeignKey(Stream, on_delete=models.CASCADE, related_name='students')
+    
+    # Extended fields for Students' Records Management
+    date_of_birth = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
+    is_blocked = models.BooleanField(default=False)
+    academic_status = models.CharField(max_length=50, default='ACTIVE', blank=True, null=True)
+    billing_category = models.CharField(max_length=50, blank=True, null=True)
+    intake = models.CharField(max_length=50, blank=True, null=True)
+    sponsorship = models.CharField(max_length=50, blank=True, null=True)
 
     def __str__(self):
         return f"{self.reg_number} - {self.name}"
@@ -871,8 +879,6 @@ class CourseUnitDocument(models.Model):
         return f"{self.course_unit.code} - {self.title}"
 
 
-
-
 # ==================== PROGRAMMES & CURRICULUM EXTENSIONS ====================
 
 class ProgrammeSetting(models.Model):
@@ -976,3 +982,44 @@ class CBEFormSetting(models.Model):
 
     def __str__(self):
         return f"CBE: {self.course_unit.code} - {self.competency_code}"
+
+
+# ==================== STUDENTS' RECORDS EXTENSIONS ====================
+
+class ResidenceApplication(models.Model):
+    RESIDENCE_TYPE_CHOICES = [('CAMPUS', 'Campus Resident'), ('NON_RESIDENT', 'Non-Resident')]
+    PAYMENT_STATUS_CHOICES = [('PAID', 'Paid Students'), ('PENDING', 'Pending Payment')]
+
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='residence_applications')
+    academic_term = models.ForeignKey(AcademicTerm, on_delete=models.CASCADE)
+    residence_type = models.CharField(max_length=20, choices=RESIDENCE_TYPE_CHOICES, default='CAMPUS')
+    hall = models.ForeignKey(Hostel, on_delete=models.SET_NULL, null=True, blank=True)
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='PENDING')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('student', 'academic_term')
+
+    def __str__(self):
+        return f"{self.student.name} - {self.residence_type} ({self.payment_status})"
+
+
+class StudentApprovalRequest(models.Model):
+    REQUEST_TYPES = [
+        ('BIO_DATA', 'Student Bio-Data Change'),
+        ('ACADEMIC', 'Student Academic Details Change'),
+        ('ACCOUNT_STATUS', 'Account Status Change'),
+        ('UPLOAD', 'Uploaded Student Approval'),
+    ]
+    STATUS_CHOICES = [('PENDING', 'Pending'), ('APPROVED', 'Approved'), ('REJECTED', 'Rejected')]
+
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, null=True, blank=True)
+    request_type = models.CharField(max_length=30, choices=REQUEST_TYPES)
+    requested_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='submitted_approvals')
+    payload_data = models.JSONField(help_text="Contains proposed data updates or bulk upload JSON")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_approvals')
+
+    def __str__(self):
+        return f"{self.get_request_type_display()} - {self.status}"

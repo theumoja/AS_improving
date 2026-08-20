@@ -1,0 +1,464 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        background: #fff;
+        padding: 1.25rem 1.75rem;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
+    .card {
+        background: #ffffff;
+        border: none;
+        border-radius: 16px;
+        padding: 1.75rem;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+    }
+    .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    .search-bar {
+        padding: 0.6rem 1.2rem 0.6rem 2.5rem;
+        border-radius: 50px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 1rem center;
+        width: 100%;
+        max-width: 320px;
+        font-size: 0.9rem;
+    }
+    .search-bar:focus { outline: none; border-color: #2563eb; background-color: #fff; }
+    .filter-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem 1.2rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f1f5f9;
+        margin-bottom: 1rem;
+        align-items: center;
+    }
+    .filter-group { display: flex; align-items: center; gap: 0.5rem; }
+    .filter-group label { font-weight: 600; font-size: 0.8rem; color: #475569; }
+    .form-control-sm {
+        padding: 0.4rem 0.8rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        background: #fafbfc;
+    }
+    .tab-nav { display: flex; gap: 0.5rem; border-bottom: 2px solid #e2e8f0; margin-bottom: 1.5rem; }
+    .tab-btn {
+        background: transparent; border: none; padding: 0.65rem 1.25rem;
+        font-size: 0.9rem; font-weight: 600; color: #64748b; text-decoration: none;
+        border-radius: 8px 8px 0 0; border-bottom: 3px solid transparent; cursor: pointer;
+    }
+    .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; background: rgba(37, 99, 235, 0.05); }
+    
+    .table-responsive { overflow-x: auto; border-radius: 12px; border: 1px solid #f1f5f9; }
+    .table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .table th { background: #f8fafc; color: #1e293b; padding: 0.9rem 1rem; text-align: left; font-size: 0.8rem; text-transform: uppercase; }
+    .table td { padding: 0.8rem 1rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    
+    .stats-bar {
+        display: flex; gap: 1.5rem; padding: 0.75rem 1rem; background: #f8fafc;
+        border-radius: 10px; margin-bottom: 1rem; font-size: 0.875rem; border: 1px solid #e2e8f0;
+    }
+    .btn {
+        display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.1rem;
+        border-radius: 50px; font-weight: 600; font-size: 0.85rem; border: none; cursor: pointer; text-decoration: none;
+    }
+    .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-success { background: #10b981; color: #fff; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-outline { background: transparent; border: 1.5px solid #e2e8f0; color: #475569; }
+
+    /* Modal styling */
+    .modal {
+        display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+        background-color: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center;
+    }
+    .modal-content {
+        background: #fff; padding: 1.75rem; border-radius: 16px; width: 100%; max-width: 520px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); position: relative;
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem; color: #334155; }
+    .form-control { width: 100%; padding: 0.6rem 0.9rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; }
+</style>
+
+<div class="page-header-actions">
+    <div style="display:flex; align-items:center; gap:0.85rem;">
+        <div style="width:42px; height:42px; border-radius:10px; background:rgba(220, 38, 38, 0.1); color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.25rem;">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div>
+            <h2 style="margin:0; font-size:1.3rem;">Students with Invalid Dates of Birth</h2>
+            <small style="color:#64748b;">Missing, future dates, or under 10 years of age</small>
+        </div>
+    </div>
+    <button class="btn btn-primary" onclick="openAddModal()">
+        <i class="fas fa-user-plus"></i> Add Student
+    </button>
+</div>
+
+<!-- Category Tabs -->
+<div class="tab-nav">
+    <a href="?group_by=faculty" class="tab-btn {% if group_by == 'faculty' %}active{% endif %}">BY FACULTY</a>
+    <a href="?group_by=department" class="tab-btn {% if group_by == 'department' %}active{% endif %}">BY DEPARTMENT</a>
+    <a href="?group_by=programme" class="tab-btn {% if group_by == 'programme' or not group_by %}active{% endif %}">BY PROGRAMME</a>
+</div>
+
+<!-- Main Table Card -->
+<div class="card">
+    <div class="toolbar">
+        <input type="text" id="tableSearch" class="search-bar" placeholder="Search registration no or student name...">
+        <span style="font-size:0.85rem; color:#64748b;">
+            Showing <strong id="visibleCount">0</strong> of <strong id="totalCount">0</strong> records
+        </span>
+    </div>
+
+    <!-- Client-Side Filter Bar -->
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label for="issueTypeFilter"><i class="fas fa-filter"></i> Issue Type</label>
+            <select id="issueTypeFilter" class="form-control-sm">
+                <option value="all">All Issues</option>
+                <option value="missing">Missing DOB</option>
+                <option value="underage">Underage (&lt;10 yrs)</option>
+                <option value="future">Future Date</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="deptFilter"><i class="fas fa-building"></i> Department</label>
+            <select id="deptFilter" class="form-control-sm">
+                <option value="all">All Departments</option>
+                {% for dept in departments %}
+                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button class="btn btn-sm btn-outline" id="clearFiltersBtn">
+            <i class="fas fa-times"></i> Clear Filters
+        </button>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <span><strong>Total Invalid:</strong> <span id="statTotal">0</span></span>
+        <span style="color:#dc2626;"><strong>Missing:</strong> <span id="statMissing">0</span></span>
+        <span style="color:#d97706;"><strong>Underage:</strong> <span id="statUnderage">0</span></span>
+        <span style="color:#2563eb;"><strong>Future Dates:</strong> <span id="statFuture">0</span></span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table" id="studentTable">
+            <thead>
+                <tr>
+                    <th>Reg Number</th>
+                    <th>Student Name</th>
+                    <th>{{ group_by|title }}</th>
+                    <th>Course & Stream</th>
+                    <th>Current DOB</th>
+                    <th style="text-align:right;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="studentTableBody">
+                {% for student in invalid_students %}
+                <tr data-reg="{{ student.reg_number|lower }}"
+                    data-name="{{ student.name|lower }}"
+                    data-dob="{% if student.date_of_birth %}{{ student.date_of_birth|date:'Y-m-d' }}{% else %}missing{% endif %}"
+                    data-dept-id="{% if student.course.department %}{{ student.course.department.id }}{% else %}none{% endif %}"
+                    data-course-code="{{ student.course.code }}"
+                    data-stream-id="{{ student.stream.id }}"
+                    data-raw-name="{{ student.name }}"
+                    data-raw-reg="{{ student.reg_number }}"
+                >
+                    <td><strong>{{ student.reg_number }}</strong></td>
+                    <td>{{ student.name }}</td>
+                    <td>
+                        {% if group_by == 'faculty' %}
+                            {{ student.course.department.faculty.name|default:"N/A" }}
+                        {% elif group_by == 'department' %}
+                            {{ student.course.department.name|default:"N/A" }}
+                        {% else %}
+                            {{ student.course.name|default:"N/A" }}
+                        {% endif %}
+                    </td>
+                    <td>{{ student.course.code }} ({{ student.stream.name }})</td>
+                    <td>
+                        {% if not student.date_of_birth %}
+                            <span style="color:#dc2626; font-weight:600;">Missing</span>
+                        {% elif student.date_of_birth|date:'Y-m-d' > today_str %}
+                            <span style="color:#2563eb; font-weight:600;">{{ student.date_of_birth|date:"M d, Y" }} (Future)</span>
+                        {% else %}
+                            <span style="color:#d97706; font-weight:600;">{{ student.date_of_birth|date:"M d, Y" }} (&lt;10 yrs)</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <select onchange="handleStudentAction(this)" class="form-control-sm" style="padding: 4px 8px; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; background: #fff; font-size: 0.85rem;">
+                            <option value="">-- Action --</option>
+                            <option value="edit">Edit</option>
+                            <option value="delete">Delete</option>
+                        </select>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:2.5rem; color:#94a3b8;">
+                        No invalid date of birth records detected.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ADD STUDENT MODAL -->
+<div id="addModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 style="margin:0;"><i class="fas fa-user-plus"></i> Add New Student</h3>
+            <button onclick="closeModal('addModal')" style="background:none; border:none; font-size:1.25rem; cursor:pointer;">&times;</button>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            <div class="form-group">
+                <label>Registration Number</label>
+                <input type="text" name="reg_number" class="form-control" required placeholder="e.g. 2026/BS/001">
+            </div>
+            <div class="form-group">
+                <label>Student Full Name</label>
+                <input type="text" name="name" class="form-control" required placeholder="e.g. Jane Doe">
+            </div>
+            <div class="form-group">
+                <label>Date of Birth</label>
+                <input type="date" name="date_of_birth" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Course</label>
+                <select name="course" class="form-control" required>
+                    {% for c in courses %}
+                        <option value="{{ c.code }}">{{ c.code }} - {{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Stream</label>
+                <select name="stream" class="form-control" required>
+                    {% for s in streams %}
+                        <option value="{{ s.id }}">{{ s.course.code }} - {{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+                <button type="button" class="btn btn-outline" onclick="closeModal('addModal')">Cancel</button>
+                <button type="submit" class="btn btn-success">Save Student</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT STUDENT MODAL -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 style="margin:0;"><i class="fas fa-user-edit"></i> Update Student DOB & Profile</h3>
+            <button onclick="closeModal('editModal')" style="background:none; border:none; font-size:1.25rem; cursor:pointer;">&times;</button>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="reg_number" id="edit_reg_number">
+            
+            <div class="form-group">
+                <label>Reg Number</label>
+                <input type="text" id="edit_reg_display" class="form-control" disabled style="background:#f1f5f9;">
+            </div>
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" name="name" id="edit_name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Date of Birth</label>
+                <input type="date" name="date_of_birth" id="edit_dob" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Course</label>
+                <select name="course" id="edit_course" class="form-control">
+                    {% for c in courses %}
+                        <option value="{{ c.code }}">{{ c.code }} - {{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Stream</label>
+                <select name="stream" id="edit_stream" class="form-control">
+                    {% for s in streams %}
+                        <option value="{{ s.id }}">{{ s.course.code }} - {{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+                <button type="button" class="btn btn-outline" onclick="closeModal('editModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- DELETE CONFIRMATION MODAL -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 style="margin:0; color:#dc2626;"><i class="fas fa-trash-alt"></i> Confirm Deletion</h3>
+            <button onclick="closeModal('deleteModal')" style="background:none; border:none; font-size:1.25rem; cursor:pointer;">&times;</button>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="reg_number" id="delete_reg_number">
+            <p>Are you sure you want to delete the student record for <strong id="delete_student_name"></strong>?</p>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+                <button type="button" class="btn btn-outline" onclick="closeModal('deleteModal')">Cancel</button>
+                <button type="submit" class="btn btn-danger">Delete Permanently</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const TODAY_STR = "{{ today_str }}";
+    const MIN_AGE_STR = "{{ min_age_str }}";
+
+    // Dropdown Action Handler
+    function handleStudentAction(selectEl) {
+        const action = selectEl.value;
+        if (!action) return;
+
+        const row = selectEl.closest('tr');
+        if (action === 'edit') {
+            openEditModal(selectEl);
+        } else if (action === 'delete') {
+            const regNum = row.dataset.rawReg;
+            const name = row.dataset.rawName;
+            openDeleteModal(regNum, name);
+        }
+        selectEl.value = ''; // Reset select back to placeholder
+    }
+
+    // Modal Control Logic
+    function openAddModal() {
+        document.getElementById('addModal').style.display = 'flex';
+    }
+
+    function openEditModal(targetEl) {
+        const row = targetEl.closest('tr');
+        document.getElementById('edit_reg_number').value = row.dataset.rawReg;
+        document.getElementById('edit_reg_display').value = row.dataset.rawReg;
+        document.getElementById('edit_name').value = row.dataset.rawName;
+        document.getElementById('edit_dob').value = row.dataset.dob !== 'missing' ? row.dataset.dob : '';
+        document.getElementById('edit_course').value = row.dataset.courseCode;
+        document.getElementById('edit_stream').value = row.dataset.streamId;
+        document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function openDeleteModal(regNum, name) {
+        document.getElementById('delete_reg_number').value = regNum;
+        document.getElementById('delete_student_name').textContent = name + ' (' + regNum + ')';
+        document.getElementById('deleteModal').style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    // Client-Side Search & Filtering
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('tableSearch');
+        const issueFilter = document.getElementById('issueTypeFilter');
+        const deptFilter = document.getElementById('deptFilter');
+        const clearBtn = document.getElementById('clearFiltersBtn');
+        const rows = document.querySelectorAll('#studentTableBody tr[data-reg]');
+
+        function filterTable() {
+            const query = searchInput.value.toLowerCase().trim();
+            const selectedIssue = issueFilter.value;
+            const selectedDept = deptFilter.value;
+
+            let visibleCount = 0;
+            let missingCount = 0;
+            let underageCount = 0;
+            let futureCount = 0;
+
+            rows.forEach(row => {
+                const reg = row.dataset.reg;
+                const name = row.dataset.name;
+                const dob = row.dataset.dob;
+                const deptId = row.dataset.deptId;
+
+                const matchesQuery = !query || reg.includes(query) || name.includes(query);
+                const matchesDept = selectedDept === 'all' || deptId === selectedDept;
+
+                let issueType = '';
+                if (dob === 'missing') {
+                    issueType = 'missing';
+                    missingCount++;
+                } else if (dob > TODAY_STR) {
+                    issueType = 'future';
+                    futureCount++;
+                } else if (dob > MIN_AGE_STR) {
+                    issueType = 'underage';
+                    underageCount++;
+                }
+
+                const matchesIssue = selectedIssue === 'all' || issueType === selectedIssue;
+
+                if (matchesQuery && matchesDept && matchesIssue) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            document.getElementById('visibleCount').textContent = visibleCount;
+            document.getElementById('totalCount').textContent = rows.length;
+            document.getElementById('statTotal').textContent = rows.length;
+            document.getElementById('statMissing').textContent = missingCount;
+            document.getElementById('statUnderage').textContent = underageCount;
+            document.getElementById('statFuture').textContent = futureCount;
+        }
+
+        searchInput.addEventListener('input', filterTable);
+        issueFilter.addEventListener('change', filterTable);
+        deptFilter.addEventListener('change', filterTable);
+
+        clearBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            issueFilter.value = 'all';
+            deptFilter.value = 'all';
+            filterTable();
+        });
+
+        filterTable();
+    });
+</script>
+{% endblock %}

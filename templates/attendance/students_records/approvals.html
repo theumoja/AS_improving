@@ -1,0 +1,304 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; background: #fff; padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border); }
+    .tab-nav { display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .tab-btn { background: transparent; border: none; padding: 0.65rem 1.25rem; font-size: 0.9rem; font-weight: 600; color: var(--text-muted); cursor: pointer; border-radius: var(--radius-sm); transition: all 0.2s; }
+    .tab-btn.active { color: #2563eb; background: rgba(37, 99, 235, 0.1); }
+
+    .status-filters { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .status-btn { font-size: 0.8rem; font-weight: 600; padding: 0.35rem 0.85rem; border-radius: 20px; border: 1px solid var(--border); cursor: pointer; color: var(--text-muted); background: #fff; transition: all 0.2s; }
+    .status-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+    /* Modal Styles */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal-card { background: #fff; width: 100%; max-width: 520px; border-radius: var(--radius-md); padding: 1.5rem; border: 1px solid var(--border); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; }
+    .form-control { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.9rem; }
+    .action-btn-group { display: flex; gap: 0.35rem; justify-content: flex-end; }
+</style>
+
+<div class="page-header-actions">
+    <div style="display:flex; align-items:center; gap:0.85rem;">
+        <div style="width:42px; height:42px; border-radius:var(--radius-sm); background:rgba(37, 99, 235, 0.1); color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:1.25rem;">
+            <i class="fas fa-tasks"></i>
+        </div>
+        <h2>Students Approval Queue</h2>
+    </div>
+    <button onclick="toggleModal('createModal', true)" class="btn" style="background:#2563eb; color:#fff; font-weight:600; padding:0.5rem 1rem;">
+        <i class="fas fa-plus" style="margin-right:0.35rem;"></i> New Approval Request
+    </button>
+</div>
+
+<!-- Frontend Type Filter Tabs -->
+<div class="tab-nav">
+    <button type="button" class="tab-btn active" onclick="setTypeFilter('MY_UPLOADS', this)">My Uploads</button>
+    <button type="button" class="tab-btn" onclick="setTypeFilter('UPLOAD', this)">Uploaded Students</button>
+    <button type="button" class="tab-btn" onclick="setTypeFilter('ACCOUNT_STATUS', this)">Account Status Change</button>
+    <button type="button" class="tab-btn" onclick="setTypeFilter('BIO_DATA', this)">Student Bio-Data</button>
+    <button type="button" class="tab-btn" onclick="setTypeFilter('ACADEMIC', this)">Student Academic Details</button>
+</div>
+
+<!-- Frontend Status Filter Sub-Nav -->
+<div class="status-filters">
+    <button type="button" class="status-btn" onclick="setStatusFilter('PENDING', this)">Pending</button>
+    <button type="button" class="status-btn" onclick="setStatusFilter('APPROVED', this)">Approved</button>
+    <button type="button" class="status-btn" onclick="setStatusFilter('REJECTED', this)">Rejected</button>
+    <button type="button" class="status-btn active" onclick="setStatusFilter('ALL', this)">All</button>
+</div>
+
+<!-- Requests Table -->
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Request ID</th>
+                <th>Request Type</th>
+                <th>Submitted By</th>
+                <th>Student / Details</th>
+                <th>Status</th>
+                <th style="text-align:right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="approval-table-body">
+            {% for req in approval_requests %}
+            <tr class="request-row" 
+                data-type="{{ req.request_type }}" 
+                data-status="{{ req.status }}" 
+                data-is-my-upload="{% if req.requested_by == request.user %}true{% else %}false{% endif %}">
+                <td>#REQ-{{ req.id }}</td>
+                <td><strong>{{ req.get_request_type_display }}</strong></td>
+                <td>{{ req.requested_by.username }}</td>
+                <td>{{ req.student.name|default:"Bulk File / JSON Payload" }}</td>
+                <td>
+                    {% if req.status == 'PENDING' %}
+                        <span style="color:#d97706; font-weight:600;"><i class="fas fa-clock"></i> Pending</span>
+                    {% elif req.status == 'APPROVED' %}
+                        <span style="color:#059669; font-weight:600;"><i class="fas fa-check-circle"></i> Approved</span>
+                    {% else %}
+                        <span style="color:#dc2626; font-weight:600;"><i class="fas fa-times-circle"></i> Rejected</span>
+                    {% endif %}
+                </td>
+                <td style="text-align:right;">
+                    <div class="action-btn-group">
+                        {% if req.status == 'PENDING' %}
+                            <form method="POST" action="" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="request_id" value="{{ req.id }}">
+                                <button type="submit" name="action" value="approve" class="btn" style="background:#059669; padding:0.35rem 0.55rem; font-size:0.8rem; color:#fff;" title="Approve"><i class="fas fa-check"></i></button>
+                                <button type="submit" name="action" value="reject" class="btn" style="background:#dc2626; padding:0.35rem 0.55rem; font-size:0.8rem; color:#fff;" title="Reject"><i class="fas fa-times"></i></button>
+                            </form>
+                        {% endif %}
+
+                        <!-- Edit Button -->
+                        <button onclick="toggleModal('editModal-{{ req.id }}', true)" class="btn" style="background:#2563eb; padding:0.35rem 0.55rem; font-size:0.8rem; color:#fff;" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+
+                        <!-- Delete Form -->
+                        <form method="POST" action="" style="display:inline;" onsubmit="return confirm('Delete Request #REQ-{{ req.id }}?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="request_id" value="{{ req.id }}">
+                            <button type="submit" name="action" value="delete" class="btn" style="background:#4b5563; padding:0.35rem 0.55rem; font-size:0.8rem; color:#fff;" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Edit Request Modal -->
+                    <div id="editModal-{{ req.id }}" class="modal-overlay">
+                        <div class="modal-card" style="text-align:left;">
+                            <div class="modal-header">
+                                <h3>Edit Request #REQ-{{ req.id }}</h3>
+                                <button type="button" onclick="toggleModal('editModal-{{ req.id }}', false)" style="background:none; border:none; font-size:1.25rem; cursor:pointer;">&times;</button>
+                            </div>
+                            <form method="POST" action="">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="edit">
+                                <input type="hidden" name="request_id" value="{{ req.id }}">
+
+                                <div class="form-group">
+                                    <label>Student Profile</label>
+                                    <select name="student" class="form-control">
+                                        <option value="">-- None (Bulk / File Request) --</option>
+                                        {% for st in students %}
+                                            <option value="{{ st.reg_number }}" {% if req.student.reg_number == st.reg_number %}selected{% endif %}>
+                                                {{ st.reg_number }} - {{ st.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Request Type</label>
+                                    <select name="request_type" class="form-control" required>
+                                        {% for val, label in request_type_choices %}
+                                            <option value="{{ val }}" {% if req.request_type == val %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Status</label>
+                                    <select name="status" class="form-control" required>
+                                        {% for val, label in status_choices %}
+                                            <option value="{{ val }}" {% if req.status == val %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Payload / Notes</label>
+                                    <textarea name="payload_data" class="form-control" rows="3">{{ req.payload_data|default:"" }}</textarea>
+                                </div>
+
+                                <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+                                    <button type="button" onclick="toggleModal('editModal-{{ req.id }}', false)" class="btn" style="background:#e5e7eb; color:#374151;">Cancel</button>
+                                    <button type="submit" class="btn" style="background:#2563eb; color:#fff;">Save Changes</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+
+            <!-- Dynamic Empty State Message Row -->
+            <tr id="empty-state-row" style="display: none;">
+                <td colspan="6" style="text-align:center; padding:2.5rem; color:var(--text-muted);">
+                    No approval requests found in this category.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Create Request Modal -->
+<div id="createModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>New Student Approval Request</h3>
+            <button type="button" onclick="toggleModal('createModal', false)" style="background:none; border:none; font-size:1.25rem; cursor:pointer;">&times;</button>
+        </div>
+        <form method="POST" action="">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create">
+
+            <div class="form-group">
+                <label>Student Profile</label>
+                <select name="student" class="form-control">
+                    <option value="">-- None (Bulk / File Request) --</option>
+                    {% for st in students %}
+                        <option value="{{ st.reg_number }}">{{ st.reg_number }} - {{ st.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Request Type</label>
+                <select name="request_type" class="form-control" required>
+                    {% for val, label in request_type_choices %}
+                        <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Status</label>
+                <select name="status" class="form-control" required>
+                    {% for val, label in status_choices %}
+                        <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Payload / Notes</label>
+                <textarea name="payload_data" class="form-control" rows="3" placeholder='{"reason": "Update bio data"}'></textarea>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+                <button type="button" onclick="toggleModal('createModal', false)" class="btn" style="background:#e5e7eb; color:#374151;">Cancel</button>
+                <button type="submit" class="btn" style="background:#2563eb; color:#fff;">Submit Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let activeType = 'MY_UPLOADS';
+    let activeStatus = 'ALL';
+
+    function toggleModal(id, show) {
+        const modal = document.getElementById(id);
+        if (modal) {
+            modal.classList.toggle('open', show);
+        }
+    }
+
+    function setTypeFilter(type, element) {
+        activeType = type;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
+        applyFilters();
+    }
+
+    function setStatusFilter(status, element) {
+        activeStatus = status;
+        document.querySelectorAll('.status-btn').forEach(btn => btn.classList.remove('active'));
+        element.classList.add('active');
+        applyFilters();
+    }
+
+    function applyFilters() {
+        const rows = document.querySelectorAll('.request-row');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const rowType = row.getAttribute('data-type');
+            const rowStatus = row.getAttribute('data-status');
+            const isMyUpload = row.getAttribute('data-is-my-upload') === 'true';
+
+            // Filter Type Logic
+            let matchesType = false;
+            if (activeType === 'MY_UPLOADS') {
+                matchesType = isMyUpload;
+            } else {
+                matchesType = (rowType === activeType);
+            }
+
+            // Filter Status Logic
+            let matchesStatus = false;
+            if (activeStatus === 'ALL') {
+                matchesStatus = true;
+            } else {
+                matchesStatus = (rowStatus === activeStatus);
+            }
+
+            // Apply Display state
+            if (matchesType && matchesStatus) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Toggle Empty State Message
+        const emptyRow = document.getElementById('empty-state-row');
+        if (emptyRow) {
+            emptyRow.style.display = (visibleCount === 0) ? '' : 'none';
+        }
+    }
+
+    // Run initial filter on page load
+    document.addEventListener('DOMContentLoaded', applyFilters);
+</script>
+{% endblock %}

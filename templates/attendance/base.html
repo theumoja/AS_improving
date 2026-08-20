@@ -360,13 +360,35 @@
                 </a>
 
                 {# ========================================================================= #}
-                {# 1. CONTEXT: STUDENTS MANAGEMENT                                           #}
+                {# 1. CONTEXT: STUDENTS MANAGEMENT / STUDENT CONSOLE                        #}
                 {# ========================================================================= #}
-                {% if 'students' in request.path or 'student' in request.path or request.resolver_match.url_name in 'manage_students,edit_student,delete_student,bulk_upload_students,student_dashboard,download_student_report,download_attendance_card' %}
+                {% if 'students' in request.path or 'student' in request.path or request.resolver_match.url_name in 'manage_students,edit_student,delete_student,bulk_upload_students,student_dashboard,download_student_report,download_attendance_card,students_records_dashboard,residence_applications,invalid_dob_students,blocked_students,students_approvals' %}
                     <div class="drawer-heading">Student Operations</div>
-                    <a href="{% url 'attendance:manage_students' %}" class="{% if request.resolver_match.url_name == 'manage_students' %}active{% endif %}">
-                        <i class="fas fa-users"></i> All Students List
-                    </a>
+
+                    {% if user.is_staff or user.role == 'ADMIN' %}
+                        <a href="{% url 'attendance:students_records_dashboard' %}" class="{% if request.resolver_match.url_name == 'students_records_dashboard' %}active{% endif %}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                        <a href="{% url 'attendance:manage_students' %}" class="{% if request.resolver_match.url_name == 'manage_students' %}active{% endif %}">
+                            <i class="fas fa-users"></i> Students
+                        </a>
+                        <a href="{% url 'attendance:students_approvals' %}" class="{% if request.resolver_match.url_name == 'students_approvals' %}active{% endif %}">
+                            <i class="fas fa-user-check"></i> Student Approvals
+                        </a>
+                        <a href="{% url 'attendance:blocked_students' %}" class="{% if request.resolver_match.url_name == 'blocked_students' %}active{% endif %}">
+                            <i class="fas fa-user-slash"></i> Blocked Students
+                        </a>
+                        <a href="{% url 'attendance:invalid_dob_students' %}" class="{% if request.resolver_match.url_name == 'invalid_dob_students' %}active{% endif %}">
+                            <i class="fas fa-exclamation-triangle"></i> Invalid DOB(s)
+                        </a>
+                        <a href="{% url 'attendance:residence_applications' %}" class="{% if request.resolver_match.url_name == 'residence_applications' %}active{% endif %}">
+                            <i class="fas fa-home"></i> RESIDENCE APPLICATIONS
+                        </a>
+                    {% else %}
+                        <a href="{% url 'attendance:manage_students' %}" class="{% if request.resolver_match.url_name == 'manage_students' %}active{% endif %}">
+                            <i class="fas fa-users"></i> All Students List
+                        </a>
+                    {% endif %}
 
                 {# ========================================================================= #}
                 {# 2. CONTEXT: TEACHERS MANAGEMENT                                           #}

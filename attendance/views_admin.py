@@ -5689,3 +5689,7 @@ def cbe_form_settings(request):
         'assessment_methods': assessment_methods,
     }
     return render(request, 'attendance/cbe_form_settings.html', context)
+
+
+
+    

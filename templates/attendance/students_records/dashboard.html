@@ -1,0 +1,217 @@
+{% extends 'attendance/base.html' %}
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        background: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .header-title-group { display: flex; align-items: center; gap: 0.85rem; }
+    .header-title-group h2 { margin: 0; font-size: 1.35rem; font-weight: 700; }
+    .header-icon-box {
+        width: 42px; height: 42px; border-radius: var(--radius-sm);
+        background: rgba(37, 99, 235, 0.1); color: #2563eb;
+        display: flex; align-items: center; justify-content: center; font-size: 1.25rem;
+    }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .stat-card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 1.25rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .stat-card .label { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+    .stat-card .value { font-size: 1.8rem; font-weight: 700; color: var(--text-main); margin-top: 0.25rem; }
+    .dashboard-tables-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+        gap: 1.5rem;
+    }
+    .summary-card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 1.25rem;
+    }
+    .summary-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .summary-card p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+</style>
+
+<div class="page-header-actions">
+    <div class="header-title-group">
+        <div class="header-icon-box"><i class="fas fa-users-cog"></i></div>
+        <h2>Students' Records Dashboard</h2>
+    </div>
+</div>
+
+<!-- Stat Metric Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="label">No. of Active Students</div>
+        <div class="value" style="color: #059669;">{{ active_count|default:"1256" }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">No. of In-Active Students</div>
+        <div class="value" style="color: #dc2626;">{{ inactive_count|default:"0" }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">No. of Blocked Students</div>
+        <div class="value" style="color: #d97706;">{{ blocked_count|default:"0" }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Percentage of Active Students</div>
+        <div class="value" style="color: #2563eb;">{{ active_percentage|default:"100 %" }}</div>
+    </div>
+</div>
+
+<!-- Breakdown Tables -->
+<div class="dashboard-tables-grid">
+    
+    <!-- 1. Academic Statuses -->
+    <div class="summary-card">
+        <h3>Students By Academic Statuses</h3>
+        <p>Summary of students by Academic Status</p>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Academic Status</th>
+                    <th>Male</th>
+                    <th>Female</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in academic_statuses %}
+                <tr>
+                    <td><strong>{{ item.status }}</strong></td>
+                    <td>{{ item.male }}</td>
+                    <td>{{ item.female }}</td>
+                    <td><strong>{{ item.total }}</strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td><strong>Active</strong></td>
+                    <td>988</td>
+                    <td>265</td>
+                    <td><strong>1253</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 2. Billing Categories -->
+    <div class="summary-card">
+        <h3>Students By Billing Categories</h3>
+        <p>Summary of students by billing Categories</p>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Billing Category</th>
+                    <th>Male</th>
+                    <th>Female</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in billing_categories %}
+                <tr>
+                    <td><strong>{{ item.category }}</strong></td>
+                    <td>{{ item.male }}</td>
+                    <td>{{ item.female }}</td>
+                    <td><strong>{{ item.total }}</strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td><strong>Standard</strong></td>
+                    <td>989</td>
+                    <td>266</td>
+                    <td><strong>1255</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 3. Intake -->
+    <div class="summary-card">
+        <h3>Students By Intake</h3>
+        <p>Summary of students by Intake</p>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Intake</th>
+                    <th>Male</th>
+                    <th>Female</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in intakes %}
+                <tr>
+                    <td><strong>{{ item.intake }}</strong></td>
+                    <td>{{ item.male }}</td>
+                    <td>{{ item.female }}</td>
+                    <td><strong>{{ item.total }}</strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td><strong>August Intake</strong></td>
+                    <td>988</td>
+                    <td>266</td>
+                    <td><strong>1254</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 4. Sponsorship -->
+    <div class="summary-card">
+        <h3>Students By Sponsorship</h3>
+        <p>Summary of students by Sponsorship</p>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Sponsorship</th>
+                    <th>Male</th>
+                    <th>Female</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in sponsorships %}
+                <tr>
+                    <td><strong>{{ item.sponsorship }}</strong></td>
+                    <td>{{ item.male }}</td>
+                    <td>{{ item.female }}</td>
+                    <td><strong>{{ item.total }}</strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td><strong>Private</strong></td>
+                    <td>988</td>
+                    <td>266</td>
+                    <td><strong>1254</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

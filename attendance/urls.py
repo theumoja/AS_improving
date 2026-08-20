@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path, reverse_lazy
 from django.contrib.auth import views as auth_views
-from attendance import views_admin, views_users, views_analytics, views
+from attendance import views_admin, views_users, views_analytics, views,views_students_records
 
 app_name = 'attendance'
 
@@ -231,4 +231,14 @@ urlpatterns = [
     path('curriculum/approvals/', views_admin.curriculum_approvals, name='curriculum_approvals'),
     path('curriculum/review/', views_admin.curriculum_review, name='curriculum_review'),
     path('curriculum/cbe-settings/', views_admin.cbe_form_settings, name='cbe_form_settings'),
+
+
+
+
+    # ==================== STUDENTS' RECORDS MANAGEMENT ====================
+    path('students/records/dashboard/', views_students_records.students_dashboard, name='students_records_dashboard'),
+    path('students/records/residence-applications/', views_students_records.residence_applications, name='residence_applications'),
+    path('students/records/invalid-dob/', views_students_records.invalid_dob_students, name='invalid_dob_students'),
+    path('students/records/blocked/', views_students_records.blocked_students_management, name='blocked_students'),
+    path('students/records/approvals/', views_students_records.students_approvals, name='students_approvals'),
 ]
