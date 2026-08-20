@@ -12,6 +12,12 @@ from attendance.models import (
 from .models import ResidenceApplication, StudentApprovalRequest
 
 
+from django.shortcuts import render
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Q
+from .models import User, StudentProfile
+
 @login_required
 def students_dashboard(request):
     if request.user.role != User.IS_ADMIN:
@@ -21,7 +27,7 @@ def students_dashboard(request):
     active_students = StudentProfile.objects.filter(user__is_active=True, is_blocked=False).count()
     inactive_students = StudentProfile.objects.filter(user__is_active=False).count()
     blocked_students = StudentProfile.objects.filter(is_blocked=True).count()
-    
+
     pct_active = round((active_students / total_students * 100), 2) if total_students > 0 else 0.0
 
     # Summary by Academic Status

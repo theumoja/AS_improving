@@ -63,19 +63,19 @@
 <div class="stats-grid">
     <div class="stat-card">
         <div class="label">No. of Active Students</div>
-        <div class="value" style="color: #059669;">{{ active_count|default:"1256" }}</div>
+        <div class="value" style="color: #059669;">{{ active_students }}</div>
     </div>
     <div class="stat-card">
         <div class="label">No. of In-Active Students</div>
-        <div class="value" style="color: #dc2626;">{{ inactive_count|default:"0" }}</div>
+        <div class="value" style="color: #dc2626;">{{ inactive_students }}</div>
     </div>
     <div class="stat-card">
         <div class="label">No. of Blocked Students</div>
-        <div class="value" style="color: #d97706;">{{ blocked_count|default:"0" }}</div>
+        <div class="value" style="color: #d97706;">{{ blocked_students }}</div>
     </div>
     <div class="stat-card">
         <div class="label">Percentage of Active Students</div>
-        <div class="value" style="color: #2563eb;">{{ active_percentage|default:"100 %" }}</div>
+        <div class="value" style="color: #2563eb;">{{ pct_active }}%</div>
     </div>
 </div>
 
@@ -98,17 +98,14 @@
             <tbody>
                 {% for item in academic_statuses %}
                 <tr>
-                    <td><strong>{{ item.status }}</strong></td>
+                    <td><strong>{{ item.academic_status|default:"Unassigned" }}</strong></td>
                     <td>{{ item.male }}</td>
                     <td>{{ item.female }}</td>
                     <td><strong>{{ item.total }}</strong></td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td><strong>Active</strong></td>
-                    <td>988</td>
-                    <td>265</td>
-                    <td><strong>1253</strong></td>
+                    <td colspan="4" class="text-muted text-center">No academic status data recorded.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -131,17 +128,14 @@
             <tbody>
                 {% for item in billing_categories %}
                 <tr>
-                    <td><strong>{{ item.category }}</strong></td>
+                    <td><strong>{{ item.billing_category|default:"Unassigned" }}</strong></td>
                     <td>{{ item.male }}</td>
                     <td>{{ item.female }}</td>
                     <td><strong>{{ item.total }}</strong></td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td><strong>Standard</strong></td>
-                    <td>989</td>
-                    <td>266</td>
-                    <td><strong>1255</strong></td>
+                    <td colspan="4" class="text-muted text-center">No billing category data recorded.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -164,17 +158,14 @@
             <tbody>
                 {% for item in intakes %}
                 <tr>
-                    <td><strong>{{ item.intake }}</strong></td>
+                    <td><strong>{{ item.intake|default:"Unassigned" }}</strong></td>
                     <td>{{ item.male }}</td>
                     <td>{{ item.female }}</td>
                     <td><strong>{{ item.total }}</strong></td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td><strong>August Intake</strong></td>
-                    <td>988</td>
-                    <td>266</td>
-                    <td><strong>1254</strong></td>
+                    <td colspan="4" class="text-muted text-center">No intake data recorded.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -197,17 +188,14 @@
             <tbody>
                 {% for item in sponsorships %}
                 <tr>
-                    <td><strong>{{ item.sponsorship }}</strong></td>
+                    <td><strong>{{ item.sponsorship|default:"Unassigned" }}</strong></td>
                     <td>{{ item.male }}</td>
                     <td>{{ item.female }}</td>
                     <td><strong>{{ item.total }}</strong></td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td><strong>Private</strong></td>
-                    <td>988</td>
-                    <td>266</td>
-                    <td><strong>1254</strong></td>
+                    <td colspan="4" class="text-muted text-center">No sponsorship data recorded.</td>
                 </tr>
                 {% endfor %}
             </tbody>
