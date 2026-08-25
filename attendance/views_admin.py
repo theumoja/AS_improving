@@ -311,16 +311,25 @@ def edit_student(request, pk):
         
         course_code = request.POST.get('course', '').strip()
         stream_id = request.POST.get('stream', '').strip()
-        try:
-            student.course = Course.objects.get(code=course_code)
-        except Course.DoesNotExist:
-            pass
+        
+        if course_code:
+            try:
+                student.course = Course.objects.get(code=course_code)
+            except Course.DoesNotExist:
+                pass
 
-        try:
-            student.stream = Stream.objects.get(id=stream_id) if stream_id else None
-        except Stream.DoesNotExist:
-            pass
-            
+        if stream_id:
+            try:
+                student.stream = Stream.objects.get(id=stream_id)
+            except Stream.DoesNotExist:
+                pass
+
+        # Guard: Ensure student.stream is never None (falling back to course stream if needed)
+        if not student.stream or student.stream.course != student.course:
+            fallback_stream = Stream.objects.filter(course=student.course).first()
+            if fallback_stream:
+                student.stream = fallback_stream
+
         student.user.save()
         student.save()
         messages.success(request, "Student records updated cleanly.")
@@ -333,7 +342,6 @@ def edit_student(request, pk):
         'active_courses_list': courses,
         'streams': streams
     })
-
 
 @login_required
 @transaction.atomic
@@ -5689,7 +5697,210 @@ def cbe_form_settings(request):
         'assessment_methods': assessment_methods,
     }
     return render(request, 'attendance/cbe_form_settings.html', context)
+import logging
+from django.apps import apps
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from .models import (
+    MetadataCategory, MetadataValue,
+    AcademicTerm, Faculty, Department, Course, Stream, CourseUnit,
+    FeeElement, GradeScale, Institution, Campus, Vehicle, Hostel, Supplier,
+    User
+)
+
+# Optional: use logging instead of print
+logger = logging.getLogger(__name__)
+
+@login_required
+def metadata_management(request, category_id=None):
+    if request.user.role != User.IS_ADMIN:
+        return HttpResponse("Unauthorized", status=403)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'add_category':
+            name = request.POST.get('name', '').strip().upper()
+            display_name = request.POST.get('display_name', '').strip()
+            if name and display_name:
+                MetadataCategory.objects.get_or_create(
+                    name=name, defaults={'display_name': display_name}
+                )
+                messages.success(request, f"Metadata category '{display_name}' added.")
+            else:
+                messages.error(request, "Category name and display name are required.")
+
+        elif action == 'add_value':
+            cat_id = request.POST.get('category_id')
+            value = request.POST.get('value', '').strip()
+            display_name = request.POST.get('display_name', '').strip()
+            description = request.POST.get('description', '').strip()
+            if cat_id and value and display_name:
+                category = get_object_or_404(MetadataCategory, id=cat_id)
+                MetadataValue.objects.get_or_create(
+                    category=category, value=value,
+                    defaults={'display_name': display_name, 'description': description}
+                )
+                messages.success(request, f"Value '{display_name}' added.")
+            else:
+                messages.error(request, "All fields are required.")
+
+        elif action == 'edit_value':
+            val_id = request.POST.get('value_id')
+            val = get_object_or_404(MetadataValue, id=val_id)
+            val.display_name = request.POST.get('display_name', '').strip()
+            val.description = request.POST.get('description', '').strip()
+            val.save()
+            messages.success(request, f"Value '{val.display_name}' updated.")
+
+        elif action == 'delete_value':
+            val_id = request.POST.get('value_id')
+            val = get_object_or_404(MetadataValue, id=val_id)
+            cat_id = val.category.id
+            val_name = val.display_name
+            val.delete()
+            messages.success(request, f"Value '{val_name}' deleted.")
+            return redirect('attendance:metadata_management', category_id=cat_id)
+
+        elif action == 'sync_models':
+            """
+            Enhanced sync: creates categories and imports all instances
+            from the corresponding models as MetadataValue entries.
+            """
+            # ------------------------------------------------------------------
+            # 1. Define the categories (using actual model classes)
+            # ------------------------------------------------------------------
+            from attendance.models import (
+                AcademicTerm, Faculty, Department, Course, Stream, CourseUnit,
+                FeeElement, GradeScale, Institution, Campus, Vehicle, Hostel, Supplier
+            )
+
+            models_to_sync = [
+                ('ACADEMIC_TERMS', 'Academic Terms', AcademicTerm),
+                ('FACULTIES', 'Faculties', Faculty),
+                ('DEPARTMENTS', 'Departments', Department),
+                ('COURSES', 'Courses', Course),
+                ('STREAMS', 'Streams', Stream),
+                ('COURSE_UNITS', 'Course Units', CourseUnit),
+                ('FEE_ELEMENTS', 'Fee Elements', FeeElement),
+                ('GRADE_SCALES', 'Grade Scales', GradeScale),
+                ('INSTITUTIONS', 'Institutions', Institution),
+                ('CAMPUSES', 'Campuses', Campus),
+                ('VEHICLES', 'Vehicles', Vehicle),
+                ('HOSTELS', 'Hostels', Hostel),
+                ('SUPPLIERS', 'Suppliers', Supplier),
+            ]
+
+            created_categories = 0
+            for meta_name, display_name, model_class in models_to_sync:
+                category, created = MetadataCategory.objects.get_or_create(
+                    name=meta_name,
+                    defaults={
+                        'display_name': display_name,
+                        'model_name': model_class.__name__,   # 'CourseUnit', 'AcademicTerm', etc.
+                        'is_active': True,
+                    }
+                )
+                if created:
+                    created_categories += 1
+                    print(f"[SYNC] Created category: {display_name}")
+
+            messages.info(request, f"Synced {created_categories} new categories.")
+
+            # ------------------------------------------------------------------
+            # 2. Sync values from all categories that have a model_name
+            # ------------------------------------------------------------------
+            value_count = 0
+            categories_with_model = MetadataCategory.objects.filter(
+                is_active=True,
+                model_name__isnull=False
+            ).exclude(model_name='')
+
+            for cat in categories_with_model:
+                try:
+                    # Get the model class using the stored class name
+                    model_cls = apps.get_model('attendance', cat.model_name)
+                    print(f"[SYNC] Fetching instances for {cat.display_name} (model: {cat.model_name})")
+                except LookupError as e:
+                    print(f"[SYNC] ❌ Model not found: {cat.model_name} - {e}")
+                    continue
+
+                instances = model_cls.objects.all()
+                print(f"[SYNC] Found {instances.count()} instances for {cat.display_name}")
+
+                for instance in instances:
+                    value, display = get_instance_metadata(instance)
+                    if value and display:
+                        _, created = MetadataValue.objects.get_or_create(
+                            category=cat,
+                            value=value,
+                            defaults={
+                                'display_name': display,
+                                'description': f"Synced from {cat.model_name}",
+                                'is_active': True,
+                            }
+                        )
+                        if created:
+                            value_count += 1
+
+            messages.success(request, f"Synced {value_count} values from existing data.")
+
+        # ---------- REDIRECT LOGIC ----------
+        target_cat = request.POST.get('redirect_category_id') or category_id
+        if target_cat:
+            return redirect('attendance:metadata_management', category_id=target_cat)
+        else:
+            return redirect('attendance:metadata_management')
+
+    # ================= GET REQUEST =================
+    categories = MetadataCategory.objects.filter(is_active=True).order_by('display_name')
+    selected_category = None
+    values = []
+
+    if category_id:
+        selected_category = get_object_or_404(MetadataCategory, id=category_id)
+        values = MetadataValue.objects.filter(category=selected_category).order_by('display_name')
+    elif categories.exists():
+        selected_category = categories.first()
+        values = MetadataValue.objects.filter(category=selected_category).order_by('display_name')
+        return redirect('attendance:metadata_management', category_id=selected_category.id)
+
+    context = {
+        'categories': categories,
+        'selected_category': selected_category,
+        'values': values,
+    }
+    return render(request, 'attendance/metadata_management.html', context)
 
 
+# ------------------------------------------------------------------
+# Helper function (now simplified – uses only the instance)
+# ------------------------------------------------------------------
+def get_instance_metadata(instance):
+    """
+    Extract a unique 'value' and a human-friendly 'display_name'
+    from any Django model instance.
+    """
+    model_name = instance.__class__.__name__
 
-    
+    # 1. Special case: AcademicTerm
+    if model_name == 'AcademicTerm':
+        value = f"{instance.academic_year}_{instance.term}"
+        display = f"{instance.academic_year} - {instance.get_term_display()}"
+        return value, display
+
+    # 2. Try common identifier fields
+    for field in ['code', 'registration_number', 'name']:
+        if hasattr(instance, field):
+            value = getattr(instance, field)
+            if value is not None:
+                break
+    else:
+        value = str(instance.pk)
+
+    # 3. Display name: use __str__
+    display = str(instance)
+
+    return str(value), display

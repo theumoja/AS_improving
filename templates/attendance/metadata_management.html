@@ -1,0 +1,789 @@
+{% extends 'attendance/base.html' %}
+{% load static %}
+
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    /* ===== Variables & Reset ===== */
+    :root {
+        --primary: #2563eb;
+        --primary-dark: #1d4ed8;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --border: #e2e8f0;
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --transition: 0.2s ease-in-out;
+        --bg-light: #f8fafc;
+        --white: #ffffff;
+        --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .page-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        background: var(--white);
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+    .action-group {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        cursor: pointer;
+        text-decoration: none;
+        border: none;
+        background: var(--primary);
+        color: var(--white);
+    }
+    .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+    .btn-outline {
+        background: var(--white);
+        color: var(--primary);
+        border: 1px solid var(--primary);
+    }
+    .btn-outline:hover {
+        background: #eff6ff;
+        box-shadow: none;
+    }
+    .btn-danger-outline {
+        background: var(--white);
+        color: #dc2626;
+        border: 1px solid #dc2626;
+    }
+    .btn-danger-outline:hover {
+        background: #fef2f2;
+    }
+
+    .search-box {
+        position: relative;
+        min-width: 220px;
+        flex: 1;
+        max-width: 400px;
+    }
+    .search-box i {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+    .search-box input {
+        padding-left: 2.25rem;
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 0.6rem 0.75rem;
+        font-family: var(--font);
+        font-size: 0.9rem;
+        transition: var(--transition);
+    }
+    .search-box input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .card {
+        background: var(--white);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+        padding: 0;
+    }
+    .card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--bg-light);
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    .card-header .badge {
+        background: var(--primary);
+        color: var(--white);
+        padding: 0.2rem 0.8rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    .table th {
+        background: var(--bg-light);
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+    .table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+    }
+    .table tbody tr:hover {
+        background: var(--bg-light);
+    }
+    .table tbody tr.active {
+        background: #eff6ff;
+        border-left: 3px solid var(--primary);
+    }
+
+    .category-link {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        color: var(--text-main);
+        text-decoration: none;
+        font-weight: 600;
+        transition: var(--transition);
+    }
+    .category-link:hover {
+        color: var(--primary);
+        text-decoration: underline;
+    }
+    .category-icon {
+        width: 28px;
+        height: 28px;
+        background: #dbeafe;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary);
+        font-size: 0.8rem;
+    }
+
+    .badge-type {
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: #e0e7ff;
+        color: #4f46e5;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-muted);
+    }
+    .empty-state i {
+        font-size: 2.5rem;
+        display: block;
+        margin-bottom: 1rem;
+        opacity: 0.4;
+    }
+
+    .action-btn {
+        padding: 0.3rem 0.8rem;
+        border-radius: var(--radius-sm);
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    .action-btn-edit {
+        background: #f59e0b;
+        color: white;
+    }
+    .action-btn-edit:hover {
+        background: #d97706;
+    }
+    .action-btn-delete {
+        background: #ef4444;
+        color: white;
+    }
+    .action-btn-delete:hover {
+        background: #dc2626;
+    }
+
+    .grid-2col {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 1.5rem;
+    }
+    @media (max-width: 992px) {
+        .grid-2col {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* ===== Custom Modal ===== */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .modal.active {
+        display: flex;
+    }
+    .modal-card {
+        background: var(--white);
+        border-radius: var(--radius-md);
+        width: 100%;
+        max-width: 540px;
+        padding: 2rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    .modal-header h3 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.25rem;
+        cursor: pointer;
+        color: var(--text-muted);
+        transition: var(--transition);
+    }
+    .modal-close:hover {
+        color: var(--text-main);
+    }
+
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: var(--text-muted);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font);
+        font-size: 0.9rem;
+        transition: var(--transition);
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .form-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        justify-content: flex-end;
+    }
+    .form-actions .btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    /* ===== Utilities ===== */
+    .text-muted {
+        color: var(--text-muted);
+    }
+    .mt-2 { margin-top: 0.5rem; }
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-1 { margin-bottom: 0.25rem; }
+    .me-1 { margin-right: 0.25rem; }
+    .me-2 { margin-right: 0.5rem; }
+    .fw-bold { font-weight: 700; }
+    .d-flex { display: flex; }
+    .align-center { align-items: center; }
+    .gap-1 { gap: 0.5rem; }
+    .gap-2 { gap: 1rem; }
+    .flex-wrap { flex-wrap: wrap; }
+</style>
+
+<!-- ===== PAGE HEADER ACTIONS ===== -->
+<div class="page-header-actions">
+    <div class="d-flex align-center gap-2 flex-wrap" style="flex:1;">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="categorySearch" placeholder="Search categories...">
+        </div>
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="valueSearch" placeholder="Search values..." {% if not selected_category %}disabled{% endif %}>
+        </div>
+    </div>
+    <div class="action-group">
+        <button class="btn btn-outline" id="syncModalOpenBtn">
+            <i class="fas fa-sync-alt"></i> Sync
+        </button>
+        <button class="btn btn-outline" id="addCategoryModalOpenBtn">
+            <i class="fas fa-folder-plus"></i> Add Category
+        </button>
+    </div>
+</div>
+
+<!-- ===== MESSAGES ===== -->
+{% if messages %}
+<div style="margin-bottom: 1.5rem;">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ===== MAIN GRID ===== -->
+<div class="grid-2col">
+    <!-- LEFT PANEL: CATEGORIES -->
+    <div class="card">
+        <div class="card-header">
+            <span><i class="fas fa-database me-2"></i> Metadata Categories</span>
+            <span class="badge">{{ categories.count }}</span>
+        </div>
+        <div style="padding:0;">
+            <table class="table" id="categoryTable">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th>Category</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody id="categoryTableBody">
+                    {% for cat in categories %}
+                    <tr class="{% if selected_category and cat.id == selected_category.id %}active{% endif %}" data-category-id="{{ cat.id }}">
+                        <td>{{ forloop.counter }}</td>
+                        <td>
+                            <a href="{% url 'attendance:metadata_management' cat.id %}" class="category-link">
+                                <span class="category-icon"><i class="fas fa-folder"></i></span>
+                                {{ cat.display_name }}
+                            </a>
+                        </td>
+                        <td><span class="badge-type">User Defined</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3">
+                            <div class="empty-state">
+                                <i class="fas fa-inbox"></i>
+                                <p>No metadata categories found</p>
+                                <small>Click "Sync" to populate from models</small>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <tr id="categoryEmptyRow" style="display:none;">
+                        <td colspan="3">
+                            <div class="empty-state">
+                                <i class="fas fa-search"></i>
+                                <p>No matching categories</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <!-- Pagination placeholder (if needed) -->
+            <div style="padding: 0.75rem 1rem; border-top: 1px solid var(--border); display: flex; justify-content: center; gap: 0.25rem;">
+                <span class="text-muted small">Page 1 of 1</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL: VALUES -->
+    <div class="card">
+        <div class="card-header">
+            <span>
+                <i class="fas fa-table me-2"></i>
+                {% if selected_category %}
+                    {{ selected_category.display_name|upper }} Values
+                {% else %}
+                    Select a Category
+                {% endif %}
+            </span>
+            {% if selected_category %}
+            <button class="btn" id="addValueModalOpenBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); font-size:0.85rem; padding:0.4rem 1rem;">
+                <i class="fas fa-plus"></i> Add Value
+            </button>
+            {% endif %}
+        </div>
+        <div style="padding:0;">
+            <table class="table" id="valueTable">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th>Value</th>
+                        <th>Display Name</th>
+                        <th>Description</th>
+                        <th>Created</th>
+                        <th style="text-align:right; width:150px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="valueTableBody">
+                    {% if selected_category %}
+                        {% for item in values %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><code class="bg-light px-2 py-1 rounded" style="background:#f1f5f9; padding:0.2rem 0.5rem; border-radius:4px;">{{ item.value }}</code></td>
+                            <td><strong>{{ item.display_name }}</strong></td>
+                            <td>{{ item.description|truncatewords:5|default:"-" }}</td>
+                            <td>{{ item.created_at|date:"M d, Y" }}</td>
+                            <td style="text-align:right;">
+                                <button class="action-btn action-btn-edit" onclick="openEditValueModal('{{ item.id }}', '{{ item.display_name|escapejs }}', '{{ item.description|escapejs }}')">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <form method="post" style="display:inline;" onsubmit="return confirm('Delete this value permanently?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete_value">
+                                    <input type="hidden" name="value_id" value="{{ item.id }}">
+                                    <input type="hidden" name="redirect_category_id" value="{{ selected_category.id|default:'' }}">
+                                    <button type="submit" class="action-btn action-btn-delete">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <i class="fas fa-inbox"></i>
+                                    <p>No values found for {{ selected_category.display_name }}</p>
+                                    <button class="btn" id="addValueModalOpenBtnInside" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); font-size:0.85rem; padding:0.4rem 1rem; margin-top:0.5rem;">
+                                        <i class="fas fa-plus"></i> Add First Value
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <i class="fas fa-mouse-pointer" style="font-size:3rem;"></i>
+                                    <p>Select a category from the left panel to view its values.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                    <tr id="valueEmptyRow" style="display:none;">
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <i class="fas fa-search"></i>
+                                <p>No matching values</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <!-- Pagination placeholder -->
+            <div style="padding: 0.75rem 1rem; border-top: 1px solid var(--border); display: flex; justify-content: center; gap: 0.25rem;">
+                <span class="text-muted small">Page 1 of 1</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================= -->
+<!-- ====== MODALS ====== -->
+
+<!-- ADD CATEGORY MODAL -->
+<div class="modal" id="addCategoryModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3><i class="fas fa-folder-plus"></i> Add Metadata Category</h3>
+            <button class="modal-close" data-modal-close="addCategoryModal"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_category">
+            <!-- Always include redirect_category_id, even if empty -->
+            <input type="hidden" name="redirect_category_id" value="{{ selected_category.id|default:'' }}">
+
+            <div class="form-group">
+                <label for="cat_name">System Name (Unique) <span class="text-muted">*</span></label>
+                <input type="text" id="cat_name" name="name" class="form-control" placeholder="e.g., ACADEMIC_YEARS" required>
+                <small class="text-muted">Use uppercase with underscores</small>
+            </div>
+            <div class="form-group">
+                <label for="cat_display">Display Name <span class="text-muted">*</span></label>
+                <input type="text" id="cat_display" name="display_name" class="form-control" placeholder="e.g., Academic Years" required>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline" data-modal-close="addCategoryModal">Cancel</button>
+                <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    <i class="fas fa-save"></i> Save Category
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ADD VALUE MODAL -->
+{% if selected_category %}
+<div class="modal" id="addValueModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3><i class="fas fa-plus-circle"></i> Add Value to {{ selected_category.display_name }}</h3>
+            <button class="modal-close" data-modal-close="addValueModal"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_value">
+            <input type="hidden" name="category_id" value="{{ selected_category.id }}">
+            <input type="hidden" name="redirect_category_id" value="{{ selected_category.id }}">
+
+            <div class="form-group">
+                <label for="val_value">Value (System Identifier) <span class="text-muted">*</span></label>
+                <input type="text" id="val_value" name="value" class="form-control" placeholder="e.g., 2024/2025" required>
+            </div>
+            <div class="form-group">
+                <label for="val_display">Display Name <span class="text-muted">*</span></label>
+                <input type="text" id="val_display" name="display_name" class="form-control" placeholder="e.g., Academic Year 2024/2025" required>
+            </div>
+            <div class="form-group">
+                <label for="val_desc">Description</label>
+                <textarea id="val_desc" name="description" class="form-control" rows="3" placeholder="Optional description..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline" data-modal-close="addValueModal">Cancel</button>
+                <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    <i class="fas fa-save"></i> Save Value
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- EDIT VALUE MODAL (dynamic) -->
+<div class="modal" id="editValueModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> Edit Metadata Value</h3>
+            <button class="modal-close" data-modal-close="editValueModal"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="post" id="editValueForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_value">
+            <input type="hidden" name="value_id" id="edit_value_id">
+            <input type="hidden" name="redirect_category_id" value="{{ selected_category.id|default:'' }}">
+
+            <div class="form-group">
+                <label for="edit_display_name">Display Name <span class="text-muted">*</span></label>
+                <input type="text" id="edit_display_name" name="display_name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="edit_description">Description</label>
+                <textarea id="edit_description" name="description" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline" data-modal-close="editValueModal">Cancel</button>
+                <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    <i class="fas fa-save"></i> Update Value
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- SYNC MODAL -->
+<div class="modal" id="syncModal">
+    <div class="modal-card" style="max-width:450px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-sync-alt"></i> Sync Metadata</h3>
+            <button class="modal-close" data-modal-close="syncModal"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="sync_models">
+            <input type="hidden" name="redirect_category_id" value="{{ selected_category.id|default:'' }}">
+
+            <div style="text-align:center; padding:1rem 0;">
+                <i class="fas fa-database" style="font-size:3rem; color:var(--primary); margin-bottom:1rem;"></i>
+                <p>This will scan your Django models and create missing metadata categories.</p>
+                <p class="text-muted small">Existing categories will not be duplicated.</p>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline" data-modal-close="syncModal">Cancel</button>
+                <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+                    <i class="fas fa-sync"></i> Sync Now
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================= -->
+<!-- ====== JAVASCRIPT ====== -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+        // ---- Modal Helpers ----
+        const modals = document.querySelectorAll('.modal');
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.add('active');
+        }
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.remove('active');
+        }
+        // Attach close triggers to all [data-modal-close]
+        document.querySelectorAll('[data-modal-close]').forEach(el => {
+            el.addEventListener('click', function(e) {
+                const targetId = this.getAttribute('data-modal-close');
+                closeModal(targetId);
+            });
+        });
+        // Click outside modal to close
+        modals.forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('active');
+                }
+            });
+        });
+
+        // ---- Open buttons ----
+        document.getElementById('syncModalOpenBtn').addEventListener('click', function() {
+            openModal('syncModal');
+        });
+        document.getElementById('addCategoryModalOpenBtn').addEventListener('click', function() {
+            openModal('addCategoryModal');
+        });
+        const addValBtn = document.getElementById('addValueModalOpenBtn');
+        if (addValBtn) {
+            addValBtn.addEventListener('click', function() {
+                openModal('addValueModal');
+            });
+        }
+        const addValInside = document.getElementById('addValueModalOpenBtnInside');
+        if (addValInside) {
+            addValInside.addEventListener('click', function() {
+                openModal('addValueModal');
+            });
+        }
+
+        // ---- Edit Value Modal ----
+        window.openEditValueModal = function(id, displayName, description) {
+            document.getElementById('edit_value_id').value = id;
+            document.getElementById('edit_display_name').value = displayName;
+            document.getElementById('edit_description').value = description || '';
+            openModal('editValueModal');
+        };
+
+        // ---- Search: Categories ----
+        const catSearch = document.getElementById('categorySearch');
+        const catRows = document.querySelectorAll('#categoryTableBody tr');
+        const catEmpty = document.getElementById('categoryEmptyRow');
+        if (catSearch) {
+            catSearch.addEventListener('input', function() {
+                const term = this.value.toLowerCase().trim();
+                let visible = 0;
+                catRows.forEach(row => {
+                    if (row.id === 'categoryEmptyRow') return;
+                    const text = row.textContent.toLowerCase();
+                    if (text.includes(term)) {
+                        row.style.display = '';
+                        visible++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                if (catEmpty) {
+                    catEmpty.style.display = (visible === 0 && catRows.length > 1) ? '' : 'none';
+                }
+            });
+        }
+
+        // ---- Search: Values ----
+        const valSearch = document.getElementById('valueSearch');
+        const valRows = document.querySelectorAll('#valueTableBody tr');
+        const valEmpty = document.getElementById('valueEmptyRow');
+        if (valSearch) {
+            valSearch.addEventListener('input', function() {
+                const term = this.value.toLowerCase().trim();
+                let visible = 0;
+                valRows.forEach(row => {
+                    if (row.id === 'valueEmptyRow') return;
+                    const text = row.textContent.toLowerCase();
+                    if (text.includes(term)) {
+                        row.style.display = '';
+                        visible++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                if (valEmpty) {
+                    valEmpty.style.display = (visible === 0 && valRows.length > 1) ? '' : 'none';
+                }
+            });
+        }
+
+        // ---- Auto-hide alerts ----
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(alert => {
+            setTimeout(() => {
+                alert.style.transition = 'opacity 0.5s';
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 500);
+            }, 5000);
+        });
+
+    });
+</script>
+{% endblock %}

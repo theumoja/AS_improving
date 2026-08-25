@@ -241,4 +241,11 @@ urlpatterns = [
     path('students/records/invalid-dob/', views_students_records.invalid_dob_students, name='invalid_dob_students'),
     path('students/records/blocked/', views_students_records.blocked_students_management, name='blocked_students'),
     path('students/records/approvals/', views_students_records.students_approvals, name='students_approvals'),
+
+
+    # Add these inside urlpatterns in urls.py
+
+    # Metadata Management (Single View)
+    path('metadata/', views_admin.metadata_management, name='metadata_management'),
+    path('metadata/<int:category_id>/', views_admin.metadata_management, name='metadata_management'),
 ]

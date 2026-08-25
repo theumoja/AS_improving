@@ -1023,3 +1023,59 @@ class StudentApprovalRequest(models.Model):
 
     def __str__(self):
         return f"{self.get_request_type_display()} - {self.status}"
+
+
+# Add this near the Institution model in models.py
+
+class Campus(models.Model):
+    """Represents different campuses belonging to an Institution"""
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE, related_name='campuses')
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50, blank=True, null=True)
+    location = models.CharField(max_length=255, blank=True, null=True)
+    is_main = models.BooleanField(default=False, help_text="Mark as the main campus")
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        unique_together = ('institution', 'name')
+        verbose_name_plural = "Campuses"
+        
+    def __str__(self):
+        return f"{self.name} ({self.institution.name})"
+
+
+# Add this at the bottom of models.py (or in a dedicated section)
+
+class MetadataCategory(models.Model):
+    """Defines categories of metadata that can be managed"""
+    name = models.CharField(max_length=100, unique=True)
+    display_name = models.CharField(max_length=100)
+    model_name = models.CharField(max_length=100, help_text="Django model name", blank=True)
+    icon = models.CharField(max_length=50, blank=True, help_text="FontAwesome icon class")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name_plural = "Metadata Categories"
+        ordering = ['display_name']
+    
+    def __str__(self):
+        return self.display_name
+
+
+class MetadataValue(models.Model):
+    """Stores actual metadata values under a category"""
+    category = models.ForeignKey(MetadataCategory, on_delete=models.CASCADE, related_name='values')
+    value = models.CharField(max_length=255)
+    display_name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['category', 'value']
+        ordering = ['display_name']
+    
+    def __str__(self):
+        return f"{self.category.display_name} - {self.display_name}"
