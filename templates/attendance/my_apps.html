@@ -54,6 +54,16 @@
         
         {# --- ADMIN & STAFF MAIN MODULES --- #}
         {% if user.role == 'ADMIN' or user.is_staff %}
+            <a href="{% url 'attendance:manage_attendance' %}" class="main-module-card">
+                <i class="fas fa-calendar-check"></i>
+                <span class="module-title">Attendance Management</span>
+            </a>
+
+            <a href="{% url 'attendance:librarian_dashboard' %}" class="main-module-card">
+                <i class="fas fa-book-reader"></i>
+                <span class="module-title">Library Management</span>
+            </a>
+
             <a href="{% url 'attendance:my_apps_2' %}?module=administration" class="main-module-card">
                 <i class="fas fa-chart-pie"></i>
                 <span class="module-title">Administration</span>
@@ -75,7 +85,6 @@
                     <i class="fas fa-scroll"></i>
                     <span class="module-title">Programs & Curriculum</span>
                 </a>
-
             {% endif %}
 
             <a href="{% url 'attendance:fees_dashboard' %}" class="main-module-card">
@@ -111,6 +120,10 @@
 
         {# --- TEACHER MODULES --- #}
         {% if user.role == 'TEACHER' %}
+            <a href="{% url 'attendance:manage_attendance' %}" class="main-module-card">
+                <i class="fas fa-calendar-check"></i>
+                <span class="module-title">Attendance Management</span>
+            </a>
             <a href="{% url 'attendance:my_apps_2' %}?module=teacher_console" class="main-module-card">
                 <i class="fas fa-chalkboard-teacher"></i>
                 <span class="module-title">Teacher Console</span>
@@ -155,9 +168,9 @@
 
         {# --- LIBRARIAN MODULES --- #}
         {% if user.role == 'LIBRARIAN' %}
-            <a href="{% url 'attendance:my_apps_2' %}?module=librarian" class="main-module-card">
+            <a href="{% url 'attendance:librarian_dashboard' %}" class="main-module-card">
                 <i class="fas fa-book-reader"></i>
-                <span class="module-title">Librarian Console</span>
+                <span class="module-title">Library Management</span>
             </a>
         {% endif %}
 

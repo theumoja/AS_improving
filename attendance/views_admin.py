@@ -238,6 +238,20 @@ def delete_teacher(request, pk):
 # 2. STUDENTS MANAGEMENT
 # =========================================================================
 
+from decimal import Decimal
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.db.models import Sum, Q
+
+from .models import (
+    User, Course, Stream, StudentProfile, 
+    AcademicTerm, TuitionAmount, FunctionalFee, StudentTermFee
+)
+
+
 @login_required
 @transaction.atomic
 def manage_students(request):
@@ -261,6 +275,7 @@ def manage_students(request):
                     password = generate_secure_password()
                     username = email.split('@')[0]
                     
+                    # Step 1: Account & Profile Creation
                     user = User.objects.create_user(
                         username=username, 
                         email=email, 
@@ -270,14 +285,53 @@ def manage_students(request):
                     user.raw_password_archive = password
                     user.save()
                     
-                    StudentProfile.objects.create(
+                    student = StudentProfile.objects.create(
                         reg_number=reg_number,
                         user=user,
                         name=name,
                         course=course,
-                        stream=stream
+                        stream=stream,
+                        academic_status='ACTIVE'
                     )
-                    messages.success(request, f"Student {name} successfully registered.")
+
+                    # Step 2: Term Ledger Initialization
+                    active_term = AcademicTerm.objects.filter(is_current=True).first()
+                    
+                    if active_term:
+                        # Step 3: Tuition & Fee Calculation
+                        tuition_total = TuitionAmount.objects.filter(
+                            course=course,
+                            term=active_term
+                        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+                        functional_total = FunctionalFee.objects.filter(
+                            term=active_term,
+                            is_mandatory=True
+                        ).filter(
+                            Q(course=course) | Q(course__isnull=True)
+                        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+                        total_fees_due = tuition_total + functional_total
+
+                        # Create the initial ledger record
+                        StudentTermFee.objects.create(
+                            student=student,
+                            term=active_term,
+                            total_fees_due=total_fees_due,
+                            total_amount_paid=Decimal('0.00')
+                        )
+                        messages.success(
+                            request, 
+                            f"Student {name} registered successfully. "
+                            f"Initial ledger created for {active_term} (Total Due: {total_fees_due})."
+                        )
+                    else:
+                        messages.warning(
+                            request, 
+                            f"Student {name} registered, but no active academic term was found. "
+                            "Fee ledger was not initialized."
+                        )
+
                 except Course.DoesNotExist:
                     messages.error(request, "Selected course does not exist.")
                 except Stream.DoesNotExist:
@@ -5827,3 +5881,87 @@ def get_instance_metadata(instance):
                 return str(val), str(instance)
 
     return str(instance.pk), str(instance)
+
+
+
+import json
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.db.models import Count, Q
+from django.utils import timezone
+
+from .models import (
+    User, Stream, CourseUnit, TeacherProfile, StudentProfile,
+    TimetableEntry, AttendanceSession, AttendanceRecord
+)
+
+
+@login_required
+@transaction.atomic
+def manage_attendance(request):
+    """
+    Administrative and teacher interface for inspecting, filtering, 
+    and managing logged attendance sessions and student records.
+    """
+    if request.user.role not in [User.IS_ADMIN, User.IS_TEACHER]:
+        return HttpResponse("Unauthorized", status=403)
+
+    # 1. Parse Filter GET Parameters
+    selected_stream_id = request.GET.get('stream', '').strip()
+    selected_cu_code = request.GET.get('course_unit', '').strip()
+    selected_date = request.GET.get('date_marked', '').strip()
+
+    # 2. Base Queryset with Prefetching
+    sessions_qs = AttendanceSession.objects.select_related(
+        'timetable_entry',
+        'timetable_entry__course_unit',
+        'timetable_entry__teacher',
+        'timetable_entry__stream',
+        'timetable_entry__stream__course'
+    ).prefetch_related('records').order_by('-date_marked', '-id')
+
+    # Restrict teacher view scope to their own assigned sessions
+    if request.user.role == User.IS_TEACHER and hasattr(request.user, 'teacher_profile'):
+        sessions_qs = sessions_qs.filter(timetable_entry__teacher=request.user.teacher_profile)
+
+    # Apply Filters
+    if selected_stream_id:
+        sessions_qs = sessions_qs.filter(timetable_entry__stream_id=selected_stream_id)
+    if selected_cu_code:
+        sessions_qs = sessions_qs.filter(timetable_entry__course_unit_id=selected_cu_code)
+    if selected_date:
+        sessions_qs = sessions_qs.filter(date_marked=selected_date)
+
+    # 3. Aggregate Session Metrics
+    sessions_summary = []
+    for session in sessions_qs:
+        total_students = session.records.count()
+        present_count = session.records.filter(status='PRESENT').count()
+        absent_count = session.records.filter(status='ABSENT').count()
+        attendance_rate = round((present_count / total_students) * 100, 1) if total_students > 0 else 0
+
+        sessions_summary.append({
+            'session': session,
+            'total_students': total_students,
+            'present_count': present_count,
+            'absent_count': absent_count,
+            'attendance_rate': attendance_rate,
+        })
+
+    # 4. Filter Dropdown Data
+    streams = Stream.objects.select_related('course').all()
+    course_units = CourseUnit.objects.all()
+
+    context = {
+        'sessions_summary': sessions_summary,
+        'streams': streams,
+        'course_units': course_units,
+        'selected_stream_id': selected_stream_id,
+        'selected_cu_code': selected_cu_code,
+        'selected_date': selected_date,
+    }
+
+    return render(request, 'attendance/manage_attendance.html', context)

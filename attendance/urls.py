@@ -249,4 +249,5 @@ urlpatterns = [
     # ==================== METADATA MANAGEMENT ====================
     path('metadata/', views_admin.metadata_management, name='metadata_management'),
     path('metadata/<str:category_key>/', views_admin.metadata_management, name='metadata_management'),
+    path('attendance/manage/', views_admin.manage_attendance, name='manage_attendance'),
 ]

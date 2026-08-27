@@ -1,0 +1,516 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+{% block sidebar %}
+{% include "attendance/sidebar.html" %}
+{% endblock %}
+
+<style>
+    /* Force form native text visibility across browser dark/light themes */
+    select, select option, input, textarea {
+        color-scheme: light !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+    }
+
+    /* ===== Filter Card – adapted from Pure JS Filter Controls ===== */
+    .filter-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .filter-card:focus-within {
+        border-color: #3b82f6;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+    }
+
+    .filter-toolbar-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .filter-group {
+        min-width: 0; /* prevent overflow */
+    }
+
+    .filter-group label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 0.35rem;
+        display: block;
+    }
+
+    /* Quick Search Input */
+    .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .search-input-wrapper .search-icon {
+        position: absolute;
+        left: 0.85rem;
+        color: #94a3b8;
+        font-size: 0.9rem;
+        pointer-events: none;
+        z-index: 4;
+    }
+    .search-input-wrapper input {
+        padding-left: 2.35rem;
+        padding-right: 2.5rem; /* space for clear button */
+        height: calc(2.4rem + 2px);
+        font-size: 0.875rem;
+        border-radius: 0.5rem;
+        border: 1px solid #cbd5e1;
+        background-color: #f8fafc;
+        color: #1e293b;
+        transition: all 0.2s ease;
+        width: 100%;
+    }
+    .search-input-wrapper input:focus {
+        background-color: #ffffff;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        outline: none;
+    }
+    .search-clear-btn {
+        position: absolute;
+        right: 0.5rem;
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        font-size: 0.9rem;
+        padding: 0.25rem;
+        display: none; /* shown only when input has text */
+        z-index: 5;
+    }
+    .search-clear-btn:hover {
+        color: #dc2626;
+    }
+
+    /* Custom Select / Input Styling */
+    .custom-select,
+    .form-control {
+        padding-left: 2.35rem; /* for icon inside */
+        height: calc(2.4rem + 2px);
+        font-size: 0.875rem;
+        border-radius: 0.5rem;
+        border: 1px solid #cbd5e1;
+        background-color: #f8fafc;
+        color: #1e293b;
+        transition: all 0.2s ease;
+        width: 100%;
+    }
+    .custom-select:focus,
+    .form-control:focus {
+        background-color: #ffffff;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        outline: none;
+    }
+
+    /* Icon inside selects/inputs */
+    .custom-input-group {
+        position: relative;
+    }
+    .custom-input-group i.input-icon {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: 0.9rem;
+        pointer-events: none;
+        z-index: 4;
+    }
+
+    /* Reset Button */
+    .btn-reset-filter {
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.875rem;
+        padding: 0.65rem 1.25rem;
+        border-radius: 0.5rem;
+        height: calc(2.4rem + 2px);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+    .btn-reset-filter:hover {
+        background: #e2e8f0;
+        border-color: #94a3b8;
+        color: #1e293b;
+    }
+
+    /* Active Filter Badges */
+    .active-filter-badge {
+        display: inline-flex;
+        align-items: center;
+        background-color: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        border-radius: 20px;
+        padding: 0.2rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-right: 0.5rem;
+        margin-bottom: 0.25rem;
+    }
+    .active-filter-badge a {
+        color: #1d4ed8;
+        margin-left: 0.35rem;
+        text-decoration: none;
+    }
+    .active-filter-badge a:hover {
+        color: #b91c1c;
+    }
+
+    /* Table Card */
+    .card {
+        border: 0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border-radius: 0.75rem;
+    }
+    .table-wrapper {
+        overflow-x: auto;
+    }
+    .table-custom {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+    .table-custom thead th {
+        background-color: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        color: #475569;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.85rem 1rem;
+    }
+    .table-custom tbody td {
+        padding: 0.95rem 1rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    .table-custom tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .progress-thin {
+        height: 8px;
+        border-radius: 10px;
+        background-color: #e2e8f0;
+        overflow: hidden;
+        display: flex;
+        width: 100%;
+    }
+    .progress-thin .progress-bar {
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.4s ease-in-out;
+    }
+    .progress-bar.bg-success { background-color: #10b981 !important; }
+    .progress-bar.bg-warning { background-color: #f59e0b !important; }
+    .progress-bar.bg-danger { background-color: #ef4444 !important; }
+</style>
+
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <h2 class="h3 font-weight-bold text-gray-800 mb-1">Attendance Records Management</h2>
+            <p class="text-muted small mb-0">Monitor, filter, and inspect student attendance logs across streams and sessions.</p>
+        </div>
+        <div class="stat-mini-card d-flex align-items-center">
+            <i class="fas fa-list-alt text-primary fa-lg mr-2"></i>
+            <div>
+                <span class="d-block font-weight-bold text-dark lh-1" style="font-size: 0.95rem;">{{ sessions_summary|length }}</span>
+                <span class="text-muted small" style="font-size: 0.7rem;">Sessions Found</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Card – Adapted design -->
+    <div class="filter-card mb-4">
+        <div class="card-body p-3 p-md-4">
+            <!-- Grid of filter controls -->
+            <div class="filter-toolbar-grid">
+                <!-- Live Instant Search (client-side) -->
+                <div class="filter-group">
+                    <label for="attendanceSearch">Quick Search</label>
+                    <div class="search-input-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="attendanceSearch" placeholder="Search sessions..." autocomplete="off">
+                        <button type="button" id="clearSearchBtn" class="search-clear-btn" title="Clear search">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Server-side filter: Class Stream -->
+                <div class="filter-group">
+                    <label for="stream">Class Stream</label>
+                    <div class="custom-input-group">
+                        <i class="fas fa-layer-group input-icon"></i>
+                        <select name="stream" id="stream" class="custom-select form-control" form="attendance-filter-form">
+                            <option value="">All Streams</option>
+                            {% for stream in streams %}
+                                <option value="{{ stream.id }}" {% if selected_stream_id == stream.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ stream.name }} ({{ stream.course.code }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Server-side filter: Course Unit -->
+                <div class="filter-group">
+                    <label for="course_unit">Course Unit</label>
+                    <div class="custom-input-group">
+                        <i class="fas fa-book input-icon"></i>
+                        <select name="course_unit" id="course_unit" class="custom-select form-control" form="attendance-filter-form">
+                            <option value="">All Course Units</option>
+                            {% for cu in course_units %}
+                                <option value="{{ cu.code }}" {% if selected_cu_code == cu.code %}selected{% endif %}>
+                                    {{ cu.code }} - {{ cu.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Server-side filter: Date Marked -->
+                <div class="filter-group">
+                    <label for="date_marked">Date Marked</label>
+                    <div class="custom-input-group">
+                        <i class="fas fa-calendar-alt input-icon"></i>
+                        <input type="date" name="date_marked" id="date_marked" class="form-control" value="{{ selected_date }}" form="attendance-filter-form">
+                    </div>
+                </div>
+
+                <!-- Reset Button -->
+                <div class="filter-group">
+                    <button type="button" id="resetFiltersBtn" class="btn-reset-filter w-100" onclick="window.location.href='{% url 'attendance:manage_attendance' %}'">
+                        <i class="fas fa-redo-alt mr-2"></i> Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hidden form to submit server-side filters (used by selects/date via form attribute) -->
+            <form method="GET" action="{% url 'attendance:manage_attendance' %}" id="attendance-filter-form" class="d-none"></form>
+
+            <!-- Active Filter Badges -->
+            {% if selected_stream_id or selected_cu_code or selected_date %}
+                <div class="border-top pt-3 mt-3 d-flex align-items-center flex-wrap">
+                    <span class="text-muted small font-weight-bold mr-2">Active Filters:</span>
+                    
+                    {% if selected_stream_id %}
+                        {% for stream in streams %}
+                            {% if selected_stream_id == stream.id|stringformat:"s" %}
+                                <span class="active-filter-badge">
+                                    Stream: {{ stream.name }}
+                                    <a href="{% url 'attendance:manage_attendance' %}?course_unit={{ selected_cu_code }}&date_marked={{ selected_date }}"><i class="fas fa-times-circle"></i></a>
+                                </span>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+
+                    {% if selected_cu_code %}
+                        <span class="active-filter-badge">
+                            Course: {{ selected_cu_code }}
+                            <a href="{% url 'attendance:manage_attendance' %}?stream={{ selected_stream_id }}&date_marked={{ selected_date }}"><i class="fas fa-times-circle"></i></a>
+                        </span>
+                    {% endif %}
+
+                    {% if selected_date %}
+                        <span class="active-filter-badge">
+                            Date: {{ selected_date }}
+                            <a href="{% url 'attendance:manage_attendance' %}?stream={{ selected_stream_id }}&course_unit={{ selected_cu_code }}"><i class="fas fa-times-circle"></i></a>
+                        </span>
+                    {% endif %}
+
+                    <a href="{% url 'attendance:manage_attendance' %}" class="small text-danger font-weight-bold ml-auto">Clear All</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Attendance Sessions Table Card -->
+    <div class="card" style="padding:0; overflow:hidden;">
+        <div class="table-wrapper">
+            <table class="table table-custom align-items-center mb-0" id="attendanceTable">
+                <thead>
+                    <tr>
+                        <th>Date Marked</th>
+                        <th>Class Stream</th>
+                        <th>Course Unit</th>
+                        <th>Instructor</th>
+                        <th>Time Slot</th>
+                        <th>Attendance Breakdown</th>
+                        <th style="min-width: 170px;">Attendance Rate</th>
+                    </tr>
+                </thead>
+                <tbody id="attendanceTableBody">
+                    {% if sessions_summary %}
+                        {% for item in sessions_summary %}
+                        <tr class="attendance-row">
+                            <td class="font-weight-bold text-dark text-nowrap">
+                                <i class="far fa-calendar-alt text-muted mr-1"></i> {{ item.session.date_marked|date:"M d, Y" }}
+                            </td>
+                            <td>
+                                <span class="badge badge-light border text-primary font-weight-bold px-2.5 py-1.5" style="border-radius: 0.375rem;">
+                                    {{ item.session.timetable_entry.stream.name }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="font-weight-bold text-dark">{{ item.session.timetable_entry.course_unit.code }}</div>
+                                <div class="small text-muted">{{ item.session.timetable_entry.course_unit.name }}</div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center text-nowrap">
+                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center text-primary font-weight-bold mr-2" style="width: 28px; height: 28px; font-size: 0.75rem; border: 1px solid #cbd5e1; flex-shrink: 0;">
+                                        {{ item.session.timetable_entry.teacher.name|slice:":1" }}
+                                    </div>
+                                    <span class="text-dark font-weight-medium">{{ item.session.timetable_entry.teacher.name }}</span>
+                                </div>
+                            </td>
+                            <td class="text-nowrap">
+                                <span class="small text-muted font-weight-medium">
+                                    <i class="far fa-clock mr-1"></i>
+                                    {{ item.session.timetable_entry.start_time|time:"h:i A" }} - 
+                                    {{ item.session.timetable_entry.end_time|time:"h:i A" }}
+                                </span>
+                            </td>
+                            <td class="text-nowrap">
+                                <div class="small">
+                                    <span class="text-success font-weight-bold"><i class="fas fa-check-circle mr-1"></i>{{ item.present_count }} Present</span>
+                                    <span class="text-muted mx-1">•</span>
+                                    <span class="text-danger font-weight-bold"><i class="fas fa-times-circle mr-1"></i>{{ item.absent_count }} Absent</span>
+                                </div>
+                                <div class="small text-muted mt-0.5">Total Enrolled: {{ item.total_students }}</div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="font-weight-bold mr-2 text-dark" style="font-size: 0.85rem; min-width: 42px;">{{ item.attendance_rate }}%</span>
+                                    <div class="progress progress-thin flex-grow-1">
+                                        <div class="progress-bar {% if item.attendance_rate >= 75 %}bg-success{% elif item.attendance_rate >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ item.attendance_rate|default:0 }}%;" 
+                                             aria-valuenow="{{ item.attendance_rate }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="py-3">
+                                    <i class="fas fa-search-minus text-muted fa-3x mb-3"></i>
+                                    <h5 class="text-secondary font-weight-bold mb-1">No Attendance Sessions Found</h5>
+                                    <p class="text-muted small mb-3">We couldn't find any attendance logs matching your current filter criteria.</p>
+                                    {% if selected_stream_id or selected_cu_code or selected_date %}
+                                        <a href="{% url 'attendance:manage_attendance' %}" class="btn btn-sm btn-outline-primary font-weight-bold">
+                                            Reset All Filters
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                    <tr id="searchEmptyRow" style="display: none;">
+                        <td colspan="7" class="text-center py-5">
+                            <div class="py-3">
+                                <i class="fas fa-search text-muted fa-3x mb-3"></i>
+                                <h5 class="text-secondary font-weight-bold mb-1">No Matching Records Discovered</h5>
+                                <p class="text-muted small mb-0">No attendance sessions matched your live search term.</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('attendanceSearch');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+        const dataRows = document.querySelectorAll('.attendance-row');
+        const emptyRow = document.getElementById('searchEmptyRow');
+
+        // Function to filter table based on search term
+        function filterTable() {
+            const criteria = searchInput.value.toLowerCase().trim();
+            let matchingCount = 0;
+
+            dataRows.forEach(row => {
+                const searchableText = row.textContent.toLowerCase();
+                if (searchableText.includes(criteria)) {
+                    row.style.display = '';
+                    matchingCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Show/hide empty state row
+            if (emptyRow) {
+                emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            }
+
+            // Toggle clear button visibility
+            if (clearSearchBtn) {
+                clearSearchBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none';
+            }
+        }
+
+        // Listen to input events
+        if (searchInput) {
+            searchInput.addEventListener('input', filterTable);
+        }
+
+        // Clear search button
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                filterTable();
+                searchInput.focus();
+            });
+        }
+
+        // Initialize clear button visibility
+        if (searchInput && clearSearchBtn) {
+            clearSearchBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none';
+        }
+
+        // Attach server-side filter form submission automatically when selects/date change
+        const serverForm = document.getElementById('attendance-filter-form');
+        if (serverForm) {
+            const selects = serverForm.querySelectorAll('select, input[type="date"]');
+            selects.forEach(el => {
+                el.addEventListener('change', function() {
+                    serverForm.submit();
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}
