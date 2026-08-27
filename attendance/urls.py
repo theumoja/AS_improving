@@ -246,6 +246,7 @@ urlpatterns = [
     # Add these inside urlpatterns in urls.py
 
     # Metadata Management (Single View)
+    # ==================== METADATA MANAGEMENT ====================
     path('metadata/', views_admin.metadata_management, name='metadata_management'),
-    path('metadata/<int:category_id>/', views_admin.metadata_management, name='metadata_management'),
+    path('metadata/<str:category_key>/', views_admin.metadata_management, name='metadata_management'),
 ]

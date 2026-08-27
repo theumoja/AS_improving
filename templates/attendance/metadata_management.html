@@ -404,7 +404,7 @@
                     <tr class="{% if selected_category and cat.id == selected_category.id %}active{% endif %}" data-category-id="{{ cat.id }}">
                         <td>{{ forloop.counter }}</td>
                         <td>
-                            <a href="{% url 'attendance:metadata_management' cat.id %}" class="category-link">
+                            <a href="{% url 'attendance:metadata_management' cat.key %}" class="category-link">
                                 <span class="category-icon"><i class="fas fa-folder"></i></span>
                                 {{ cat.display_name }}
                             </a>

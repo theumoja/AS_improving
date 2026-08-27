@@ -176,7 +176,7 @@
     {# ========================================================================= #}
     {# 3. CONTEXT: INSTITUTIONAL MANAGEMENT (INSTITUTION, FACULTIES, DEPARTMENTS)#}
     {# ========================================================================= #}
-    {% elif 'institution' in request.path or 'faculties' in request.path or 'departments' in request.path or request.resolver_match.url_name in 'manage_institution,manage_faculties,edit_faculty,delete_faculty,manage_departments,add_department,edit_department,delete_department,admin_report_page' %}
+    {% elif 'institution' in request.path or 'faculties' in request.path or 'departments' in request.path or 'metadata' in request.path or request.resolver_match.url_name in 'manage_institution,manage_faculties,edit_faculty,delete_faculty,manage_departments,add_department,edit_department,delete_department,admin_report_page,metadata_management' %}
         
         <span class="sidebar-divider"></span>
         <div class="sidebar-heading">Institutional Operations</div>
@@ -184,6 +184,12 @@
         <a href="{% url 'attendance:manage_institution' %}" class="sidebar-link {% if request.resolver_match.url_name == 'manage_institution' %}active{% endif %}">
             <i class="fas fa-university"></i> Institution Setup
         </a>
+
+        {% if user.role == 'ADMIN' %}
+        <a href="{% url 'attendance:metadata_management' %}" class="sidebar-link {% if request.resolver_match.url_name == 'metadata_management' %}active{% endif %}">
+            <i class="fas fa-tags"></i> Metadata Management
+        </a>
+        {% endif %}
 
         <a href="{% url 'attendance:manage_faculties' %}" class="sidebar-link {% if request.resolver_match.url_name in 'manage_faculties,edit_faculty' %}active{% endif %}">
             <i class="fas fa-sitemap"></i> Faculties
@@ -559,6 +565,11 @@
             <a href="{% url 'attendance:manage_institution' %}" class="sidebar-link">
                 <i class="fas fa-university"></i> Institution Setup
             </a>
+            {% if user.role == 'ADMIN' %}
+            <a href="{% url 'attendance:metadata_management' %}" class="sidebar-link {% if request.resolver_match.url_name == 'metadata_management' %}active{% endif %}">
+                <i class="fas fa-tags"></i> Metadata Management
+            </a>
+            {% endif %}
             <a href="{% url 'attendance:manage_faculties' %}" class="sidebar-link">
                 <i class="fas fa-sitemap"></i> Faculties
             </a>
