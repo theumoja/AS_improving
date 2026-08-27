@@ -5883,7 +5883,6 @@ def get_instance_metadata(instance):
     return str(instance.pk), str(instance)
 
 
-
 import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
@@ -5903,18 +5902,13 @@ from .models import (
 @transaction.atomic
 def manage_attendance(request):
     """
-    Administrative and teacher interface for inspecting, filtering, 
-    and managing logged attendance sessions and student records.
+    Administrative and teacher interface for inspecting and managing logged attendance sessions.
+    All data is sent to the client, allowing instant JS front-end filtering.
     """
     if request.user.role not in [User.IS_ADMIN, User.IS_TEACHER]:
         return HttpResponse("Unauthorized", status=403)
 
-    # 1. Parse Filter GET Parameters
-    selected_stream_id = request.GET.get('stream', '').strip()
-    selected_cu_code = request.GET.get('course_unit', '').strip()
-    selected_date = request.GET.get('date_marked', '').strip()
-
-    # 2. Base Queryset with Prefetching
+    # Fetch Base Queryset with Prefetching
     sessions_qs = AttendanceSession.objects.select_related(
         'timetable_entry',
         'timetable_entry__course_unit',
@@ -5927,15 +5921,7 @@ def manage_attendance(request):
     if request.user.role == User.IS_TEACHER and hasattr(request.user, 'teacher_profile'):
         sessions_qs = sessions_qs.filter(timetable_entry__teacher=request.user.teacher_profile)
 
-    # Apply Filters
-    if selected_stream_id:
-        sessions_qs = sessions_qs.filter(timetable_entry__stream_id=selected_stream_id)
-    if selected_cu_code:
-        sessions_qs = sessions_qs.filter(timetable_entry__course_unit_id=selected_cu_code)
-    if selected_date:
-        sessions_qs = sessions_qs.filter(date_marked=selected_date)
-
-    # 3. Aggregate Session Metrics
+    # Aggregate Session Metrics
     sessions_summary = []
     for session in sessions_qs:
         total_students = session.records.count()
@@ -5951,7 +5937,7 @@ def manage_attendance(request):
             'attendance_rate': attendance_rate,
         })
 
-    # 4. Filter Dropdown Data
+    # Dropdown Options
     streams = Stream.objects.select_related('course').all()
     course_units = CourseUnit.objects.all()
 
@@ -5959,9 +5945,6 @@ def manage_attendance(request):
         'sessions_summary': sessions_summary,
         'streams': streams,
         'course_units': course_units,
-        'selected_stream_id': selected_stream_id,
-        'selected_cu_code': selected_cu_code,
-        'selected_date': selected_date,
     }
 
     return render(request, 'attendance/manage_attendance.html', context)

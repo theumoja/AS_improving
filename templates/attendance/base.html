@@ -640,7 +640,30 @@
                     </a>
 
                 {# ========================================================================= #}
-                {# 18. DEFAULT TOP-LEVEL DASHBOARD VIEW                                      #}
+                {# 18. CONTEXT: ATTENDANCE MANAGEMENT MODULE                                 #}
+                {# ========================================================================= #}
+                {% elif 'attendance' in request.path or request.resolver_match.url_name in 'manage_attendance,mark_attendance,download_attendance_card,analytics_dashboard,manage_academic_terms' %}
+                    <div class="drawer-heading">Attendance Operations</div>
+                    <a href="{% url 'attendance:manage_attendance' %}" class="{% if request.resolver_match.url_name == 'manage_attendance' %}active{% endif %}">
+                        <i class="fas fa-calendar-check"></i> Attendance Dashboard
+                    </a>
+                    <a href="{% url 'attendance:analytics_dashboard' %}" class="{% if request.resolver_match.url_name == 'analytics_dashboard' %}active{% endif %}">
+                        <i class="fas fa-chart-line"></i> Attendance Analytics
+                    </a>
+                    <a href="{% url 'attendance:manage_timetable' %}" class="{% if request.resolver_match.url_name == 'manage_timetable' %}active{% endif %}">
+                        <i class="fas fa-calendar-alt"></i> Timetable & Schedules
+                    </a>
+                    <a href="{% url 'attendance:manage_academic_terms' %}" class="{% if request.resolver_match.url_name == 'manage_academic_terms' %}active{% endif %}">
+                        <i class="fas fa-business-time"></i> Academic Terms
+                    </a>
+                    {% if user.role == 'STUDENT' or user.is_staff %}
+                    <a href="{% url 'attendance:download_attendance_card' %}" class="{% if request.resolver_match.url_name == 'download_attendance_card' %}active{% endif %}">
+                        <i class="fas fa-id-card"></i> Download ID Card
+                    </a>
+                    {% endif %}
+
+                {# ========================================================================= #}
+                {# 19. DEFAULT TOP-LEVEL DASHBOARD VIEW                                      #}
                 {# ========================================================================= #}
                 {% else %}
                     {% if user.role == 'REGISTRAR' %}

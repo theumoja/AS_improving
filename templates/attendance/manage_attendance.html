@@ -6,154 +6,185 @@
 {% endblock %}
 
 <style>
-    /* Force form native text visibility across browser dark/light themes */
+    /* Force standard text visibility across dark/light browser themes */
     select, select option, input, textarea {
         color-scheme: light !important;
         color: #0f172a !important;
         background-color: #ffffff !important;
     }
 
-    /* ===== Filter Card – adapted from Pure JS Filter Controls ===== */
-    .filter-card {
+    /* Outer Container Spacing */
+    .manage-attendance-container {
+        padding-top: 1.75rem;
+        padding-bottom: 2rem;
+    }
+
+    /* Page Header KPI Badge */
+    .header-kpi-card {
         background: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 0.75rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        padding: 0.65rem 1.1rem;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.85rem;
+    }
+    .header-kpi-icon {
+        width: 2.625rem;
+        height: 2.625rem;
+        border-radius: 0.5rem;
+        background-color: #eff6ff;
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+    }
+
+    /* Filter Card Container & Spacing */
+    .filter-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.85rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        margin-bottom: 1.75rem;
         transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
     .filter-card:focus-within {
         border-color: #3b82f6;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+        box-shadow: 0 4px 14px rgba(59, 130, 246, 0.08);
+    }
+    .filter-card-body {
+        padding: 1.35rem 1.5rem;
     }
 
+    /* Grid Layout for Filter Components */
     .filter-toolbar-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
-        align-items: end;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 1.25rem 1rem;
+        align-items: flex-end;
     }
 
-    .filter-group {
-        min-width: 0; /* prevent overflow */
+    .filter-col-search { grid-column: span 12 / span 12; }
+    .filter-col-stream { grid-column: span 12 / span 12; }
+    .filter-col-course { grid-column: span 12 / span 12; }
+    .filter-col-date   { grid-column: span 12 / span 12; }
+    .filter-col-btn    { grid-column: span 12 / span 12; }
+
+    @media (min-width: 640px) {
+        .filter-col-search { grid-column: span 6 / span 6; }
+        .filter-col-stream { grid-column: span 6 / span 6; }
+        .filter-col-course { grid-column: span 6 / span 6; }
+        .filter-col-date   { grid-column: span 6 / span 6; }
+        .filter-col-btn    { grid-column: span 12 / span 12; }
+    }
+
+    @media (min-width: 1024px) {
+        .filter-col-search { grid-column: span 3 / span 3; }
+        .filter-col-stream { grid-column: span 3 / span 3; }
+        .filter-col-course { grid-column: span 3 / span 3; }
+        .filter-col-date   { grid-column: span 2 / span 2; }
+        .filter-col-btn    { grid-column: span 1 / span 1; }
     }
 
     .filter-group label {
-        font-size: 0.75rem;
+        font-size: 0.725rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: #64748b;
-        margin-bottom: 0.35rem;
-        display: block;
-    }
-
-    /* Quick Search Input */
-    .search-input-wrapper {
-        position: relative;
+        color: #475569;
+        margin-bottom: 0.5rem;
         display: flex;
         align-items: center;
+        gap: 0.4rem;
     }
-    .search-input-wrapper .search-icon {
+
+    /* Custom Input Controls Height & Alignment */
+    .custom-input-group {
+        position: relative;
+    }
+    .custom-input-group .input-icon {
         position: absolute;
-        left: 0.85rem;
+        left: 0.875rem;
+        top: 50%;
+        transform: translateY(-50%);
         color: #94a3b8;
-        font-size: 0.9rem;
+        font-size: 0.875rem;
         pointer-events: none;
         z-index: 4;
     }
-    .search-input-wrapper input {
-        padding-left: 2.35rem;
-        padding-right: 2.5rem; /* space for clear button */
-        height: calc(2.4rem + 2px);
-        font-size: 0.875rem;
-        border-radius: 0.5rem;
-        border: 1px solid #cbd5e1;
-        background-color: #f8fafc;
-        color: #1e293b;
-        transition: all 0.2s ease;
-        width: 100%;
-    }
-    .search-input-wrapper input:focus {
-        background-color: #ffffff;
-        border-color: #2563eb;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-        outline: none;
-    }
-    .search-clear-btn {
-        position: absolute;
-        right: 0.5rem;
-        background: none;
-        border: none;
-        color: #94a3b8;
-        cursor: pointer;
-        font-size: 0.9rem;
-        padding: 0.25rem;
-        display: none; /* shown only when input has text */
-        z-index: 5;
-    }
-    .search-clear-btn:hover {
-        color: #dc2626;
-    }
-
-    /* Custom Select / Input Styling */
     .custom-select,
-    .form-control {
-        padding-left: 2.35rem; /* for icon inside */
-        height: calc(2.4rem + 2px);
+    .form-control-custom {
+        padding-left: 2.35rem;
+        padding-right: 0.85rem;
+        height: 2.625rem;
         font-size: 0.875rem;
         border-radius: 0.5rem;
         border: 1px solid #cbd5e1;
         background-color: #f8fafc;
-        color: #1e293b;
+        color: #0f172a;
         transition: all 0.2s ease;
         width: 100%;
     }
     .custom-select:focus,
-    .form-control:focus {
+    .form-control-custom:focus {
         background-color: #ffffff;
         border-color: #2563eb;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
         outline: none;
     }
 
-    /* Icon inside selects/inputs */
-    .custom-input-group {
-        position: relative;
-    }
-    .custom-input-group i.input-icon {
+    /* Quick Search Clear Button */
+    .search-clear-btn {
         position: absolute;
-        left: 0.85rem;
+        right: 0.5rem;
         top: 50%;
         transform: translateY(-50%);
+        background: none;
+        border: none;
         color: #94a3b8;
-        font-size: 0.9rem;
-        pointer-events: none;
-        z-index: 4;
+        cursor: pointer;
+        font-size: 0.85rem;
+        padding: 0.25rem;
+        display: none;
+        z-index: 5;
+    }
+    .search-clear-btn:hover {
+        color: #ef4444;
     }
 
-    /* Reset Button */
+    /* Filter Reset Button */
     .btn-reset-filter {
         background: #f1f5f9;
         border: 1px solid #cbd5e1;
         color: #475569;
         font-weight: 600;
-        font-size: 0.875rem;
-        padding: 0.65rem 1.25rem;
+        font-size: 0.85rem;
+        height: 2.625rem;
         border-radius: 0.5rem;
-        height: calc(2.4rem + 2px);
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        gap: 0.4rem;
         transition: all 0.2s ease;
-        white-space: nowrap;
+        width: 100%;
+        cursor: pointer;
     }
     .btn-reset-filter:hover {
         background: #e2e8f0;
         border-color: #94a3b8;
-        color: #1e293b;
+        color: #0f172a;
     }
 
-    /* Active Filter Badges */
+    /* Active Filter Badges & Ribbon Divider Spacing */
+    .active-filters-divider {
+        border-top: 1px solid #e2e8f0;
+        margin-top: 1.25rem;
+        padding-top: 1rem;
+    }
+
     .active-filter-badge {
         display: inline-flex;
         align-items: center;
@@ -161,26 +192,31 @@
         color: #1d4ed8;
         border: 1px solid #bfdbfe;
         border-radius: 20px;
-        padding: 0.2rem 0.65rem;
+        padding: 0.25rem 0.75rem;
         font-size: 0.75rem;
         font-weight: 600;
-        margin-right: 0.5rem;
-        margin-bottom: 0.25rem;
+        gap: 0.4rem;
     }
-    .active-filter-badge a {
+    .active-filter-badge button {
+        background: none;
+        border: none;
         color: #1d4ed8;
-        margin-left: 0.35rem;
-        text-decoration: none;
+        cursor: pointer;
+        padding: 0;
+        display: flex;
+        align-items: center;
     }
-    .active-filter-badge a:hover {
-        color: #b91c1c;
+    .active-filter-badge button:hover {
+        color: #dc2626;
     }
 
-    /* Table Card */
-    .card {
-        border: 0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        border-radius: 0.75rem;
+    /* Table Container Styling */
+    .card-table {
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        border-radius: 0.85rem;
+        overflow: hidden;
+        background: #ffffff;
     }
     .table-wrapper {
         overflow-x: auto;
@@ -189,21 +225,25 @@
         border-collapse: separate;
         border-spacing: 0;
         width: 100%;
+        margin-bottom: 0;
     }
     .table-custom thead th {
         background-color: #f8fafc;
         border-bottom: 1px solid #e2e8f0;
         color: #475569;
-        font-size: 0.75rem;
+        font-size: 0.725rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        padding: 0.85rem 1rem;
+        padding: 0.95rem 1.25rem;
     }
     .table-custom tbody td {
-        padding: 0.95rem 1rem;
+        padding: 1rem 1.25rem;
         border-bottom: 1px solid #f1f5f9;
         vertical-align: middle;
+    }
+    .table-custom tbody tr:last-child td {
+        border-bottom: none;
     }
     .table-custom tbody tr:hover {
         background-color: #f8fafc;
@@ -224,51 +264,60 @@
     }
     .progress-bar.bg-success { background-color: #10b981 !important; }
     .progress-bar.bg-warning { background-color: #f59e0b !important; }
-    .progress-bar.bg-danger { background-color: #ef4444 !important; }
+    .progress-bar.bg-danger  { background-color: #ef4444 !important; }
 </style>
 
-<div class="container-fluid py-4">
-    <!-- Header -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+<div class="container-fluid manage-attendance-container">
+    <!-- Header Hero Section -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
-            <h2 class="h3 font-weight-bold text-gray-800 mb-1">Attendance Records Management</h2>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h2 class="h3 font-weight-bold text-dark mb-0">Attendance Records</h2>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 text-xs font-weight-semibold">Live Logs</span>
+            </div>
             <p class="text-muted small mb-0">Monitor, filter, and inspect student attendance logs across streams and sessions.</p>
         </div>
-        <div class="stat-mini-card d-flex align-items-center">
-            <i class="fas fa-list-alt text-primary fa-lg mr-2"></i>
+        <div class="header-kpi-card">
+            <div class="header-kpi-icon">
+                <i class="fas fa-layer-group"></i>
+            </div>
             <div>
-                <span class="d-block font-weight-bold text-dark lh-1" style="font-size: 0.95rem;">{{ sessions_summary|length }}</span>
-                <span class="text-muted small" style="font-size: 0.7rem;">Sessions Found</span>
+                <span class="d-block font-weight-bold text-dark lh-1" id="sessionCountDisplay" style="font-size: 1.1rem;">{{ sessions_summary|length }}</span>
+                <span class="text-muted small" style="font-size: 0.75rem;">Sessions Shown</span>
             </div>
         </div>
     </div>
 
-    <!-- Filter Card – Adapted design -->
-    <div class="filter-card mb-4">
-        <div class="card-body p-3 p-md-4">
-            <!-- Grid of filter controls -->
+    <!-- Filter Control Card -->
+    <div class="filter-card">
+        <div class="filter-card-body">
             <div class="filter-toolbar-grid">
-                <!-- Live Instant Search (client-side) -->
-                <div class="filter-group">
-                    <label for="attendanceSearch">Quick Search</label>
-                    <div class="search-input-wrapper">
-                        <i class="fas fa-search search-icon"></i>
-                        <input type="text" id="attendanceSearch" placeholder="Search sessions..." autocomplete="off">
+                
+                <!-- Front-End Quick Text Search -->
+                <div class="filter-group filter-col-search">
+                    <label for="attendanceSearch">
+                        <i class="fas fa-search text-primary"></i> Quick Search
+                    </label>
+                    <div class="custom-input-group">
+                        <i class="fas fa-search input-icon"></i>
+                        <input type="text" id="attendanceSearch" class="form-control-custom" placeholder="Search stream, code, instructor..." autocomplete="off">
                         <button type="button" id="clearSearchBtn" class="search-clear-btn" title="Clear search">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- Server-side filter: Class Stream -->
-                <div class="filter-group">
-                    <label for="stream">Class Stream</label>
+                <!-- Front-End Filter: Class Stream -->
+                <div class="filter-group filter-col-stream">
+                    <label for="streamFilter">
+                        <i class="fas fa-graduation-cap text-muted"></i> Class Stream
+                    </label>
                     <div class="custom-input-group">
                         <i class="fas fa-layer-group input-icon"></i>
-                        <select name="stream" id="stream" class="custom-select form-control" form="attendance-filter-form">
+                        <select id="streamFilter" class="custom-select">
                             <option value="">All Streams</option>
                             {% for stream in streams %}
-                                <option value="{{ stream.id }}" {% if selected_stream_id == stream.id|stringformat:"s" %}selected{% endif %}>
+                                <option value="{{ stream.id }}">
                                     {{ stream.name }} ({{ stream.course.code }})
                                 </option>
                             {% endfor %}
@@ -276,15 +325,17 @@
                     </div>
                 </div>
 
-                <!-- Server-side filter: Course Unit -->
-                <div class="filter-group">
-                    <label for="course_unit">Course Unit</label>
+                <!-- Front-End Filter: Course Unit -->
+                <div class="filter-group filter-col-course">
+                    <label for="courseFilter">
+                        <i class="fas fa-book-open text-muted"></i> Course Unit
+                    </label>
                     <div class="custom-input-group">
                         <i class="fas fa-book input-icon"></i>
-                        <select name="course_unit" id="course_unit" class="custom-select form-control" form="attendance-filter-form">
+                        <select id="courseFilter" class="custom-select">
                             <option value="">All Course Units</option>
                             {% for cu in course_units %}
-                                <option value="{{ cu.code }}" {% if selected_cu_code == cu.code %}selected{% endif %}>
+                                <option value="{{ cu.code }}">
                                     {{ cu.code }} - {{ cu.name }}
                                 </option>
                             {% endfor %}
@@ -292,66 +343,40 @@
                     </div>
                 </div>
 
-                <!-- Server-side filter: Date Marked -->
-                <div class="filter-group">
-                    <label for="date_marked">Date Marked</label>
+                <!-- Front-End Filter: Date Marked -->
+                <div class="filter-group filter-col-date">
+                    <label for="dateFilter">
+                        <i class="fas fa-calendar-alt text-muted"></i> Date Marked
+                    </label>
                     <div class="custom-input-group">
-                        <i class="fas fa-calendar-alt input-icon"></i>
-                        <input type="date" name="date_marked" id="date_marked" class="form-control" value="{{ selected_date }}" form="attendance-filter-form">
+                        <i class="fas fa-calendar-day input-icon"></i>
+                        <input type="date" id="dateFilter" class="form-control-custom">
                     </div>
                 </div>
 
-                <!-- Reset Button -->
-                <div class="filter-group">
-                    <button type="button" id="resetFiltersBtn" class="btn-reset-filter w-100" onclick="window.location.href='{% url 'attendance:manage_attendance' %}'">
-                        <i class="fas fa-redo-alt mr-2"></i> Reset
+                <!-- Reset Action Button -->
+                <div class="filter-group filter-col-btn">
+                    <button type="button" id="resetFiltersBtn" class="btn-reset-filter">
+                        <i class="fas fa-redo-alt"></i> Reset
                     </button>
                 </div>
             </div>
 
-            <!-- Hidden form to submit server-side filters (used by selects/date via form attribute) -->
-            <form method="GET" action="{% url 'attendance:manage_attendance' %}" id="attendance-filter-form" class="d-none"></form>
-
-            <!-- Active Filter Badges -->
-            {% if selected_stream_id or selected_cu_code or selected_date %}
-                <div class="border-top pt-3 mt-3 d-flex align-items-center flex-wrap">
-                    <span class="text-muted small font-weight-bold mr-2">Active Filters:</span>
-                    
-                    {% if selected_stream_id %}
-                        {% for stream in streams %}
-                            {% if selected_stream_id == stream.id|stringformat:"s" %}
-                                <span class="active-filter-badge">
-                                    Stream: {{ stream.name }}
-                                    <a href="{% url 'attendance:manage_attendance' %}?course_unit={{ selected_cu_code }}&date_marked={{ selected_date }}"><i class="fas fa-times-circle"></i></a>
-                                </span>
-                            {% endif %}
-                        {% endfor %}
-                    {% endif %}
-
-                    {% if selected_cu_code %}
-                        <span class="active-filter-badge">
-                            Course: {{ selected_cu_code }}
-                            <a href="{% url 'attendance:manage_attendance' %}?stream={{ selected_stream_id }}&date_marked={{ selected_date }}"><i class="fas fa-times-circle"></i></a>
-                        </span>
-                    {% endif %}
-
-                    {% if selected_date %}
-                        <span class="active-filter-badge">
-                            Date: {{ selected_date }}
-                            <a href="{% url 'attendance:manage_attendance' %}?stream={{ selected_stream_id }}&course_unit={{ selected_cu_code }}"><i class="fas fa-times-circle"></i></a>
-                        </span>
-                    {% endif %}
-
-                    <a href="{% url 'attendance:manage_attendance' %}" class="small text-danger font-weight-bold ml-auto">Clear All</a>
-                </div>
-            {% endif %}
+            <!-- Dynamic Active Filter Badges Ribbon -->
+            <div id="activeFiltersRibbon" class="active-filters-divider align-items-center flex-wrap gap-2" style="display: none;">
+                <span class="text-muted small font-weight-bold me-1">Active Filters:</span>
+                <div id="activeBadgesList" class="d-inline-flex flex-wrap gap-2"></div>
+                <button type="button" id="clearAllBadgesBtn" class="btn btn-link p-0 small text-danger font-weight-bold ms-auto text-decoration-none">
+                    Clear All Filters
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Attendance Sessions Table Card -->
-    <div class="card" style="padding:0; overflow:hidden;">
+    <!-- Table Card Block -->
+    <div class="card-table">
         <div class="table-wrapper">
-            <table class="table table-custom align-items-center mb-0" id="attendanceTable">
+            <table class="table table-custom align-items-center" id="attendanceTable">
                 <thead>
                     <tr>
                         <th>Date Marked</th>
@@ -366,12 +391,15 @@
                 <tbody id="attendanceTableBody">
                     {% if sessions_summary %}
                         {% for item in sessions_summary %}
-                        <tr class="attendance-row">
+                        <tr class="attendance-row"
+                            data-stream-id="{{ item.session.timetable_entry.stream.id }}"
+                            data-course-code="{{ item.session.timetable_entry.course_unit.code }}"
+                            data-date-marked="{{ item.session.date_marked|date:'Y-m-d' }}">
                             <td class="font-weight-bold text-dark text-nowrap">
-                                <i class="far fa-calendar-alt text-muted mr-1"></i> {{ item.session.date_marked|date:"M d, Y" }}
+                                <i class="far fa-calendar-alt text-muted me-1"></i> {{ item.session.date_marked|date:"M d, Y" }}
                             </td>
                             <td>
-                                <span class="badge badge-light border text-primary font-weight-bold px-2.5 py-1.5" style="border-radius: 0.375rem;">
+                                <span class="badge bg-light text-primary border font-weight-bold px-2.5 py-1.5" style="border-radius: 0.375rem;">
                                     {{ item.session.timetable_entry.stream.name }}
                                 </span>
                             </td>
@@ -381,7 +409,7 @@
                             </td>
                             <td>
                                 <div class="d-flex align-items-center text-nowrap">
-                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center text-primary font-weight-bold mr-2" style="width: 28px; height: 28px; font-size: 0.75rem; border: 1px solid #cbd5e1; flex-shrink: 0;">
+                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center text-primary font-weight-bold me-2" style="width: 28px; height: 28px; font-size: 0.75rem; border: 1px solid #cbd5e1; flex-shrink: 0;">
                                         {{ item.session.timetable_entry.teacher.name|slice:":1" }}
                                     </div>
                                     <span class="text-dark font-weight-medium">{{ item.session.timetable_entry.teacher.name }}</span>
@@ -389,22 +417,22 @@
                             </td>
                             <td class="text-nowrap">
                                 <span class="small text-muted font-weight-medium">
-                                    <i class="far fa-clock mr-1"></i>
+                                    <i class="far fa-clock me-1"></i>
                                     {{ item.session.timetable_entry.start_time|time:"h:i A" }} - 
                                     {{ item.session.timetable_entry.end_time|time:"h:i A" }}
                                 </span>
                             </td>
                             <td class="text-nowrap">
                                 <div class="small">
-                                    <span class="text-success font-weight-bold"><i class="fas fa-check-circle mr-1"></i>{{ item.present_count }} Present</span>
+                                    <span class="text-success font-weight-bold"><i class="fas fa-check-circle me-1"></i>{{ item.present_count }} Present</span>
                                     <span class="text-muted mx-1">•</span>
-                                    <span class="text-danger font-weight-bold"><i class="fas fa-times-circle mr-1"></i>{{ item.absent_count }} Absent</span>
+                                    <span class="text-danger font-weight-bold"><i class="fas fa-times-circle me-1"></i>{{ item.absent_count }} Absent</span>
                                 </div>
                                 <div class="small text-muted mt-0.5">Total Enrolled: {{ item.total_students }}</div>
                             </td>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <span class="font-weight-bold mr-2 text-dark" style="font-size: 0.85rem; min-width: 42px;">{{ item.attendance_rate }}%</span>
+                                    <span class="font-weight-bold me-2 text-dark" style="font-size: 0.85rem; min-width: 42px;">{{ item.attendance_rate }}%</span>
                                     <div class="progress progress-thin flex-grow-1">
                                         <div class="progress-bar {% if item.attendance_rate >= 75 %}bg-success{% elif item.attendance_rate >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
                                              role="progressbar" 
@@ -418,28 +446,13 @@
                             </td>
                         </tr>
                         {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="7" class="text-center py-5">
-                                <div class="py-3">
-                                    <i class="fas fa-search-minus text-muted fa-3x mb-3"></i>
-                                    <h5 class="text-secondary font-weight-bold mb-1">No Attendance Sessions Found</h5>
-                                    <p class="text-muted small mb-3">We couldn't find any attendance logs matching your current filter criteria.</p>
-                                    {% if selected_stream_id or selected_cu_code or selected_date %}
-                                        <a href="{% url 'attendance:manage_attendance' %}" class="btn btn-sm btn-outline-primary font-weight-bold">
-                                            Reset All Filters
-                                        </a>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
                     {% endif %}
                     <tr id="searchEmptyRow" style="display: none;">
                         <td colspan="7" class="text-center py-5">
                             <div class="py-3">
                                 <i class="fas fa-search text-muted fa-3x mb-3"></i>
-                                <h5 class="text-secondary font-weight-bold mb-1">No Matching Records Discovered</h5>
-                                <p class="text-muted small mb-0">No attendance sessions matched your live search term.</p>
+                                <h5 class="text-secondary font-weight-bold mb-1">No Matching Records Found</h5>
+                                <p class="text-muted small mb-0">No attendance sessions matched your combined filter criteria.</p>
                             </div>
                         </td>
                     </tr>
@@ -452,42 +465,124 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('attendanceSearch');
+        const streamSelect = document.getElementById('streamFilter');
+        const courseSelect = document.getElementById('courseFilter');
+        const dateInput = document.getElementById('dateFilter');
         const clearSearchBtn = document.getElementById('clearSearchBtn');
+        const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+        const clearAllBadgesBtn = document.getElementById('clearAllBadgesBtn');
+        
         const dataRows = document.querySelectorAll('.attendance-row');
         const emptyRow = document.getElementById('searchEmptyRow');
+        const sessionCountBadge = document.getElementById('sessionCountDisplay');
+        const ribbon = document.getElementById('activeFiltersRibbon');
+        const badgesList = document.getElementById('activeBadgesList');
 
-        // Function to filter table based on search term
+        function updateBadges() {
+            if (!badgesList || !ribbon) return;
+            badgesList.innerHTML = '';
+
+            let hasActiveFilter = false;
+
+            if (searchInput.value.trim()) {
+                hasActiveFilter = true;
+                badgesList.appendChild(createBadge(`Search: "${searchInput.value.trim()}"`, () => {
+                    searchInput.value = '';
+                    filterTable();
+                }));
+            }
+
+            if (streamSelect.value) {
+                hasActiveFilter = true;
+                const text = streamSelect.options[streamSelect.selectedIndex].text;
+                badgesList.appendChild(createBadge(`Stream: ${text}`, () => {
+                    streamSelect.value = '';
+                    filterTable();
+                }));
+            }
+
+            if (courseSelect.value) {
+                hasActiveFilter = true;
+                badgesList.appendChild(createBadge(`Course: ${courseSelect.value}`, () => {
+                    courseSelect.value = '';
+                    filterTable();
+                }));
+            }
+
+            if (dateInput.value) {
+                hasActiveFilter = true;
+                badgesList.appendChild(createBadge(`Date: ${dateInput.value}`, () => {
+                    dateInput.value = '';
+                    filterTable();
+                }));
+            }
+
+            ribbon.style.display = hasActiveFilter ? 'flex' : 'none';
+        }
+
+        function createBadge(label, onRemove) {
+            const span = document.createElement('span');
+            span.className = 'active-filter-badge';
+            span.innerHTML = `${label} <button type="button" title="Remove filter"><i class="fas fa-times-circle"></i></button>`;
+            span.querySelector('button').addEventListener('click', onRemove);
+            return span;
+        }
+
         function filterTable() {
-            const criteria = searchInput.value.toLowerCase().trim();
-            let matchingCount = 0;
+            const searchQuery = (searchInput.value || '').toLowerCase().trim();
+            const selectedStream = (streamSelect.value || '').toString().trim();
+            const selectedCourse = (courseSelect.value || '').toLowerCase().trim();
+            const selectedDate = (dateInput.value || '').trim();
+
+            let visibleCount = 0;
 
             dataRows.forEach(row => {
-                const searchableText = row.textContent.toLowerCase();
-                if (searchableText.includes(criteria)) {
+                const textContent = (row.textContent || '').toLowerCase();
+                const rowStream = (row.getAttribute('data-stream-id') || '').toString().trim();
+                const rowCourse = (row.getAttribute('data-course-code') || '').toLowerCase().trim();
+                const rowDate = (row.getAttribute('data-date-marked') || '').trim();
+
+                const matchesSearch = !searchQuery || textContent.includes(searchQuery);
+                const matchesStream = !selectedStream || rowStream === selectedStream;
+                const matchesCourse = !selectedCourse || rowCourse === selectedCourse;
+                const matchesDate   = !selectedDate || rowDate === selectedDate;
+
+                if (matchesSearch && matchesStream && matchesCourse && matchesDate) {
                     row.style.display = '';
-                    matchingCount++;
+                    visibleCount++;
                 } else {
                     row.style.display = 'none';
                 }
             });
 
-            // Show/hide empty state row
-            if (emptyRow) {
-                emptyRow.style.display = (matchingCount === 0 && dataRows.length > 0) ? '' : 'none';
+            if (sessionCountBadge) {
+                sessionCountBadge.textContent = visibleCount;
             }
 
-            // Toggle clear button visibility
+            if (emptyRow) {
+                emptyRow.style.display = (visibleCount === 0 && dataRows.length > 0) ? '' : 'none';
+            }
+
             if (clearSearchBtn) {
                 clearSearchBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none';
             }
+
+            updateBadges();
         }
 
-        // Listen to input events
-        if (searchInput) {
-            searchInput.addEventListener('input', filterTable);
+        function resetAll() {
+            if (searchInput) searchInput.value = '';
+            if (streamSelect) streamSelect.value = '';
+            if (courseSelect) courseSelect.value = '';
+            if (dateInput) dateInput.value = '';
+            filterTable();
         }
 
-        // Clear search button
+        if (searchInput) searchInput.addEventListener('input', filterTable);
+        if (streamSelect) streamSelect.addEventListener('change', filterTable);
+        if (courseSelect) courseSelect.addEventListener('change', filterTable);
+        if (dateInput) dateInput.addEventListener('change', filterTable);
+
         if (clearSearchBtn) {
             clearSearchBtn.addEventListener('click', function() {
                 searchInput.value = '';
@@ -496,21 +591,11 @@
             });
         }
 
-        // Initialize clear button visibility
-        if (searchInput && clearSearchBtn) {
-            clearSearchBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none';
-        }
+        if (resetFiltersBtn) resetFiltersBtn.addEventListener('click', resetAll);
+        if (clearAllBadgesBtn) clearAllBadgesBtn.addEventListener('click', resetAll);
 
-        // Attach server-side filter form submission automatically when selects/date change
-        const serverForm = document.getElementById('attendance-filter-form');
-        if (serverForm) {
-            const selects = serverForm.querySelectorAll('select, input[type="date"]');
-            selects.forEach(el => {
-                el.addEventListener('change', function() {
-                    serverForm.submit();
-                });
-            });
-        }
+        // Run initial synchronization pass
+        filterTable();
     });
 </script>
 {% endblock %}
