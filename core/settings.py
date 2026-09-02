@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-bi4y0_loej6_f+rg&5pgg*!zkko=t-)skog+os8dn0^0sfgm0d
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG =True# False
 
-ALLOWED_HOSTS = ['*','https://attendance-system-pgli.onrender.com']
+ALLOWED_HOSTS = ["174.138.46.225",'*','https://attendance-system-pgli.onrender.com']
 
 
 
@@ -89,13 +89,27 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
+# Database setup for PostgreSQL
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'attendance_db',
+        'USER': 'attendance_user',
+        'PASSWORD': 'EcnC#PZTZgvV3jJ',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
+}
+
+
+"""
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-"""
+
 
 
 DATABASES = {
@@ -156,6 +170,9 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']   # create 'static' folder at project root
 
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
