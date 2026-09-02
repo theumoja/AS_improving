@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-bi4y0_loej6_f+rg&5pgg*!zkko=t-)skog+os8dn0^0sfgm0d
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG =True# False
 
-ALLOWED_HOSTS = ["174.138.46.225",'*','https://attendance-system-pgli.onrender.com']
+ALLOWED_HOSTS = ['174.138.46.225', 'localhost', '127.0.0.1','*','https://attendance-system-pgli.onrender.com']
 
 
 
