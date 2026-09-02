@@ -237,19 +237,36 @@ def delete_teacher(request, pk):
 # =========================================================================
 # 2. STUDENTS MANAGEMENT
 # =========================================================================
-
+import secrets
+import string
 from decimal import Decimal
-from django.shortcuts import render, redirect
-from django.http import HttpResponse
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Sum, Q
+from django.db.models import Q, Sum
+from django.http import HttpResponse
+from django.shortcuts import redirect, render
 
 from .models import (
-    User, Course, Stream, StudentProfile, 
-    AcademicTerm, TuitionAmount, FunctionalFee, StudentTermFee
+    AcademicTerm,
+    AcademicYear,
+    Course,
+    FunctionalFee,
+    Intake,
+    Semester,
+    Stream,
+    StudentProfile,
+    StudentTermFee,
+    Term,
+    TuitionAmount,
+    User,
 )
+
+
+def generate_secure_password(length=10):
+  alphabet = string.ascii_letters + string.digits
+  return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 @login_required
@@ -258,78 +275,93 @@ def manage_students(request):
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
 
-    if request.method == 'POST':
-        action = request.POST.get('action')
-        
-        if action == 'single':
-            name = (request.POST.get('students_name') or request.POST.get('name', '')).strip()
-            reg_number = (request.POST.get('registration_number') or request.POST.get('reg_number', '')).strip()
-            email = request.POST.get('email', '').strip()
-            course_code = request.POST.get('course', '').strip() 
-            stream_id = request.POST.get('stream', '').strip()
-            
-            if name and reg_number and email and course_code:
+    current_year = timezone.now().year
+    entry_years = [current_year + i for i in range(6)]
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "single":
+            name = (request.POST.get("students_name") or request.POST.get("name", "")).strip()
+            reg_number = (request.POST.get("registration_number") or request.POST.get("reg_number", "")).strip()
+            email = request.POST.get("email", "").strip()
+            course_code = request.POST.get("course", "").strip()
+            stream_id = request.POST.get("stream", "").strip()
+
+            academic_year_id = request.POST.get("academic_year", "").strip()
+            term_id = request.POST.get("term", "").strip()
+            semester_id = request.POST.get("semester", "").strip()
+            intake_id = request.POST.get("intake", "").strip()
+            gender = request.POST.get("gender", "").strip()
+            date_of_birth = request.POST.get("date_of_birth", "").strip() or None
+            billing_category = request.POST.get("billing_category", "").strip()
+            sponsorship = request.POST.get("sponsorship", "").strip()
+            academic_status = request.POST.get("academic_status", "ACTIVE").strip()
+
+            if name and reg_number and email and course_code and stream_id:
                 try:
                     course = Course.objects.get(code=course_code)
-                    stream = Stream.objects.get(id=stream_id) if stream_id else None
+                    stream = Stream.objects.get(id=stream_id)
+
+                    academic_year = None
+                    if academic_year_id:
+                        if academic_year_id.isdigit():
+                            academic_year = AcademicYear.objects.filter(id=academic_year_id).first()
+                        if not academic_year:
+                            academic_year = AcademicYear.objects.filter(name=academic_year_id).first()
+                        if not academic_year:
+                            academic_year, _ = AcademicYear.objects.get_or_create(name=str(academic_year_id))
+
+                    term_obj = Term.objects.filter(id=term_id).first() if term_id else None
+                    semester_obj = Semester.objects.filter(id=semester_id).first() if semester_id else None
+                    intake_obj = Intake.objects.filter(id=intake_id).first() if intake_id else None
+
                     password = generate_secure_password()
-                    username = email.split('@')[0]
-                    
-                    # Step 1: Account & Profile Creation
+                    username = email.split("@")[0]
+
                     user = User.objects.create_user(
-                        username=username, 
-                        email=email, 
+                        username=username,
+                        email=email,
                         password=password,
-                        role=User.IS_STUDENT
+                        role=User.IS_STUDENT,
                     )
                     user.raw_password_archive = password
                     user.save()
-                    
+
                     student = StudentProfile.objects.create(
                         reg_number=reg_number,
                         user=user,
                         name=name,
                         course=course,
                         stream=stream,
-                        academic_status='ACTIVE'
+                        academic_year=academic_year,
+                        term=term_obj,
+                        semester=semester_obj,
+                        intake=intake_obj,
+                        gender=gender if gender else None,
+                        date_of_birth=date_of_birth,
+                        billing_category=billing_category if billing_category else None,
+                        sponsorship=sponsorship if sponsorship else None,
+                        academic_status=academic_status if academic_status else "ACTIVE",
                     )
 
-                    # Step 2: Term Ledger Initialization
-                    active_term = AcademicTerm.objects.filter(is_current=True).first()
-                    
-                    if active_term:
-                        # Step 3: Tuition & Fee Calculation
-                        tuition_total = TuitionAmount.objects.filter(
-                            course=course,
-                            term=active_term
-                        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+                    # Automatically retrieve active academic term for course fee ledger generation
+                    current_academic_term = AcademicTerm.objects.filter(is_current=True).first()
 
-                        functional_total = FunctionalFee.objects.filter(
-                            term=active_term,
-                            is_mandatory=True
-                        ).filter(
-                            Q(course=course) | Q(course__isnull=True)
-                        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+                    # Automated Fee Ledger Generation based on chosen course & current active term
+                    ledger, total_due = student.initialize_fee_ledger(term=current_academic_term)
 
-                        total_fees_due = tuition_total + functional_total
-
-                        # Create the initial ledger record
-                        StudentTermFee.objects.create(
-                            student=student,
-                            term=active_term,
-                            total_fees_due=total_fees_due,
-                            total_amount_paid=Decimal('0.00')
-                        )
+                    if ledger:
                         messages.success(
-                            request, 
-                            f"Student {name} registered successfully. "
-                            f"Initial ledger created for {active_term} (Total Due: {total_fees_due})."
+                            request,
+                            f"Student {name} registered successfully. Fee ledger initialized for "
+                            f"{ledger.term} based on {course.code} fee structure totaling UGX {total_due:,.2f}.",
                         )
                     else:
                         messages.warning(
-                            request, 
-                            f"Student {name} registered, but no active academic term was found. "
-                            "Fee ledger was not initialized."
+                            request,
+                            f"Student {name} registered, but no active term was found in the system. "
+                            f"Ledger was not initialized.",
                         )
 
                 except Course.DoesNotExist:
@@ -338,18 +370,31 @@ def manage_students(request):
                     messages.error(request, "Selected stream does not exist.")
                 except Exception as e:
                     messages.error(request, f"Error occurred: {str(e)}")
-            
-            return redirect('attendance:manage_students')
+            else:
+                messages.error(request, "Please fill in all mandatory student details.")
 
-    students = StudentProfile.objects.select_related('user', 'course', 'stream').all()
-    courses = Course.objects.all()
-    streams = Stream.objects.all()
-    
-    return render(request, 'attendance/manage_students.html', {
-        'students': students,
-        'active_courses_list': courses,
-        'active_streams_list': streams
-    })
+            return redirect("attendance:manage_students")
+
+    students = StudentProfile.objects.select_related(
+        "user", "course", "stream", "academic_year", "term", "semester", "intake"
+    ).prefetch_related("term_fees").all()
+
+    return render(
+        request,
+        "attendance/manage_students.html",
+        {
+            "students": students,
+            "active_courses_list": Course.objects.all(),
+            "active_streams_list": Stream.objects.all(),
+            "academic_years": AcademicYear.objects.all(),
+            "entry_years": entry_years,
+            "current_year": current_year,
+            "terms": Term.objects.all(),
+            "semesters": Semester.objects.all(),
+            "intakes": Intake.objects.all(),
+            "gender_choices": StudentProfile.GENDER_CHOICES,
+        },
+    )
 
 @login_required
 @transaction.atomic
@@ -785,11 +830,33 @@ def manage_departments(request):
     })
 
 
+import csv
+import io
+from decimal import Decimal
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.http import HttpResponse
+from .models import User, Course, Department, AcademicTerm, TuitionAmount, FunctionalFee, FeeElement
+
+import csv
+import io
+from decimal import Decimal
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.http import HttpResponse
+from .models import User, Course, Department, AcademicTerm, TuitionAmount, FunctionalFee, FeeElement
+
 @login_required
 @transaction.atomic
 def manage_courses(request):
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
+
+    active_term = AcademicTerm.objects.filter(is_current=True).first()
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -799,6 +866,10 @@ def manage_courses(request):
             name = (request.POST.get('course_name') or request.POST.get('name', '')).strip()
             department_id = request.POST.get('department', '').strip()
             
+            # Billing Parameters
+            tuition_fee = request.POST.get('tuition_fee', '').strip()
+            functional_fee = request.POST.get('functional_fee', '').strip()
+            
             if code and name:
                 dept = Department.objects.filter(id=department_id).first() if department_id else None
                 course, created = Course.objects.get_or_create(code=code, defaults={'name': name, 'department': dept})
@@ -806,7 +877,42 @@ def manage_courses(request):
                     course.name = name
                     course.department = dept
                     course.save()
-                messages.success(request, f"Course Program '{code}' integrated.")
+
+                # Process Billing Data for Active Term
+                if active_term:
+                    if tuition_fee:
+                        try:
+                            t_amount = Decimal(tuition_fee)
+                            tuition_elem, _ = FeeElement.objects.get_or_create(
+                                code='TUITION_STD',
+                                defaults={'name': 'Standard Tuition Fee', 'fee_type': 'TUITION'}
+                            )
+                            TuitionAmount.objects.update_or_create(
+                                course=course,
+                                term=active_term,
+                                fee_element=tuition_elem,
+                                defaults={'amount': t_amount, 'is_approved': True}
+                            )
+                        except (ValueError, ArithmeticError):
+                            pass
+
+                    if functional_fee:
+                        try:
+                            f_amount = Decimal(functional_fee)
+                            func_elem, _ = FeeElement.objects.get_or_create(
+                                code='FUNC_STD',
+                                defaults={'name': 'Standard Functional Fee', 'fee_type': 'FUNCTIONAL'}
+                            )
+                            FunctionalFee.objects.update_or_create(
+                                course=course,
+                                term=active_term,
+                                element=func_elem,
+                                defaults={'amount': f_amount, 'is_mandatory': True}
+                            )
+                        except (ValueError, ArithmeticError):
+                            pass
+
+                messages.success(request, f"Course Program '{code}' and billing structure integrated.")
             return redirect('attendance:manage_courses')
 
         elif action == 'bulk' and request.FILES.get('csv_file'):
@@ -815,20 +921,72 @@ def manage_courses(request):
             reader = csv.reader(io.StringIO(decoded_file), delimiter=',')
             next(reader, None)
 
+            tuition_elem, _ = FeeElement.objects.get_or_create(
+                code='TUITION_STD',
+                defaults={'name': 'Standard Tuition Fee', 'fee_type': 'TUITION'}
+            )
+            func_elem, _ = FeeElement.objects.get_or_create(
+                code='FUNC_STD',
+                defaults={'name': 'Standard Functional Fee', 'fee_type': 'FUNCTIONAL'}
+            )
+
             for row in reader:
                 if len(row) >= 2:
                     c_code, c_name = row[0].strip(), row[1].strip()
-                    if c_code:  # Safety guard for bulk uploads
-                        Course.objects.get_or_create(code=c_code, defaults={'name': c_name})
+                    if c_code:
+                        course, _ = Course.objects.get_or_create(code=c_code, defaults={'name': c_name})
+
+                     
+                        # Support optional billing fields in CSV: row[2]=Tuition, row[3]=Functional Fee
+                        if active_term:
+                            if len(row) >= 3 and row[2].strip():
+                                try:
+                                    t_amt = Decimal(row[2].strip())
+                                    TuitionAmount.objects.update_or_create(
+                                        course=course, term=active_term, fee_element=tuition_elem,
+                                        defaults={'amount': t_amt, 'is_approved': True}
+                                    )
+                                except (ValueError, ArithmeticError):
+                                    pass
+                            if len(row) >= 4 and row[3].strip():
+                                try:
+                                    f_amt = Decimal(row[3].strip())
+                                    FunctionalFee.objects.update_or_create(
+                                        course=course, term=active_term, element=func_elem,
+                                        defaults={'amount': f_amt, 'is_mandatory': True}
+                                    )
+                                except (ValueError, ArithmeticError):
+                                    pass
+
             return redirect('attendance:manage_courses')
 
-    # FIX: Exclude any corrupted empty or null text rows from the stream
+    # Exclude empty rows and prefetch billing data
     courses = Course.objects.select_related('department').exclude(code="").exclude(code__isnull=True)
+    
+    # Calculate tuition, functional fees, and total fees per course for active term
+    for course in courses:
+        tuition = Decimal('0.00')
+        functional = Decimal('0.00')
+        if active_term:
+            t_obj = TuitionAmount.objects.filter(course=course, term=active_term).first()
+            f_obj = FunctionalFee.objects.filter(course=course, term=active_term).first()
+            if t_obj:
+                tuition = t_obj.amount
+            if f_obj:
+                functional = f_obj.amount
+                
+        course.billing = {
+            'tuition': tuition,
+            'functional': functional,
+            'total': tuition + functional
+        }
+
     departments = Department.objects.all()
     
     return render(request, 'attendance/manage_courses.html', {
         'courses': courses,
-        'departments': departments
+        'departments': departments,
+        'active_term': active_term,
     })
 
 @login_required
@@ -5751,17 +5909,15 @@ def cbe_form_settings(request):
         'assessment_methods': assessment_methods,
     }
     return render(request, 'attendance/cbe_form_settings.html', context)
+
+
 import logging
 from django.apps import apps
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from .models import (
-    AcademicTerm, Faculty, Department, Course, Stream, CourseUnit,
-    FeeElement, GradeScale, Institution, Campus, Vehicle, Hostel, Supplier,
-    User
-)
+from .models import *
 
 logger = logging.getLogger(__name__)
 
@@ -5772,6 +5928,13 @@ MODEL_METADATA_MAP = {
     'COURSES': {'label': 'Courses', 'model': Course, 'name_field': 'name'},
     'STREAMS': {'label': 'Streams', 'model': Stream, 'name_field': 'name'},
     'COURSE_UNITS': {'label': 'Course Units', 'model': CourseUnit, 'name_field': 'name'},
+    
+    # Academic Structures
+    'ACADEMIC_YEARS': {'label': 'Academic Years', 'model': AcademicYear, 'name_field': 'name'},
+    'TERMS': {'label': 'Terms', 'model': Term, 'name_field': 'name'},
+    'SEMESTERS': {'label': 'Semesters', 'model': Semester, 'name_field': 'name'},
+    'INTAKES': {'label': 'Intakes', 'model': Intake, 'name_field': 'name'},
+
     'ACADEMIC_TERMS': {'label': 'Academic Terms', 'model': AcademicTerm, 'name_field': 'academic_year'},
     'FEE_ELEMENTS': {'label': 'Fee Elements', 'model': FeeElement, 'name_field': 'name'},
     'GRADE_SCALES': {'label': 'Grade Scales', 'model': GradeScale, 'name_field': 'name'},
@@ -5787,7 +5950,6 @@ def metadata_management(request, category_key=None):
     if request.user.role != User.IS_ADMIN:
         return HttpResponse("Unauthorized", status=403)
 
-    # Standardize available categories for template rendering
     categories = [
         {'key': key, 'display_name': config['label']} 
         for key, config in MODEL_METADATA_MAP.items()
@@ -5801,16 +5963,29 @@ def metadata_management(request, category_key=None):
     model_cls = active_config['model']
     name_field = active_config['name_field']
 
+    # 1. Extract choice options if the name_field has defined choices (e.g., Intake.MONTH_CHOICES)
+    choice_options = []
+    try:
+        field = model_cls._meta.get_field(name_field)
+        if field.choices:
+            choice_options = field.choices
+    except Exception:
+        pass
+
+    has_code_field = hasattr(model_cls, 'code')
+
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        # 1. ADD INSTANCE DIRECTLY TO TARGET MODEL
+        # ADD INSTANCE
         if action == 'add_value':
             val_name = request.POST.get('display_name', '').strip() or request.POST.get('value', '').strip()
+            code_val = request.POST.get('code', '').strip()
+
             if val_name:
                 create_kwargs = {name_field: val_name}
-                if hasattr(model_cls, 'code') and request.POST.get('code'):
-                    create_kwargs['code'] = request.POST.get('code').strip()
+                if has_code_field and code_val:
+                    create_kwargs['code'] = code_val
 
                 # Handle required foreign key for Campus
                 if model_cls == Campus:
@@ -5826,17 +6001,21 @@ def metadata_management(request, category_key=None):
             else:
                 messages.error(request, "Name/Value is required.")
 
-        # 2. EDIT INSTANCE DIRECTLY ON TARGET MODEL
+        # EDIT INSTANCE
         elif action == 'edit_value':
             val_id = request.POST.get('value_id')
             instance = get_object_or_404(model_cls, pk=val_id)
-            new_name = request.POST.get('display_name', '').strip()
+            new_name = request.POST.get('display_name', '').strip() or request.POST.get('value', '').strip()
+            code_val = request.POST.get('code', '').strip()
+
             if new_name and hasattr(instance, name_field):
                 setattr(instance, name_field, new_name)
+                if has_code_field and hasattr(instance, 'code'):
+                    setattr(instance, 'code', code_val)
                 instance.save()
-                messages.success(request, f"Updated record successfully.")
+                messages.success(request, "Updated record successfully.")
 
-        # 3. DELETE INSTANCE DIRECTLY FROM TARGET MODEL
+        # DELETE INSTANCE
         elif action == 'delete_value':
             val_id = request.POST.get('value_id')
             instance = get_object_or_404(model_cls, pk=val_id)
@@ -5846,7 +6025,7 @@ def metadata_management(request, category_key=None):
 
         return redirect('attendance:metadata_management', category_key=selected_key)
 
-    # GET REQUEST: Format model instances as standard metadata values
+    # GET REQUEST
     queryset = model_cls.objects.all()
     values = []
     for item in queryset:
@@ -5855,6 +6034,8 @@ def metadata_management(request, category_key=None):
             'id': item.pk,
             'value': val,
             'display_name': display,
+            'raw_name': getattr(item, name_field, ''),
+            'code': getattr(item, 'code', ''),
             'description': getattr(item, 'description', f"Direct record from {model_cls.__name__}"),
             'is_active': getattr(item, 'is_active', True),
         })
@@ -5863,6 +6044,8 @@ def metadata_management(request, category_key=None):
         'categories': categories,
         'selected_category': {'key': selected_key, 'display_name': active_config['label']},
         'values': values,
+        'choice_options': choice_options,
+        'has_code_field': has_code_field,
     }
     return render(request, 'attendance/metadata_management.html', context)
 
@@ -5881,7 +6064,6 @@ def get_instance_metadata(instance):
                 return str(val), str(instance)
 
     return str(instance.pk), str(instance)
-
 
 import json
 from django.shortcuts import render, redirect, get_object_or_404

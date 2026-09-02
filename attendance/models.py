@@ -154,6 +154,92 @@ class TeacherProfile(models.Model):
         return self.name
 
 
+from django.db import models
+
+# ==================== FLEXIBLE ACADEMIC STRUCTURES ====================
+
+class AcademicYear(models.Model):
+    name = models.CharField(max_length=50, unique=True, help_text="e.g., 2025/2026")
+    code = models.CharField(max_length=20, blank=True, null=True, help_text="e.g., AY2526")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-name']
+
+    def __str__(self):
+        return self.name
+
+
+class Term(models.Model):
+    TERM_CHOICES = [
+        ('Term 1', 'Term 1'),
+        ('Term 2', 'Term 2'),
+        ('Term 3', 'Term 3'),
+    ]
+    name = models.CharField(
+        max_length=50, 
+        choices=TERM_CHOICES, 
+        unique=True, 
+        help_text="e.g., Term 1, Term 2, Term 3"
+    )
+    code = models.CharField(max_length=20, blank=True, null=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.get_name_display()
+
+
+class Semester(models.Model):
+    SEMESTER_CHOICES = [
+        ('Semester 1', 'Semester 1'),
+        ('Semester 2', 'Semester 2'),
+        ('Semester 3', 'Semester 3'),
+        ('Semester 4', 'Semester 4'),
+    ]
+    name = models.CharField(
+        max_length=50, 
+        choices=SEMESTER_CHOICES, 
+        unique=True, 
+        help_text="e.g., Semester 1, Semester 2, Semester 3, Semester 4"
+    )
+    code = models.CharField(max_length=20, blank=True, null=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.get_name_display()
+
+
+class Intake(models.Model):
+    MONTH_CHOICES = [
+        ('JANUARY', 'January'),
+        ('FEBRUARY', 'February'),
+        ('MARCH', 'March'),
+        ('APRIL', 'April'),
+        ('MAY', 'May'),
+        ('JUNE', 'June'),
+        ('JULY', 'July'),
+        ('AUGUST', 'August'),
+        ('SEPTEMBER', 'September'),
+        ('OCTOBER', 'October'),
+        ('NOVEMBER', 'November'),
+        ('DECEMBER', 'December'),
+    ]
+    name = models.CharField(max_length=50, choices=MONTH_CHOICES, unique=True)
+    code = models.CharField(max_length=20, blank=True, null=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.get_name_display()
+
+
+# ==================== UPDATED STUDENT PROFILE ====================
+
 class StudentProfile(models.Model):
     GENDER_CHOICES = [
         ('MALE', 'Male'),
@@ -161,23 +247,70 @@ class StudentProfile(models.Model):
     ]
 
     reg_number = models.CharField(max_length=50, primary_key=True)
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
+    user = models.OneToOneField('User', on_delete=models.CASCADE, related_name='student_profile')
     name = models.CharField(max_length=255)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='students')
-    stream = models.ForeignKey(Stream, on_delete=models.CASCADE, related_name='students')
+    course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='students')
+    stream = models.ForeignKey('Stream', on_delete=models.CASCADE, related_name='students')
     
-    # Extended fields for Students' Records Management
+    # Optional Academic Structures (Allows institution to pick any or none)
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    term = models.ForeignKey(Term, on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    semester = models.ForeignKey(Semester, on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    intake = models.ForeignKey(Intake, on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+
+    # Extended fields
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
     is_blocked = models.BooleanField(default=False)
     academic_status = models.CharField(max_length=50, default='ACTIVE', blank=True, null=True)
     billing_category = models.CharField(max_length=50, blank=True, null=True)
-    intake = models.CharField(max_length=50, blank=True, null=True)
     sponsorship = models.CharField(max_length=50, blank=True, null=True)
+    # Add this inside class StudentProfile in models.py:
 
+    def initialize_fee_ledger(self, term=None):
+        """
+        Automatically links student's Course to TuitionAmount and FunctionalFee
+        for the active academic term and generates/updates their StudentTermFee ledger.
+        """
+        from decimal import Decimal
+        from django.db.models import Q, Sum
+
+        if not term:
+            term = AcademicTerm.objects.filter(is_current=True).first()
+
+        if not term or not self.course:
+            return None, Decimal("0.00")
+
+        # 1. Sum tuition linked to student's course & target term
+        tuition_total = TuitionAmount.objects.filter(
+            course=self.course, term=term
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+
+        # 2. Sum mandatory functional fees (program-specific + generic/all-program fees)
+        functional_total = FunctionalFee.objects.filter(
+            term=term, is_mandatory=True
+        ).filter(
+            Q(course=self.course) | Q(course__isnull=True)
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+
+        total_fees_due = tuition_total + functional_total
+
+        # 3. Create or update StudentTermFee ledger record
+        ledger, created = StudentTermFee.objects.get_or_create(
+            student=self,
+            term=term,
+            defaults={
+                "total_fees_due": total_fees_due,
+                "total_amount_paid": Decimal("0.00"),
+            },
+        )
+        if not created:
+            ledger.total_fees_due = total_fees_due
+            ledger.save()
+
+        return ledger, total_fees_due
     def __str__(self):
         return f"{self.reg_number} - {self.name}"
-
 
 # ==================== PARENT PROFILE ====================
 

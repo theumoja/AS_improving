@@ -138,12 +138,22 @@
         background: #fff;
         border-radius: var(--radius-md);
         width: 100%;
-        max-width: 500px;
+        max-width: 700px;
+        max-height: 90vh;
+        overflow-y: auto;
         padding: 2rem;
         box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
     }
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+    }
     .form-group {
-        margin-bottom: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    .form-group.full-width {
+        grid-column: 1 / -1;
     }
     .form-group label {
         display: block;
@@ -158,6 +168,15 @@
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         font-family: var(--font);
+    }
+    .info-box {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-sm);
+        font-size: 0.825rem;
+        margin-bottom: 1rem;
     }
 </style>
 
@@ -199,10 +218,10 @@
             <tr>
                 <th>Registration Identifiers</th>
                 <th>Student Full Name</th>
-                <th>Assigned Course Pathway</th>
-                <th>Allocated Stream</th>
+                <th>Course & Stream</th>
+                <th>Academic Level</th>
                 <th>Fee Ledger (Active Term)</th>
-                <th>System Account Reference</th>
+                <th>Status</th>
                 <th style="text-align: right;">Operations Matrix</th>
             </tr>
         </thead>
@@ -215,11 +234,26 @@
                         <i class="fas fa-user-graduate" style="font-size:0.8rem; margin-right:0.35rem; color:#2563eb;"></i>
                         {{ student.name }}
                     </a>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ student.user.email }}</div>
                 </td>
-                <td><span class="course-tag">{{ student.course.code }}</span></td>
-                <td><span class="stream-tag">{{ student.stream.name|default:"Unassigned" }}</span></td>
                 <td>
-                    {% with latest_fee=student.studenttermfee_set.first %}
+                    <span class="course-tag">{{ student.course.code }}</span>
+                    <span class="stream-tag">{{ student.stream.name|default:"Unassigned" }}</span>
+                </td>
+                <td>
+                    <span style="font-size:0.85rem; display:block;">{{ student.academic_year.name|default:"-" }}</span>
+                    <span style="font-size:0.75rem; color:var(--text-muted);">
+                        {% if student.semester %}
+                            {{ student.semester.get_name_display }}
+                        {% elif student.term %}
+                            {{ student.term.get_name_display }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </span>
+                </td>
+                <td>
+                    {% with latest_fee=student.term_fees.first %}
                         {% if latest_fee %}
                             <span class="fee-badge fee-badge-due">
                                 UGX {{ latest_fee.total_fees_due }}
@@ -229,7 +263,11 @@
                         {% endif %}
                     {% endwith %}
                 </td>
-                <td><span style="font-size:0.85rem; color:var(--text-muted);">{{ student.user.email }}</span></td>
+                <td>
+                    <span style="font-size: 0.8rem; font-weight: 600; color: {% if student.academic_status == 'ACTIVE' %}#16a34a{% else %}#dc2626{% endif %};">
+                        {{ student.academic_status|default:"ACTIVE" }}
+                    </span>
+                </td>
                 <td style="text-align: right;">
                     <select onchange="handleStudentAction(this, '{% url 'attendance:edit_student' student.pk %}', '{% url 'attendance:delete_student' student.pk %}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
                         <option value="">-- Action --</option>
@@ -256,46 +294,146 @@
     </table>
 </div>
 
+<!-- Modal Provisioner -->
 <div class="modal" id="singleAddModal">
     <div class="modal-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
             <h3>Single Account Provisioner</h3>
             <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
+
+        <div class="info-box">
+            <i class="fas fa-magic" style="margin-right: 0.35rem;"></i>
+            <strong>Automated Billing:</strong> Tuition and mandatory functional fees will automatically calculate based on the selected course and target term.
+        </div>
+
         <form method="POST" action="">
             {% csrf_token %}
             <input type="hidden" name="action" value="single">
-            <div class="form-group">
-                <label for="reg_number">Registration Number Reference</label>
-                <input type="text" id="reg_number" name="reg_number" class="form-control" required placeholder="e.g. 2026/BTC/042">
+
+            <div class="form-grid">
+                <!-- Basic Credentials -->
+                <div class="form-group">
+                    <label for="reg_number">Registration Number Reference *</label>
+                    <input type="text" id="reg_number" name="reg_number" class="form-control" required placeholder="e.g. 2026/BTC/042">
+                </div>
+                <div class="form-group">
+                    <label for="student_name">Full System Name *</label>
+                    <input type="text" id="student_name" name="name" class="form-control" required placeholder="e.g. Laban Omenyo">
+                </div>
+                <div class="form-group full-width">
+                    <label for="student_email">User Delivery Email *</label>
+                    <input type="email" id="student_email" name="email" class="form-control" required placeholder="studentname@gmail.com">
+                </div>
+
+                <!-- Course & Stream -->
+                <div class="form-group">
+                    <label for="student_course">Track Course Allocation *</label>
+                    <select id="student_course" name="course" class="form-control" required>
+                        <option value="" disabled selected>Select Target Course Code...</option>
+                        {% for course in active_courses_list %}
+                            <option value="{{ course.code }}">{{ course.code }} - {{ course.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="student_stream">Specific Academic Stream *</label>
+                    <select id="student_stream" name="stream" class="form-control" required>
+                        <option value="" disabled selected>Select Stream Assignment...</option>
+                        {% for stream in active_streams_list %}
+                            <option value="{{ stream.id }}">{{ stream.name }} ({{ stream.course.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+
+
+                <!-- Entry Year -->
+                <div class="form-group">
+                    <label for="academic_year">Entry Year *</label>
+                    <select id="academic_year" name="academic_year" class="form-control" required>
+                        <option value="" disabled selected>Select Entry Year...</option>
+                        {% for year in entry_years %}
+                            <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>
+                                {{ year }} {% if year == current_year %}(Current Year){% endif %}
+                            </option>
+                        {% endfor %}
+                        {% if academic_years %}
+                            <optgroup label="Registered Academic Years">
+                                {% for ay in academic_years %}
+                                    <option value="{{ ay.id }}">{{ ay.name }} {% if ay.is_active %}(Active Year){% endif %}</option>
+                                {% endfor %}
+                            </optgroup>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- Optional Structure Attributes -->
+                <div class="form-group">
+                    <label for="term">Term Structure</label>
+                    <select id="term" name="term" class="form-control">
+                        <option value="">Select Term Structure (Optional)...</option>
+                        {% for t in terms %}
+                            <option value="{{ t.id }}">{{ t.get_name_display }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="semester">Semester Structure</label>
+                    <select id="semester" name="semester" class="form-control">
+                        <option value="">Select Semester Structure (Optional)...</option>
+                        {% for sem in semesters %}
+                            <option value="{{ sem.id }}">{{ sem.get_name_display }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="intake">Intake Month</label>
+                    <select id="intake" name="intake" class="form-control">
+                        <option value="">Select Intake (Optional)...</option>
+                        {% for intake in intakes %}
+                            <option value="{{ intake.id }}">{{ intake.get_name_display|default:intake.name|default:intake }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Bio Data & Classification -->
+                <div class="form-group">
+                    <label for="gender">Gender Choice</label>
+                    <select id="gender" name="gender" class="form-control">
+                        <option value="">Select Gender...</option>
+                        {% for key, label in gender_choices %}
+                            <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="date_of_birth">Date of Birth</label>
+                    <input type="date" id="date_of_birth" name="date_of_birth" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="billing_category">Billing Category</label>
+                    <input type="text" id="billing_category" name="billing_category" class="form-control" placeholder="e.g. Standard, Private">
+                </div>
+                <div class="form-group">
+                    <label for="sponsorship">Sponsorship</label>
+                    <input type="text" id="sponsorship" name="sponsorship" class="form-control" placeholder="e.g. Government, Self-Sponsored">
+                </div>
+                <div class="form-group full-width">
+                    <label for="academic_status">Academic Status</label>
+                    <select id="academic_status" name="academic_status" class="form-control">
+                        <option value="ACTIVE" selected>Active</option>
+                        <option value="SUSPENDED">Suspended</option>
+                        <option value="PROBATION">Probation</option>
+                        <option value="GRADUATED">Graduated</option>
+                    </select>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="student_name">Full System Structural Name</label>
-                <input type="text" id="student_name" name="name" class="form-control" required placeholder="e.g. Laban Omenyo">
-            </div>
-            <div class="form-group">
-                <label for="student_email">User Delivery Email</label>
-                <input type="email" id="student_email" name="email" class="form-control" required placeholder="studentname@gmail.com">
-            </div>
-            <div class="form-group">
-                <label for="student_course">Track Course Allocation</label>
-                <select id="student_course" name="course" class="form-control" required>
-                    <option value="" disabled selected>Select Target Course Code...</option>
-                    {% for course in active_courses_list %}
-                        <option value="{{ course.code }}">{{ course.code }} - {{ course.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="student_stream">Specific Academic Stream</label>
-                <select id="student_stream" name="stream" class="form-control">
-                    <option value="" selected>Select Stream Assignment (Optional)...</option>
-                    {% for stream in active_streams_list %}
-                        <option value="{{ stream.id }}">{{ stream.name }} ({{ stream.course.code }})</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div style="display:flex; gap:0.75rem; margin-top:2rem;">
+
+            <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
                 <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
                 <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Register Student</button>
             </div>
@@ -304,7 +442,6 @@
 </div>
 
 <script>
-    // --- DROPDOWN ACTION HANDLER ---
     function handleStudentAction(selectElement, editUrl, deleteUrl) {
         const action = selectElement.value;
         if (action === 'edit') {
@@ -314,11 +451,10 @@
                 window.location.href = deleteUrl;
             }
         }
-        selectElement.value = ''; // Reset selection back to "-- Action --"
+        selectElement.value = '';
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Modal Logic Layout
         const modal = document.getElementById('singleAddModal');
         const openBtn = document.getElementById('openModalBtn');
         const closeBtn = document.getElementById('closeModalBtn');
@@ -331,7 +467,6 @@
         if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
         window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
 
-        // Automated Frontend Search Matrix
         const searchInput = document.getElementById('dashboardSearch');
         const dataRows = document.querySelectorAll('.student-row');
         const emptyRow = document.getElementById('searchEmptyRow');

@@ -5,7 +5,6 @@
 {% endblock %}
 
 <style>
-    /* Force form native text visibility across browser dark/light themes */
     select, select option, input, textarea {
         color-scheme: light !important;
         color: #0f172a !important;
@@ -68,7 +67,6 @@
         transform: translateY(-1px);
     }
 
-    /* Modal Context Interface Components */
     .modal {
         display: none;
         position: fixed;
@@ -88,9 +86,11 @@
         background: #fff;
         border-radius: var(--radius-md);
         width: 100%;
-        max-width: 500px;
+        max-width: 550px;
         padding: 2rem;
         box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        max-height: 90vh;
+        overflow-y: auto;
     }
     .form-group {
         margin-bottom: 1.25rem;
@@ -108,6 +108,15 @@
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
         font-family: var(--font);
+    }
+    .fee-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background-color: #f1f5f9;
+        color: #334155;
     }
 </style>
 
@@ -136,10 +145,11 @@
     <table class="table">
         <thead>
             <tr>
-                <th style="width:180px;">Course Index Code</th>
-                <th>Full Program Framework Title Description</th>
+                <th style="width:140px;">Course Code</th>
+                <th>Program Framework Title</th>
                 <th>Department</th>
-                <th>Subordinated Structure Modules</th>
+                <th>Billing Structure {% if active_term %}({{ active_term }}){% endif %}</th>
+                <th>Modules</th>
                 <th style="text-align: right;">Execution Parameters</th>
             </tr>
         </thead>
@@ -156,12 +166,18 @@
                     {% endif %}
                 </td>
                 <td>
+                    <div style="font-size: 0.85rem;">
+                        <div><strong>Tuition:</strong> UGX {{ course.billing.tuition|floatformat:2 }}</div>
+                        <div><strong>Functional:</strong> UGX {{ course.billing.functional|floatformat:2 }}</div>
+                        <div class="fee-badge" style="margin-top: 2px;">Total: UGX {{ course.billing.total|floatformat:2 }}</div>
+                    </div>
+                </td>
+                <td>
                     <a href="{% url 'attendance:manage_course_units' %}?filter_course={{ course.code }}" class="unit-navigation-link">
                         <i class="fas fa-cubes"></i> View Units ({{ course.units.count }})
                     </a>
                 </td>
                 <td style="text-align: right;">
-                    <!-- ACTION DROPDOWN SELECT -->
                     <select onchange="handleAction(this, '{% url 'attendance:edit_course' course.pk %}', '{% url 'attendance:delete_course' course.pk %}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
                         <option value="">-- Action --</option>
                         <option value="edit">Edit</option>
@@ -171,14 +187,14 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-graduation-cap" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No educational program tracks registered.
                 </td>
             </tr>
             {% endfor %}
             <tr id="searchEmptyRow" style="display: none;">
-                <td colspan="5" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No matching program tracks discovered for your filter criteria.
                 </td>
@@ -213,6 +229,22 @@
                     {% endfor %}
                 </select>
             </div>
+
+            <!-- Billing Structure Fields -->
+            <div style="border-top: 1px solid var(--border); margin-top: 1.5rem; padding-top: 1rem;">
+                <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--text-main);">
+                    Billing Structure {% if active_term %}({{ active_term }}){% endif %}
+                </h4>
+                <div class="form-group">
+                    <label for="tuition_fee">Tuition Fee Amount</label>
+                    <input type="number" step="0.01" id="tuition_fee" name="tuition_fee" class="form-control" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="functional_fee">Functional Fee Amount</label>
+                    <input type="number" step="0.01" id="functional_fee" name="functional_fee" class="form-control" placeholder="0.00">
+                </div>
+            </div>
+
             <div style="display:flex; gap:0.75rem; margin-top:2rem;">
                 <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
                 <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Confirm & Build</button>
@@ -224,7 +256,6 @@
 <script>
     function handleAction(selectElement, editUrl, deleteUrl) {
         const action = selectElement.value;
-
         if (action === 'edit') {
             window.location.href = editUrl;
         } else if (action === 'delete') {
@@ -232,8 +263,6 @@
                 window.location.href = deleteUrl;
             }
         }
-
-        // Reset dropdown back to default "-- Action --"
         selectElement.value = '';
     }
 
@@ -250,7 +279,6 @@
         if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
         window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
 
-        // Automated Frontend Search Matrix
         const searchInput = document.getElementById('dashboardSearch');
         const dataRows = document.querySelectorAll('.course-row');
         const emptyRow = document.getElementById('searchEmptyRow');

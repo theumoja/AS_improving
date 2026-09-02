@@ -7,7 +7,6 @@
 {% endblock %}
 
 <style>
-    /* ===== Variables & Reset ===== */
     :root {
         --primary: #2563eb;
         --primary-dark: #1d4ed8;
@@ -67,14 +66,6 @@
     .btn-outline:hover {
         background: #eff6ff;
         box-shadow: none;
-    }
-    .btn-danger-outline {
-        background: var(--white);
-        color: #dc2626;
-        border: 1px solid #dc2626;
-    }
-    .btn-danger-outline:hover {
-        background: #fef2f2;
     }
 
     .search-box {
@@ -243,7 +234,6 @@
         }
     }
 
-    /* ===== Custom Modal ===== */
     .modal {
         display: none;
         position: fixed;
@@ -332,19 +322,10 @@
         justify-content: center;
     }
 
-    /* ===== Utilities ===== */
-    .text-muted {
-        color: var(--text-muted);
-    }
-    .mt-2 { margin-top: 0.5rem; }
-    .mb-2 { margin-bottom: 0.5rem; }
-    .mb-1 { margin-bottom: 0.25rem; }
-    .me-1 { margin-right: 0.25rem; }
+    .text-muted { color: var(--text-muted); }
     .me-2 { margin-right: 0.5rem; }
-    .fw-bold { font-weight: 700; }
     .d-flex { display: flex; }
     .align-center { align-items: center; }
-    .gap-1 { gap: 0.5rem; }
     .gap-2 { gap: 1rem; }
     .flex-wrap { flex-wrap: wrap; }
 </style>
@@ -388,7 +369,7 @@
     <div class="card">
         <div class="card-header">
             <span><i class="fas fa-database me-2"></i> Metadata Categories</span>
-            <span class="badge">{{ categories.count }}</span>
+            <span class="badge">{{ categories|length }}</span>
         </div>
         <div style="padding:0;">
             <table class="table" id="categoryTable">
@@ -401,7 +382,7 @@
                 </thead>
                 <tbody id="categoryTableBody">
                     {% for cat in categories %}
-                    <tr class="{% if selected_category and cat.id == selected_category.id %}active{% endif %}" data-category-id="{{ cat.id }}">
+                    <tr class="{% if selected_category and cat.key == selected_category.key %}active{% endif %}">
                         <td>{{ forloop.counter }}</td>
                         <td>
                             <a href="{% url 'attendance:metadata_management' cat.key %}" class="category-link">
@@ -409,7 +390,7 @@
                                 {{ cat.display_name }}
                             </a>
                         </td>
-                        <td><span class="badge-type">User Defined</span></td>
+                        <td><span class="badge-type">System Model</span></td>
                     </tr>
                     {% empty %}
                     <tr>
@@ -417,7 +398,6 @@
                             <div class="empty-state">
                                 <i class="fas fa-inbox"></i>
                                 <p>No metadata categories found</p>
-                                <small>Click "Sync" to populate from models</small>
                             </div>
                         </td>
                     </tr>
@@ -432,10 +412,6 @@
                     </tr>
                 </tbody>
             </table>
-            <!-- Pagination placeholder (if needed) -->
-            <div style="padding: 0.75rem 1rem; border-top: 1px solid var(--border); display: flex; justify-content: center; gap: 0.25rem;">
-                <span class="text-muted small">Page 1 of 1</span>
-            </div>
         </div>
     </div>
 
@@ -461,10 +437,9 @@
                 <thead>
                     <tr>
                         <th style="width:40px;">#</th>
-                        <th>Value</th>
+                        <th>Value / Code</th>
                         <th>Display Name</th>
                         <th>Description</th>
-                        <th>Created</th>
                         <th style="text-align:right; width:150px;">Actions</th>
                     </tr>
                 </thead>
@@ -473,19 +448,21 @@
                         {% for item in values %}
                         <tr>
                             <td>{{ forloop.counter }}</td>
-                            <td><code class="bg-light px-2 py-1 rounded" style="background:#f1f5f9; padding:0.2rem 0.5rem; border-radius:4px;">{{ item.value }}</code></td>
+                            <td>
+                                <code style="background:#f1f5f9; padding:0.2rem 0.5rem; border-radius:4px;">
+                                    {{ item.code|default:item.value }}
+                                </code>
+                            </td>
                             <td><strong>{{ item.display_name }}</strong></td>
                             <td>{{ item.description|truncatewords:5|default:"-" }}</td>
-                            <td>{{ item.created_at|date:"M d, Y" }}</td>
                             <td style="text-align:right;">
-                                <button class="action-btn action-btn-edit" onclick="openEditValueModal('{{ item.id }}', '{{ item.display_name|escapejs }}', '{{ item.description|escapejs }}')">
+                                <button class="action-btn action-btn-edit" onclick="openEditValueModal('{{ item.id }}', '{{ item.raw_name|escapejs }}', '{{ item.description|escapejs }}', '{{ item.code|escapejs }}')">
                                     <i class="fas fa-edit"></i> Edit
                                 </button>
-                                <form method="post" style="display:inline;" onsubmit="return confirm('Delete this value permanently?');">
+                                <form method="post" style="display:inline;" onsubmit="return confirm('Delete this record permanently?');">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="delete_value">
                                     <input type="hidden" name="value_id" value="{{ item.id }}">
-                                    <input type="hidden" name="redirect_category_id" value="{{ selected_category.id|default:'' }}">
                                     <button type="submit" class="action-btn action-btn-delete">
                                         <i class="fas fa-trash"></i> Delete
                                     </button>
@@ -494,12 +471,12 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6">
+                            <td colspan="5">
                                 <div class="empty-state">
                                     <i class="fas fa-inbox"></i>
-                                    <p>No values found for {{ selected_category.display_name }}</p>
+                                    <p>No records found for {{ selected_category.display_name }}</p>
                                     <button class="btn" id="addValueModalOpenBtnInside" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); font-size:0.85rem; padding:0.4rem 1rem; margin-top:0.5rem;">
-                                        <i class="fas fa-plus"></i> Add First Value
+                                        <i class="fas fa-plus"></i> Add First Record
                                     </button>
                                 </div>
                             </td>
@@ -507,7 +484,7 @@
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="6">
+                            <td colspan="5">
                                 <div class="empty-state">
                                     <i class="fas fa-mouse-pointer" style="font-size:3rem;"></i>
                                     <p>Select a category from the left panel to view its values.</p>
@@ -516,7 +493,7 @@
                         </tr>
                     {% endif %}
                     <tr id="valueEmptyRow" style="display:none;">
-                        <td colspan="6">
+                        <td colspan="5">
                             <div class="empty-state">
                                 <i class="fas fa-search"></i>
                                 <p>No matching values</p>
@@ -525,10 +502,6 @@
                     </tr>
                 </tbody>
             </table>
-            <!-- Pagination placeholder -->
-            <div style="padding: 0.75rem 1rem; border-top: 1px solid var(--border); display: flex; justify-content: center; gap: 0.25rem;">
-                <span class="text-muted small">Page 1 of 1</span>
-            </div>
         </div>
     </div>
 </div>
@@ -536,70 +509,48 @@
 <!-- ============================================= -->
 <!-- ====== MODALS ====== -->
 
-<!-- ADD CATEGORY MODAL -->
-<div class="modal" id="addCategoryModal">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h3><i class="fas fa-folder-plus"></i> Add Metadata Category</h3>
-            <button class="modal-close" data-modal-close="addCategoryModal"><i class="fas fa-times"></i></button>
-        </div>
-        <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="add_category">
-            <!-- Always include redirect_category_id, even if empty -->
-            <input type="hidden" name="redirect_category_id" value="{{ selected_category.id|default:'' }}">
-
-            <div class="form-group">
-                <label for="cat_name">System Name (Unique) <span class="text-muted">*</span></label>
-                <input type="text" id="cat_name" name="name" class="form-control" placeholder="e.g., ACADEMIC_YEARS" required>
-                <small class="text-muted">Use uppercase with underscores</small>
-            </div>
-            <div class="form-group">
-                <label for="cat_display">Display Name <span class="text-muted">*</span></label>
-                <input type="text" id="cat_display" name="display_name" class="form-control" placeholder="e.g., Academic Years" required>
-            </div>
-
-            <div class="form-actions">
-                <button type="button" class="btn btn-outline" data-modal-close="addCategoryModal">Cancel</button>
-                <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
-                    <i class="fas fa-save"></i> Save Category
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <!-- ADD VALUE MODAL -->
 {% if selected_category %}
 <div class="modal" id="addValueModal">
     <div class="modal-card">
         <div class="modal-header">
-            <h3><i class="fas fa-plus-circle"></i> Add Value to {{ selected_category.display_name }}</h3>
+            <h3><i class="fas fa-plus-circle"></i> Add Item to {{ selected_category.display_name }}</h3>
             <button class="modal-close" data-modal-close="addValueModal"><i class="fas fa-times"></i></button>
         </div>
         <form method="post">
             {% csrf_token %}
             <input type="hidden" name="action" value="add_value">
-            <input type="hidden" name="category_id" value="{{ selected_category.id }}">
-            <input type="hidden" name="redirect_category_id" value="{{ selected_category.id }}">
 
+            <!-- Dynamic Input based on Choice Options (e.g. Month choices for Intake) -->
+            {% if choice_options %}
             <div class="form-group">
-                <label for="val_value">Value (System Identifier) <span class="text-muted">*</span></label>
-                <input type="text" id="val_value" name="value" class="form-control" placeholder="e.g., 2024/2025" required>
+                <label for="val_display">Select {{ selected_category.display_name }} Option <span class="text-muted">*</span></label>
+                <select id="val_display" name="display_name" class="form-control" required>
+                    <option value="">-- Choose Option --</option>
+                    {% for key, label in choice_options %}
+                        <option value="{{ key }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
             </div>
+            {% else %}
             <div class="form-group">
-                <label for="val_display">Display Name <span class="text-muted">*</span></label>
-                <input type="text" id="val_display" name="display_name" class="form-control" placeholder="e.g., Academic Year 2024/2025" required>
+                <label for="val_display">Name / Display Value <span class="text-muted">*</span></label>
+                <input type="text" id="val_display" name="display_name" class="form-control" placeholder="e.g., Computer Science" required>
             </div>
+            {% endif %}
+
+            <!-- Dynamic Code Field -->
+            {% if has_code_field %}
             <div class="form-group">
-                <label for="val_desc">Description</label>
-                <textarea id="val_desc" name="description" class="form-control" rows="3" placeholder="Optional description..."></textarea>
+                <label for="val_code">Code</label>
+                <input type="text" id="val_code" name="code" class="form-control" placeholder="e.g., CS101">
             </div>
+            {% endif %}
 
             <div class="form-actions">
                 <button type="button" class="btn btn-outline" data-modal-close="addValueModal">Cancel</button>
                 <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
-                    <i class="fas fa-save"></i> Save Value
+                    <i class="fas fa-save"></i> Save Record
                 </button>
             </div>
         </form>
@@ -607,60 +558,46 @@
 </div>
 {% endif %}
 
-<!-- EDIT VALUE MODAL (dynamic) -->
+<!-- EDIT VALUE MODAL -->
 <div class="modal" id="editValueModal">
     <div class="modal-card">
         <div class="modal-header">
-            <h3><i class="fas fa-edit"></i> Edit Metadata Value</h3>
+            <h3><i class="fas fa-edit"></i> Edit {{ selected_category.display_name }} Item</h3>
             <button class="modal-close" data-modal-close="editValueModal"><i class="fas fa-times"></i></button>
         </div>
         <form method="post" id="editValueForm">
             {% csrf_token %}
             <input type="hidden" name="action" value="edit_value">
             <input type="hidden" name="value_id" id="edit_value_id">
-            <input type="hidden" name="redirect_category_id" value="{{ selected_category.id|default:'' }}">
 
+            {% if choice_options %}
             <div class="form-group">
-                <label for="edit_display_name">Display Name <span class="text-muted">*</span></label>
+                <label for="edit_display_name">Select {{ selected_category.display_name }} Option <span class="text-muted">*</span></label>
+                <select id="edit_display_name" name="display_name" class="form-control" required>
+                    <option value="">-- Choose Option --</option>
+                    {% for key, label in choice_options %}
+                        <option value="{{ key }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% else %}
+            <div class="form-group">
+                <label for="edit_display_name">Name / Display Value <span class="text-muted">*</span></label>
                 <input type="text" id="edit_display_name" name="display_name" class="form-control" required>
             </div>
+            {% endif %}
+
+            {% if has_code_field %}
             <div class="form-group">
-                <label for="edit_description">Description</label>
-                <textarea id="edit_description" name="description" class="form-control" rows="3"></textarea>
+                <label for="edit_code">Code</label>
+                <input type="text" id="edit_code" name="code" class="form-control">
             </div>
+            {% endif %}
 
             <div class="form-actions">
                 <button type="button" class="btn btn-outline" data-modal-close="editValueModal">Cancel</button>
                 <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
-                    <i class="fas fa-save"></i> Update Value
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- SYNC MODAL -->
-<div class="modal" id="syncModal">
-    <div class="modal-card" style="max-width:450px;">
-        <div class="modal-header">
-            <h3><i class="fas fa-sync-alt"></i> Sync Metadata</h3>
-            <button class="modal-close" data-modal-close="syncModal"><i class="fas fa-times"></i></button>
-        </div>
-        <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="sync_models">
-            <input type="hidden" name="redirect_category_id" value="{{ selected_category.id|default:'' }}">
-
-            <div style="text-align:center; padding:1rem 0;">
-                <i class="fas fa-database" style="font-size:3rem; color:var(--primary); margin-bottom:1rem;"></i>
-                <p>This will scan your Django models and create missing metadata categories.</p>
-                <p class="text-muted small">Existing categories will not be duplicated.</p>
-            </div>
-
-            <div class="form-actions">
-                <button type="button" class="btn btn-outline" data-modal-close="syncModal">Cancel</button>
-                <button type="submit" class="btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
-                    <i class="fas fa-sync"></i> Sync Now
+                    <i class="fas fa-save"></i> Update Record
                 </button>
             </div>
         </form>
@@ -671,8 +608,6 @@
 <!-- ====== JAVASCRIPT ====== -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-
-        // ---- Modal Helpers ----
         const modals = document.querySelectorAll('.modal');
         function openModal(id) {
             const modal = document.getElementById(id);
@@ -682,29 +617,20 @@
             const modal = document.getElementById(id);
             if (modal) modal.classList.remove('active');
         }
-        // Attach close triggers to all [data-modal-close]
+        
         document.querySelectorAll('[data-modal-close]').forEach(el => {
-            el.addEventListener('click', function(e) {
+            el.addEventListener('click', function() {
                 const targetId = this.getAttribute('data-modal-close');
                 closeModal(targetId);
             });
         });
-        // Click outside modal to close
+
         modals.forEach(modal => {
             modal.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.classList.remove('active');
-                }
+                if (e.target === this) this.classList.remove('active');
             });
         });
 
-        // ---- Open buttons ----
-        document.getElementById('syncModalOpenBtn').addEventListener('click', function() {
-            openModal('syncModal');
-        });
-        document.getElementById('addCategoryModalOpenBtn').addEventListener('click', function() {
-            openModal('addCategoryModal');
-        });
         const addValBtn = document.getElementById('addValueModalOpenBtn');
         if (addValBtn) {
             addValBtn.addEventListener('click', function() {
@@ -718,72 +644,43 @@
             });
         }
 
-        // ---- Edit Value Modal ----
-        window.openEditValueModal = function(id, displayName, description) {
+        window.openEditValueModal = function(id, rawName, description, code) {
             document.getElementById('edit_value_id').value = id;
-            document.getElementById('edit_display_name').value = displayName;
-            document.getElementById('edit_description').value = description || '';
+            
+            const nameElem = document.getElementById('edit_display_name');
+            if (nameElem) nameElem.value = rawName;
+            
+            const codeElem = document.getElementById('edit_code');
+            if (codeElem) codeElem.value = code || '';
+
             openModal('editValueModal');
         };
 
-        // ---- Search: Categories ----
+        // Search Category
         const catSearch = document.getElementById('categorySearch');
         const catRows = document.querySelectorAll('#categoryTableBody tr');
-        const catEmpty = document.getElementById('categoryEmptyRow');
         if (catSearch) {
             catSearch.addEventListener('input', function() {
                 const term = this.value.toLowerCase().trim();
-                let visible = 0;
                 catRows.forEach(row => {
                     if (row.id === 'categoryEmptyRow') return;
-                    const text = row.textContent.toLowerCase();
-                    if (text.includes(term)) {
-                        row.style.display = '';
-                        visible++;
-                    } else {
-                        row.style.display = 'none';
-                    }
+                    row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
                 });
-                if (catEmpty) {
-                    catEmpty.style.display = (visible === 0 && catRows.length > 1) ? '' : 'none';
-                }
             });
         }
 
-        // ---- Search: Values ----
+        // Search Values
         const valSearch = document.getElementById('valueSearch');
         const valRows = document.querySelectorAll('#valueTableBody tr');
-        const valEmpty = document.getElementById('valueEmptyRow');
         if (valSearch) {
             valSearch.addEventListener('input', function() {
                 const term = this.value.toLowerCase().trim();
-                let visible = 0;
                 valRows.forEach(row => {
                     if (row.id === 'valueEmptyRow') return;
-                    const text = row.textContent.toLowerCase();
-                    if (text.includes(term)) {
-                        row.style.display = '';
-                        visible++;
-                    } else {
-                        row.style.display = 'none';
-                    }
+                    row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
                 });
-                if (valEmpty) {
-                    valEmpty.style.display = (visible === 0 && valRows.length > 1) ? '' : 'none';
-                }
             });
         }
-
-        // ---- Auto-hide alerts ----
-        const alerts = document.querySelectorAll('.alert');
-        alerts.forEach(alert => {
-            setTimeout(() => {
-                alert.style.transition = 'opacity 0.5s';
-                alert.style.opacity = '0';
-                setTimeout(() => alert.remove(), 500);
-            }, 5000);
-        });
-
     });
 </script>
 {% endblock %}
