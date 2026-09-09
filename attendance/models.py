@@ -14,6 +14,28 @@ class User(AbstractUser):
     IS_ACCOUNTANT = 'ACCOUNTANT'
     IS_REGISTRAR = 'REGISTRAR'
     IS_PARENT = 'PARENT'
+    IS_DEAN = 'DEAN'
+    IS_HOD = 'HOD'
+    # ---- Added to cover every role found in the 'GROUP USERS - STAFF PORTAL' export ----
+    IS_SYSTEM_SUPPORT = 'SYSTEM_SUPPORT'
+    IS_SYSTEM_ADMIN = 'SYSTEM_ADMIN'
+    IS_FINANCE = 'FINANCE'
+    IS_POINT_OF_SERVICE = 'POINT_OF_SERVICE'
+    IS_ASSISTANT_REGISTRAR = 'ASSISTANT_REGISTRAR'
+    IS_PRINCIPAL = 'PRINCIPAL'
+
+    TITLE_CHOICES = [
+        ('MR.', 'Mr.'),
+        ('MRS.', 'Mrs.'),
+        ('MISS', 'Miss'),
+        ('DR.', 'Dr.'),
+        ('ENG.', 'Eng.'),
+        ('PROF.', 'Prof.'),
+    ]
+    title = models.CharField(max_length=10, choices=TITLE_CHOICES, blank=True, null=True)
+    surname = models.CharField(max_length=100, blank=True, null=True)
+    other_names = models.CharField(max_length=150, blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
 
     ROLE_CHOICES = [
         (IS_ADMIN, 'Admin'),
@@ -23,9 +45,147 @@ class User(AbstractUser):
         (IS_LIBRARIAN, 'Librarian'),
         (IS_ACCOUNTANT, 'Accountant'),
         (IS_REGISTRAR, 'Academic Registrar'),
+        (IS_DEAN, 'Dean of Students'),
+        (IS_HOD, 'Head of Department'),
         (IS_PARENT, 'Parent'),
+        # ---- Added: seen in the Group Users export's 'Role(s)' column ----
+        (IS_SYSTEM_SUPPORT, 'System Support'),
+        (IS_SYSTEM_ADMIN, 'System Administrator'),
+        (IS_FINANCE, 'Finance'),
+        (IS_POINT_OF_SERVICE, 'Point of Service'),
+        (IS_ASSISTANT_REGISTRAR, 'Assistant Academic Registrar'),
+        (IS_PRINCIPAL, 'Principal'),
     ]
-    role = models.CharField(max_length=15, choices=ROLE_CHOICES, default=IS_STUDENT)
+    role = models.CharField(
+        max_length=25, choices=ROLE_CHOICES, default=IS_STUDENT,
+        help_text="Primary/default role, used by existing limit_choices_to checks elsewhere in this file. "
+                   "A staff member with several roles (e.g. 'System Administrator; Academic Registrar; "
+                   "Finance; Lecturer; HOD') has every one of them recorded in StaffRole below — "
+                   "this field alone cannot hold more than one."
+    )
+    is_verified = models.BooleanField(
+        default=False,
+        help_text="Maps to the 'Verified' Yes/No column in the Group Users export."
+    )
+
+    def get_all_roles(self):
+        """All roles held by this user: the primary `role` plus every StaffRole entry, deduplicated."""
+        extra = list(self.staff_roles.values_list('role', flat=True))
+        return list(dict.fromkeys([self.role, *extra]))
+
+
+class StaffRole(models.Model):
+    """
+    A single role assignment for a staff user. Exists because the 'GROUP USERS - STAFF PORTAL'
+    export lists multiple, semicolon-separated roles per person (e.g. 'System Administrator;
+    Academic Registrar; Finance; Lecturer; HOD'), which a single CharField on User cannot hold
+    without losing data. Import each entry from 'Role(s)' as one row here; leave a user with
+    no roles listed (shown as '-' in the export) without any rows.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='staff_roles')
+    role = models.CharField(max_length=25, choices=User.ROLE_CHOICES)
+
+    class Meta:
+        unique_together = ('user', 'role')
+        verbose_name = "Staff Role"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_role_display()}"
+
+
+class StudentProfile(models.Model):
+    GENDER_CHOICES = [
+        ('MALE', 'Male'),
+        ('FEMALE', 'Female'),
+    ]
+
+    reg_number = models.CharField(max_length=50, primary_key=True)
+    student_number = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    user = models.OneToOneField('User', on_delete=models.CASCADE, related_name='student_profile')
+    
+    surname = models.CharField(max_length=100, blank=True, null=True)
+    first_name = models.CharField(max_length=100, blank=True, null=True)
+    other_names = models.CharField(max_length=100, blank=True, null=True)
+    
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    nin = models.CharField(max_length=20, blank=True, null=True, verbose_name="NIN / National ID")
+    nationality = models.CharField(max_length=50, default='Ugandan', blank=True, null=True)
+    district_of_origin = models.CharField(max_length=100, blank=True, null=True)
+    
+    campus = models.ForeignKey('Campus', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='students')
+    stream = models.ForeignKey('Stream', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    year_of_study = models.PositiveIntegerField(default=1)
+    
+    entry_academic_year = models.ForeignKey('AcademicYear', on_delete=models.SET_NULL, null=True, blank=True, related_name='entered_students')
+    academic_year = models.ForeignKey('AcademicYear', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    term = models.ForeignKey('Term', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    semester = models.ForeignKey('Semester', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    intake = models.ForeignKey('Intake', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+
+    date_of_birth = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
+    is_blocked = models.BooleanField(default=False)
+    academic_status = models.CharField(max_length=50, default='ACTIVE', blank=True, null=True)
+    billing_category = models.CharField(max_length=50, blank=True, null=True)
+    sponsorship = models.CharField(max_length=50, blank=True, null=True, help_text="Legacy free-text sponsorship note (manual entry).")
+
+    SPONSORSHIP_TYPE_CHOICES = [
+        ('GOVERNMENT', 'Government'),
+        ('PRIVATE', 'Private'),
+    ]
+    sponsorship_type = models.CharField(
+        max_length=20, choices=SPONSORSHIP_TYPE_CHOICES, blank=True, null=True,
+        help_text="From the HEMIS export. NOTE: in the 'ENROLLMENT AND REGISTRATION REPORT' "
+                   "template this value is exported under the mislabelled 'DATE OF BIRTH' column."
+    )
+    sponsorship_scheme = models.CharField(
+        max_length=100, blank=True, null=True,
+        help_text="e.g. 'GOVERNMENT SPONSORSHIP'. NOTE: in the HEMIS export this value is "
+                   "exported under the mislabelled 'DISTRICT' column, not the student's real district."
+    )
+
+    PROGRAMME_TYPE_CHOICES = [
+        ('DAY', 'Day'),
+        ('WEEKEND', 'Weekend'),
+        ('EVENING', 'Evening'),
+    ]
+    programme_type = models.CharField(
+        max_length=20, choices=PROGRAMME_TYPE_CHOICES, blank=True, null=True,
+        help_text="Maps to 'PROGRAMME TYPE' column, e.g. DAY / WEEKEND."
+    )
+
+    # ---- Enrollment (per HEMIS 'IS ENROLLED' / 'ENROLLMENT ...' columns) ----
+    is_enrolled = models.BooleanField(default=False)
+    enrollment_token = models.CharField(max_length=100, blank=True, null=True, help_text="e.g. 'ENR1712688936'")
+    enrollment_condition = models.CharField(max_length=100, blank=True, null=True, help_text="e.g. 'EARLY ENROLLMENT' / 'LATE ENROLLMENT'")
+
+    # ---- Registration (per HEMIS 'IS REGISTERED' / 'REGISTRATION ...' columns) ----
+    is_registered = models.BooleanField(default=False)
+    registration_type = models.CharField(max_length=100, blank=True, null=True, help_text="e.g. 'FULL REGISTRATION' / 'PROVISIONAL REGISTRATION'")
+    registration_status = models.CharField(max_length=100, blank=True, null=True, help_text="e.g. 'REGISTERED' / 'NOT REGISTERED'")
+    provisional_registration_type = models.CharField(max_length=100, blank=True, null=True)
+    registration_condition = models.CharField(max_length=100, blank=True, null=True, help_text="e.g. 'EARLY REGISTRATION' / 'LATE REGISTRATION'")
+
+    residence_status = models.CharField(max_length=50, blank=True, null=True, help_text="e.g. Resident / Non-Resident")
+    hostel = models.ForeignKey('Hostel', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
+    
+    next_of_kin_name = models.CharField(max_length=255, blank=True, null=True)
+    next_of_kin_phone = models.CharField(max_length=20, blank=True, null=True)
+    next_of_kin_relationship = models.CharField(max_length=50, blank=True, null=True)
+
+    uce_index_number = models.CharField(max_length=50, blank=True, null=True)
+    uace_index_number = models.CharField(max_length=50, blank=True, null=True)
+
+    @property
+    def name(self):
+        """Resolves AttributeError across other models relying on self.student.name"""
+        parts = [self.surname, self.first_name, self.other_names]
+        return " ".join([p for p in parts if p]).strip() or self.reg_number
+
+    def __str__(self):
+        return f"{self.reg_number} - {self.name}"
 
 
 # ==================== INSTITUTION & ACADEMIC STRUCTURE ====================
@@ -82,6 +242,12 @@ class AcademicTerm(models.Model):
         ('TERM_2', 'Term 2'),
         ('TERM_3', 'Term 3'),
         ('RECESS', 'Recess Term'),
+        # ---- Added: the ENROLLMENT AND REGISTRATION REPORT's fee columns are tied to a
+        # 'SEMESTER I/II' period, not a 'TERM 1/2/3' one. Without these, StudentTermFee /
+        # TuitionAmount / FunctionalFee (which all key off AcademicTerm) have no correct
+        # value to store for a semester-based programme. ----
+        ('SEMESTER_1', 'Semester 1'),
+        ('SEMESTER_2', 'Semester 2'),
     ]
     academic_year = models.CharField(max_length=9, help_text="E.g., 2025/2026")
     term = models.CharField(max_length=10, choices=TERM_CHOICES)
@@ -111,17 +277,84 @@ class AcademicTerm(models.Model):
 
 class Department(models.Model):
     faculty = models.ForeignKey(Faculty, on_delete=models.SET_NULL, null=True, blank=True, related_name='departments')
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255, unique=True, help_text="Maps to 'PARENT DEPARTMENT' in the COURSE-UNIT-REPORT / 'department_title' in the ALL_Programmes export.")
+    code = models.CharField(max_length=20, unique=True, blank=True, null=True, help_text="Maps to 'DEPARTMENT CODE', e.g. DME, DCE, DEE, DCR, ICT. / 'department_code' in the ALL_Programmes export.")
     hod = models.ForeignKey('TeacherProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='headed_departments')
+    source_department_id = models.CharField(
+        max_length=20, blank=True, null=True,
+        help_text="Maps to 'department_id' in the ALL_Programmes export (the source system's internal id for this department)."
+    )
 
     def __str__(self):
         return self.name
 
 
 class Course(models.Model):
-    code = models.CharField(max_length=20, primary_key=True)
-    name = models.CharField(max_length=255)
+    """Represents a programme. 'Course' here is the institution's HEMIS/NCHE 'Programme'
+    (e.g. 'NATIONAL DIPLOMA IN CIVIL ENGINEERING') — matches 'programme_code'/'programme_title'
+    in the ALL_Programmes export, not an individual taught unit (see CourseUnit for those)."""
+
+    # ---- Fields from the ALL_Programmes export ----
+    APPROVAL_STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    ]
+    STUDY_LEVEL_CHOICES = [
+        ('CERTIFICATE', 'Certificate'),
+        ('DIPLOMA', 'Diploma'),
+        ('HIGHER DIPLOMA', 'Higher Diploma'),
+        ('DEGREE', 'Degree'),
+    ]
+
+    code = models.CharField(max_length=20, primary_key=True, help_text="Maps to 'programme_code'.")
+    name = models.CharField(max_length=255, help_text="Maps to 'programme_title'.")
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='courses')
+
+    is_modular = models.BooleanField(
+        default=False,
+        help_text="Maps to 'is_modular' - whether the programme can be taken/enrolled module-by-module rather than as a full programme."
+    )
+    create_approval_status = models.CharField(
+        max_length=20, choices=APPROVAL_STATUS_CHOICES, default='PENDING',
+        help_text="Maps to 'create_approval_status' - approval state of this programme record in the source system."
+    )
+    duration_measure = models.CharField(
+        max_length=20, default='YEAR', blank=True, null=True,
+        help_text="Maps to 'duration_measure', e.g. YEAR. The unit that ProgrammeSetting.duration_years is counted in."
+    )
+    duration_measure_source_id = models.CharField(
+        max_length=20, blank=True, null=True,
+        help_text="Maps to 'duration_measure_id' - the source system's internal lookup id for duration_measure."
+    )
+    duration_measure_label = models.CharField(
+        max_length=50, blank=True, null=True,
+        help_text="Maps to 'duration_measure_label'. Always blank in the ALL_Programmes export seen so far, kept for forward compatibility."
+    )
+    study_level = models.CharField(
+        max_length=30, choices=STUDY_LEVEL_CHOICES, blank=True, null=True,
+        help_text="Maps to 'study_level', e.g. DIPLOMA, HIGHER DIPLOMA, CERTIFICATE."
+    )
+    study_level_source_id = models.CharField(
+        max_length=20, blank=True, null=True,
+        help_text="Maps to 'programme_study_level_id' - the source system's internal lookup id for study_level."
+    )
+    study_level_label = models.CharField(
+        max_length=50, blank=True, null=True,
+        help_text="Maps to 'study_level_label'. Always blank in the ALL_Programmes export seen so far, kept for forward compatibility."
+    )
+    award = models.CharField(
+        max_length=100, blank=True, null=True,
+        help_text="Maps to 'award' - the qualification awarded on completion. Mirrors study_level in the exports seen so far, but modelled separately since the source treats them as distinct fields."
+    )
+    award_label = models.CharField(
+        max_length=100, blank=True, null=True,
+        help_text="Maps to 'award_label'. Always blank in the ALL_Programmes export seen so far, kept for forward compatibility."
+    )
+    version_title = models.CharField(
+        max_length=100, blank=True, null=True,
+        help_text="Maps to 'version_title' - curriculum version label from the source system, when set."
+    )
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -137,13 +370,29 @@ class Stream(models.Model):
 
 class CourseUnit(models.Model):
     code = models.CharField(max_length=20, primary_key=True)
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, help_text="Maps to 'COURSE TITLE'.")
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='units')
     credit_units = models.PositiveIntegerField(default=3)
+    year_of_study = models.PositiveIntegerField(default=1, blank=True, null=True)
+    semester = models.PositiveIntegerField(default=1, blank=True, null=True)
+    is_core = models.BooleanField(default=True)
+
+    # ---- Fields from the COURSE-UNIT-REPORT template ----
+    department = models.ForeignKey(
+        Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='owned_course_units',
+        help_text="The owning department. Maps to 'DEPARTMENT CODE' / 'PARENT DEPARTMENT'."
+    )
+    serviced_departments = models.ManyToManyField(
+        Department, blank=True, related_name='serviced_course_units',
+        help_text="Other departments this unit is taught to. Maps to 'SERVICED DEPARTMENTS' (comma-separated codes)."
+    )
+    contact_hours = models.PositiveIntegerField(null=True, blank=True)
+    lecture_hours = models.PositiveIntegerField(null=True, blank=True)
+    practical_hours = models.PositiveIntegerField(null=True, blank=True)
+    field_work_hours = models.PositiveIntegerField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.code} - {self.name}"
-
 
 class TeacherProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacher_profile')
@@ -240,77 +489,6 @@ class Intake(models.Model):
 
 # ==================== UPDATED STUDENT PROFILE ====================
 
-class StudentProfile(models.Model):
-    GENDER_CHOICES = [
-        ('MALE', 'Male'),
-        ('FEMALE', 'Female'),
-    ]
-
-    reg_number = models.CharField(max_length=50, primary_key=True)
-    user = models.OneToOneField('User', on_delete=models.CASCADE, related_name='student_profile')
-    name = models.CharField(max_length=255)
-    course = models.ForeignKey('Course', on_delete=models.CASCADE, related_name='students')
-    stream = models.ForeignKey('Stream', on_delete=models.CASCADE, related_name='students')
-    
-    # Optional Academic Structures (Allows institution to pick any or none)
-    academic_year = models.ForeignKey(AcademicYear, on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
-    term = models.ForeignKey(Term, on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
-    semester = models.ForeignKey(Semester, on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
-    intake = models.ForeignKey(Intake, on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
-
-    # Extended fields
-    date_of_birth = models.DateField(null=True, blank=True)
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
-    is_blocked = models.BooleanField(default=False)
-    academic_status = models.CharField(max_length=50, default='ACTIVE', blank=True, null=True)
-    billing_category = models.CharField(max_length=50, blank=True, null=True)
-    sponsorship = models.CharField(max_length=50, blank=True, null=True)
-    # Add this inside class StudentProfile in models.py:
-
-    def initialize_fee_ledger(self, term=None):
-        """
-        Automatically links student's Course to TuitionAmount and FunctionalFee
-        for the active academic term and generates/updates their StudentTermFee ledger.
-        """
-        from decimal import Decimal
-        from django.db.models import Q, Sum
-
-        if not term:
-            term = AcademicTerm.objects.filter(is_current=True).first()
-
-        if not term or not self.course:
-            return None, Decimal("0.00")
-
-        # 1. Sum tuition linked to student's course & target term
-        tuition_total = TuitionAmount.objects.filter(
-            course=self.course, term=term
-        ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
-
-        # 2. Sum mandatory functional fees (program-specific + generic/all-program fees)
-        functional_total = FunctionalFee.objects.filter(
-            term=term, is_mandatory=True
-        ).filter(
-            Q(course=self.course) | Q(course__isnull=True)
-        ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
-
-        total_fees_due = tuition_total + functional_total
-
-        # 3. Create or update StudentTermFee ledger record
-        ledger, created = StudentTermFee.objects.get_or_create(
-            student=self,
-            term=term,
-            defaults={
-                "total_fees_due": total_fees_due,
-                "total_amount_paid": Decimal("0.00"),
-            },
-        )
-        if not created:
-            ledger.total_fees_due = total_fees_due
-            ledger.save()
-
-        return ledger, total_fees_due
-    def __str__(self):
-        return f"{self.reg_number} - {self.name}"
 
 # ==================== PARENT PROFILE ====================
 
@@ -509,15 +687,40 @@ class FeeStructureCopy(models.Model):
 class StudentTermFee(models.Model):
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='term_fees')
     term = models.ForeignKey(AcademicTerm, on_delete=models.CASCADE, related_name='student_fees')
-    total_fees_due = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    total_amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+
+    # Totals (existing fields) -- map to the report's TOTAL AMOUNT INVOICED / TOTAL AMOUNT PAID
+    total_fees_due = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'),
+                                          help_text="Maps to 'TOTAL AMOUNT INVOICED'.")
+    total_amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'),
+                                             help_text="Maps to 'TOTAL AMOUNT PAID'.")
+
+    # ---- Granular breakdown, matching the ENROLLMENT AND REGISTRATION REPORT columns ----
+    tuition_invoice_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    tuition_amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    tuition_amount_due = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+
+    functional_fees_invoice_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    functional_fees_amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    functional_fees_amount_due = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+
+    other_fees_invoice_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    other_fees_amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    other_fees_amount_due = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
 
     class Meta:
         unique_together = ('student', 'term')
 
     @property
     def remaining_balance(self):
+        """Maps to 'TOTAL AMOUNT DUE'."""
         return self.total_fees_due - self.total_amount_paid
+
+    @property
+    def percentage_fees_completion(self):
+        """Maps to 'PERCENTAGE FEES COMPLETION'. Returns None when nothing has been invoiced (report shows 'NaN %')."""
+        if not self.total_fees_due:
+            return None
+        return round((self.total_amount_paid / self.total_fees_due) * 100, 2)
 
     def __str__(self):
         return f"{self.student.name} ({self.term}) - Balance: {self.remaining_balance}"
