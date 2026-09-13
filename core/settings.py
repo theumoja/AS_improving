@@ -88,7 +88,7 @@ TEMPLATES = [
 
 
 WSGI_APPLICATION = 'core.wsgi.application'
-"""
+
 # Database setup for PostgreSQL
 DATABASES = {
     'default': {
@@ -110,7 +110,6 @@ DATABASES = {
     }
 }
 
-"""
 
 DATABASES = {
     'default': {
