@@ -14,8 +14,8 @@
         gap: 1rem;
         background: #ffffff;
         padding: 1.25rem 1.5rem;
-        border-radius: var(--radius-md);
-        border: 1px solid var(--border);
+        border-radius: var(--radius-md, 8px);
+        border: 1px solid var(--border, #e2e8f0);
     }
     .action-group {
         display: flex;
@@ -27,13 +27,13 @@
         align-items: center;
         gap: 0.5rem;
         padding: 0.6rem 1.2rem;
-        border-radius: var(--radius-sm);
+        border-radius: var(--radius-sm, 6px);
         background-color: #ffffff;
         color: #2563eb;
         border: 1px solid #2563eb;
         font-weight: 600;
         font-size: 0.9rem;
-        transition: var(--transition);
+        transition: var(--transition, all 0.2s);
         cursor: pointer;
         text-decoration: none;
     }
@@ -41,26 +41,21 @@
         background-color: #eff6ff;
         transform: translateY(-1px);
     }
-    .course-tag {
+    .badge {
         display: inline-flex;
-        padding: 0.2rem 0.6rem;
-        background: #eff6ff;
-        color: #2563eb;
-        border: 1px solid #bfdbfe;
-        border-radius: 6px;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
         font-weight: 600;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
+        margin-right: 2px;
+        margin-bottom: 2px;
     }
-    .stream-tag {
-        display: inline-flex;
-        padding: 0.2rem 0.6rem;
-        background: #f0fdf4;
-        color: #16a34a;
-        border: 1px solid #bbf7d0;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 0.8rem;
-    }
+    .course-tag { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+    .stream-tag { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .campus-tag { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+    .badge-success { background: #dcfce7; color: #15803d; }
+    .badge-danger { background: #fee2e2; color: #b91c1c; }
+    .badge-neutral { background: #f3f4f6; color: #4b5563; }
 
     /* Alert / Message Styling */
     .alert {
@@ -71,62 +66,37 @@
         margin-bottom: 1.25rem;
         border: 1px solid transparent;
     }
-    .alert-success {
-        background-color: #f0fdf4;
-        color: #15803d;
-        border-color: #bbf7d0;
-    }
-    .alert-warning {
-        background-color: #fffbeb;
-        color: #b45309;
-        border-color: #fef3c7;
-    }
-    .alert-danger, .alert-error {
-        background-color: #fef2f2;
-        color: #b91c1c;
-        border-color: #fecaca;
-    }
+    .alert-success { background-color: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+    .alert-warning { background-color: #fffbeb; color: #b45309; border-color: #fef3c7; }
+    .alert-danger, .alert-error { background-color: #fef2f2; color: #b91c1c; border-color: #fecaca; }
 
-    /* Clickable Student Link */
     .student-link {
         font-weight: 600;
         color: var(--text-main, #0f172a);
         text-decoration: none;
-        transition: color 0.2s ease-in-out;
     }
     .student-link:hover {
-        color: var(--primary, #2563eb);
+        color: #2563eb;
         text-decoration: underline;
     }
 
-    /* Fee Status Badge */
     .fee-badge {
         display: inline-flex;
         padding: 0.2rem 0.5rem;
         border-radius: 4px;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         font-weight: 600;
     }
-    .fee-badge-due {
-        background-color: #fff7ed;
-        color: #c2410c;
-        border: 1px solid #ffedd5;
-    }
-    .fee-badge-none {
-        background-color: #f3f4f6;
-        color: #6b7280;
-        border: 1px solid #e5e7eb;
-    }
+    .fee-badge-due { background-color: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; }
+    .fee-badge-none { background-color: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
 
     /* Modal Architecture */
     .modal {
         display: none;
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(15, 23, 42, 0.4);
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(15, 23, 42, 0.5);
         backdrop-filter: blur(4px);
         z-index: 1000;
         align-items: center;
@@ -136,47 +106,65 @@
     .modal.active { display: flex; }
     .modal-card {
         background: #fff;
-        border-radius: var(--radius-md);
+        border-radius: var(--radius-md, 8px);
         width: 100%;
-        max-width: 700px;
-        max-height: 90vh;
+        max-width: 950px;
+        max-height: 92vh;
         overflow-y: auto;
         padding: 2rem;
         box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
     }
+    .section-title {
+        font-weight: 700;
+        font-size: 1rem;
+        color: #1e293b;
+        margin-top: 1.25rem;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.35rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
     .form-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
+        gap: 0.85rem;
     }
-    .form-group {
-        margin-bottom: 1rem;
-    }
-    .form-group.full-width {
-        grid-column: 1 / -1;
-    }
+    .form-group { margin-bottom: 0.5rem; }
+    .form-group.full-width { grid-column: 1 / -1; }
     .form-group label {
         display: block;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         font-weight: 600;
-        margin-bottom: 0.4rem;
-        color: var(--text-muted);
+        margin-bottom: 0.3rem;
+        color: #475569;
     }
     .form-control {
         width: 100%;
-        padding: 0.65rem 0.75rem;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        font-family: var(--font);
+        padding: 0.55rem 0.65rem;
+        border: 1px solid var(--border, #cbd5e1);
+        border-radius: var(--radius-sm, 6px);
+        font-size: 0.85rem;
+    }
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 1.5rem;
     }
     .info-box {
         background: #eff6ff;
         border: 1px solid #bfdbfe;
         color: #1e40af;
         padding: 0.75rem 1rem;
-        border-radius: var(--radius-sm);
+        border-radius: var(--radius-sm, 6px);
         font-size: 0.825rem;
         margin-bottom: 1rem;
+    }
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
     }
 </style>
 
@@ -186,8 +174,8 @@
             <i class="fas fa-download"></i> Export Student Directory
         </a>
         <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
-            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search registration, name, course..." style="padding-left: 2.25rem;">
+            <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: #64748b;"></i>
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search registration, name, NIN, course..." style="padding-left: 2.25rem;">
         </div>
     </div>
 
@@ -195,7 +183,7 @@
         <button class="btn btn-outline" onclick="location.href='{% url 'attendance:bulk_upload_students' %}'">
             <i class="fas fa-file-upload"></i> Upload CSV Matrix
         </button>
-        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+        <button class="btn" id="openModalBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer;">
             <i class="fas fa-user-plus"></i> Enlist New Student
         </button>
     </div>
@@ -212,64 +200,168 @@
 </div>
 {% endif %}
 
-<div class="card" style="padding:0; overflow:hidden;">
-    <table class="table">
+<div class="card table-responsive" style="padding:0; overflow:hidden;">
+    <table class="table" style="width: 100%; border-collapse: collapse;">
         <thead>
-            <tr>
-                <th>Registration Identifiers</th>
-                <th>Student Full Name</th>
-                <th>Course & Stream</th>
-                <th>Academic Level</th>
-                <th>Fee Ledger (Active Term)</th>
-                <th>Status</th>
-                <th style="text-align: right;">Operations Matrix</th>
+            <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left;">
+                <th>Registration / Student No.</th>
+                <th>Personal Details & Bio</th>
+                <th>Academic & Campus</th>
+                <th>Status & Sponsorship</th>
+                <th>Enrollment / Registration</th>
+                <th>Residence & Next of Kin</th>
+                <th>Prior Education</th>
+                <th>Ledger Fee</th>
+                <th style="text-align: right;">Actions</th>
             </tr>
         </thead>
         <tbody id="studentTableBody">
             {% for student in students %}
-            <tr class="student-row">
-                <td><strong style="color:var(--text-main);">{{ student.reg_number }}</strong></td>
+            <tr class="student-row" style="border-bottom: 1px solid #e2e8f0;">
+                <!-- Reg & Student No -->
+                <td>
+                    <strong style="color:var(--text-main); font-size: 0.9rem;">{{ student.reg_number }}</strong>
+                    {% if student.student_number %}
+                        <div style="font-size: 0.75rem; color: #64748b;">No: {{ student.student_number }}</div>
+                    {% endif %}
+                </td>
+
+                <!-- Personal Bio -->
                 <td>
                     <a href="{% url 'attendance:student_detail' student.reg_number %}" class="student-link" title="View details for {{ student.name }}">
                         <i class="fas fa-user-graduate" style="font-size:0.8rem; margin-right:0.35rem; color:#2563eb;"></i>
                         {{ student.name }}
                     </a>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ student.user.email }}</div>
+                    <div style="font-size: 0.75rem; color: #64748b;">{{ student.email }}</div>
+                    <div style="font-size: 0.75rem; color: #64748b;">
+                        {{ student.gender|default:"-" }} | DOB: {{ student.date_of_birth|date:"Y-m-d"|default:"-" }}
+                    </div>
+                    {% if student.phone_number %}
+                        <div style="font-size: 0.75rem; color: #64748b;"><i class="fas fa-phone" style="font-size: 0.65rem;"></i> {{ student.phone_number }}</div>
+                    {% endif %}
+                    {% if student.nin %}
+                        <div style="font-size: 0.725rem; color: #475569;">NIN: {{ student.nin }}</div>
+                    {% endif %}
+                    <div style="font-size: 0.725rem; color: #64748b;">{{ student.district_of_origin|default:"" }} {% if student.nationality %}({{ student.nationality }}){% endif %}</div>
                 </td>
+
+                <!-- Academic & Campus -->
                 <td>
-                    <span class="course-tag">{{ student.course.code }}</span>
-                    <span class="stream-tag">{{ student.stream.name|default:"Unassigned" }}</span>
-                </td>
-                <td>
-                    <span style="font-size:0.85rem; display:block;">{{ student.academic_year.name|default:"-" }}</span>
-                    <span style="font-size:0.75rem; color:var(--text-muted);">
+                    <div>
+                        <span class="badge course-tag">{{ student.course.code }}</span>
+                        <span class="badge stream-tag">{{ student.stream.name|default:"Unassigned" }}</span>
+                        {% if student.campus %}
+                            <span class="badge campus-tag">{{ student.campus.name }}</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 0.8rem; margin-top: 0.2rem;">
+                        Year {{ student.year_of_study }} | {{ student.programme_type|default:"Day" }}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #64748b;">
+                        Entry AY: {{ student.entry_academic_year.name|default:"-" }} | Current AY: {{ student.academic_year.name|default:"-" }}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #64748b;">
                         {% if student.semester %}
                             {{ student.semester.get_name_display }}
                         {% elif student.term %}
                             {{ student.term.get_name_display }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </span>
+                        {% else %}-{% endif %}
+                        {% if student.intake %} | {{ student.intake.get_name_display }}{% endif %}
+                    </div>
                 </td>
+
+                <!-- Status & Sponsorship -->
+                <td>
+                    <div>
+                        <span class="badge {% if student.academic_status == 'ACTIVE' %}badge-success{% else %}badge-danger{% endif %}">
+                            {{ student.academic_status|default:"ACTIVE" }}
+                        </span>
+                        {% if student.is_blocked %}
+                            <span class="badge badge-danger">BLOCKED</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 0.775rem; margin-top: 0.25rem;">
+                        <strong>Sponsorship:</strong> {{ student.sponsorship_type|default:student.sponsorship|default:"Private" }}
+                    </div>
+                    {% if student.sponsorship_scheme %}
+                        <div style="font-size: 0.725rem; color: #64748b;">Scheme: {{ student.sponsorship_scheme }}</div>
+                    {% endif %}
+                    {% if student.billing_category %}
+                        <div style="font-size: 0.725rem; color: #64748b;">Billing: {{ student.billing_category }}</div>
+                    {% endif %}
+                </td>
+
+                <!-- Enrollment & Registration -->
+                <td>
+                    <div style="font-size: 0.775rem;">
+                        Enrolled:
+                        {% if student.is_enrolled %}
+                            <span class="badge badge-success">YES</span>
+                        {% else %}
+                            <span class="badge badge-neutral">NO</span>
+                        {% endif %}
+                        {% if student.enrollment_condition %}
+                            <span style="font-size: 0.7rem; color: #64748b;">({{ student.enrollment_condition }})</span>
+                        {% endif %}
+                    </div>
+                    {% if student.enrollment_token %}
+                        <div style="font-size: 0.7rem; color: #64748b;">Token: {{ student.enrollment_token }}</div>
+                    {% endif %}
+                    <div style="font-size: 0.775rem; margin-top: 0.25rem;">
+                        Registered:
+                        {% if student.is_registered %}
+                            <span class="badge badge-success">YES</span>
+                        {% else %}
+                            <span class="badge badge-neutral">NO</span>
+                        {% endif %}
+                        {% if student.registration_status %}
+                            <span style="font-size: 0.7rem; color: #64748b;">({{ student.registration_status }})</span>
+                        {% endif %}
+                    </div>
+                    {% if student.registration_type %}
+                        <div style="font-size: 0.7rem; color: #64748b;">Type: {{ student.registration_type }}</div>
+                    {% endif %}
+                </td>
+
+                <!-- Residence & Next of Kin -->
+                <td>
+                    <div style="font-size: 0.775rem;">
+                        <strong>Res:</strong> {{ student.residence_status|default:"Non-Resident" }}
+                    </div>
+                    {% if student.hostel %}
+                        <div style="font-size: 0.725rem; color: #64748b;">Hostel: {{ student.hostel.name }}</div>
+                    {% endif %}
+                    {% if student.next_of_kin_name %}
+                        <div style="font-size: 0.725rem; margin-top: 0.25rem; color: #334155;">
+                            <strong>NOK:</strong> {{ student.next_of_kin_name }}
+                            {% if student.next_of_kin_relationship %}({{ student.next_of_kin_relationship }}){% endif %}
+                        </div>
+                        {% if student.next_of_kin_phone %}
+                            <div style="font-size: 0.7rem; color: #64748b;">Ph: {{ student.next_of_kin_phone }}</div>
+                        {% endif %}
+                    {% endif %}
+                </td>
+
+                <!-- Secondary Education -->
+                <td>
+                    <div style="font-size: 0.725rem; color: #475569;">UCE: {{ student.uce_index_number|default:"-" }}</div>
+                    <div style="font-size: 0.725rem; color: #475569;">UACE: {{ student.uace_index_number|default:"-" }}</div>
+                </td>
+
+                <!-- Fee Ledger -->
                 <td>
                     {% with latest_fee=student.term_fees.first %}
                         {% if latest_fee %}
-                            <span class="fee-badge fee-badge-due">
-                                UGX {{ latest_fee.total_fees_due }}
-                            </span>
+                            <span class="fee-badge fee-badge-due">UGX {{ latest_fee.total_fees_due }}</span>
                         {% else %}
-                            <span class="fee-badge fee-badge-none">No Active Ledger</span>
+                            <span class="fee-badge fee-badge-none">No Ledger</span>
                         {% endif %}
                     {% endwith %}
                 </td>
-                <td>
-                    <span style="font-size: 0.8rem; font-weight: 600; color: {% if student.academic_status == 'ACTIVE' %}#16a34a{% else %}#dc2626{% endif %};">
-                        {{ student.academic_status|default:"ACTIVE" }}
-                    </span>
-                </td>
+
+                <!-- Operations -->
                 <td style="text-align: right;">
-                    <select onchange="handleStudentAction(this, '{% url 'attendance:edit_student' student.pk %}', '{% url 'attendance:delete_student' student.pk %}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
+                    <select onchange="handleStudentAction(this, '{% url 'attendance:edit_student' student.pk %}', '{% url 'attendance:delete_student' student.pk %}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer; font-size: 0.8rem;">
                         <option value="">-- Action --</option>
                         <option value="edit">Edit</option>
                         <option value="delete">Delete</option>
@@ -278,14 +370,14 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="9" style="text-align: center; padding: 3rem; color: #64748b;">
                     <i class="fas fa-users-slash" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No student registrations discovered inside this workspace.
                 </td>
             </tr>
             {% endfor %}
             <tr id="searchEmptyRow" style="display: none;">
-                <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="9" style="text-align: center; padding: 3rem; color: #64748b;">
                     <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No matching student listings discovered for your filter criteria.
                 </td>
@@ -294,112 +386,46 @@
     </table>
 </div>
 
-<!-- Modal Provisioner -->
+<!-- Complete Single Account Provisioner Modal -->
 <div class="modal" id="singleAddModal">
     <div class="modal-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h3>Single Account Provisioner</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <h3 style="margin: 0; font-size: 1.25rem;">Complete Student Provisioner</h3>
             <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
 
         <div class="info-box">
             <i class="fas fa-magic" style="margin-right: 0.35rem;"></i>
-            <strong>Automated Billing:</strong> Tuition and mandatory functional fees will automatically calculate based on the selected course and target term.
+            <strong>Automated System Processing:</strong> Enter complete student attributes. Fee ledgers will automatically calculate based on the chosen course and active term.
         </div>
 
         <form method="POST" action="">
             {% csrf_token %}
             <input type="hidden" name="action" value="single">
 
+            <!-- 1. Identifiers & Name -->
+            <div class="section-title"><i class="fas fa-id-card"></i> 1. Registration & Personal Identifiers</div>
             <div class="form-grid">
-                <!-- Basic Credentials -->
                 <div class="form-group">
-                    <label for="reg_number">Registration Number Reference *</label>
+                    <label for="reg_number">Registration Number *</label>
                     <input type="text" id="reg_number" name="reg_number" class="form-control" required placeholder="e.g. 2026/BTC/042">
                 </div>
                 <div class="form-group">
-                    <label for="student_name">Full System Name *</label>
-                    <input type="text" id="student_name" name="name" class="form-control" required placeholder="e.g. Laban Omenyo">
-                </div>
-                <div class="form-group full-width">
-                    <label for="student_email">User Delivery Email *</label>
-                    <input type="email" id="student_email" name="email" class="form-control" required placeholder="studentname@gmail.com">
-                </div>
-
-                <!-- Course & Stream -->
-                <div class="form-group">
-                    <label for="student_course">Track Course Allocation *</label>
-                    <select id="student_course" name="course" class="form-control" required>
-                        <option value="" disabled selected>Select Target Course Code...</option>
-                        {% for course in active_courses_list %}
-                            <option value="{{ course.code }}">{{ course.code }} - {{ course.name }}</option>
-                        {% endfor %}
-                    </select>
+                    <label for="student_number">Student Number</label>
+                    <input type="text" id="student_number" name="student_number" class="form-control" placeholder="e.g. STU2026001">
                 </div>
                 <div class="form-group">
-                    <label for="student_stream">Specific Academic Stream *</label>
-                    <select id="student_stream" name="stream" class="form-control" required>
-                        <option value="" disabled selected>Select Stream Assignment...</option>
-                        {% for stream in active_streams_list %}
-                            <option value="{{ stream.id }}">{{ stream.name }} ({{ stream.course.code }})</option>
-                        {% endfor %}
-                    </select>
+                    <label for="surname">Surname *</label>
+                    <input type="text" id="surname" name="surname" class="form-control" required placeholder="e.g. Omenyo">
                 </div>
-
-
-
-                <!-- Entry Year -->
                 <div class="form-group">
-                    <label for="academic_year">Entry Year *</label>
-                    <select id="academic_year" name="academic_year" class="form-control" required>
-                        <option value="" disabled selected>Select Entry Year...</option>
-                        {% for year in entry_years %}
-                            <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>
-                                {{ year }} {% if year == current_year %}(Current Year){% endif %}
-                            </option>
-                        {% endfor %}
-                        {% if academic_years %}
-                            <optgroup label="Registered Academic Years">
-                                {% for ay in academic_years %}
-                                    <option value="{{ ay.id }}">{{ ay.name }} {% if ay.is_active %}(Active Year){% endif %}</option>
-                                {% endfor %}
-                            </optgroup>
-                        {% endif %}
-                    </select>
+                    <label for="first_name">First Name *</label>
+                    <input type="text" id="first_name" name="first_name" class="form-control" required placeholder="e.g. Laban">
                 </div>
-
-                <!-- Optional Structure Attributes -->
                 <div class="form-group">
-                    <label for="term">Term Structure</label>
-                    <select id="term" name="term" class="form-control">
-                        <option value="">Select Term Structure (Optional)...</option>
-                        {% for t in terms %}
-                            <option value="{{ t.id }}">{{ t.get_name_display }}</option>
-                        {% endfor %}
-                    </select>
+                    <label for="other_names">Other Names</label>
+                    <input type="text" id="other_names" name="other_names" class="form-control" placeholder="e.g. Francis">
                 </div>
-
-                <div class="form-group">
-                    <label for="semester">Semester Structure</label>
-                    <select id="semester" name="semester" class="form-control">
-                        <option value="">Select Semester Structure (Optional)...</option>
-                        {% for sem in semesters %}
-                            <option value="{{ sem.id }}">{{ sem.get_name_display }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="intake">Intake Month</label>
-                    <select id="intake" name="intake" class="form-control">
-                        <option value="">Select Intake (Optional)...</option>
-                        {% for intake in intakes %}
-                            <option value="{{ intake.id }}">{{ intake.get_name_display|default:intake.name|default:intake }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <!-- Bio Data & Classification -->
                 <div class="form-group">
                     <label for="gender">Gender Choice</label>
                     <select id="gender" name="gender" class="form-control">
@@ -413,29 +439,254 @@
                     <label for="date_of_birth">Date of Birth</label>
                     <input type="date" id="date_of_birth" name="date_of_birth" class="form-control">
                 </div>
+                <div class="form-group">
+                    <label for="student_email">User Delivery Email *</label>
+                    <input type="email" id="student_email" name="email" class="form-control" required placeholder="studentname@gmail.com">
+                </div>
+                <div class="form-group">
+                    <label for="phone_number">Phone Number</label>
+                    <input type="text" id="phone_number" name="phone_number" class="form-control" placeholder="+256700000000">
+                </div>
+                <div class="form-group">
+                    <label for="nin">NIN / National ID</label>
+                    <input type="text" id="nin" name="nin" class="form-control" placeholder="CM1234567890">
+                </div>
+                <div class="form-group">
+                    <label for="nationality">Nationality</label>
+                    <input type="text" id="nationality" name="nationality" class="form-control" value="Ugandan">
+                </div>
+                <div class="form-group">
+                    <label for="district_of_origin">District of Origin</label>
+                    <input type="text" id="district_of_origin" name="district_of_origin" class="form-control" placeholder="e.g. Kampala">
+                </div>
+            </div>
 
+            <!-- 2. Academic Structure -->
+            <div class="section-title"><i class="fas fa-graduation-cap"></i> 2. Academic Profile & Campus Structure</div>
+            <div class="form-grid">
                 <div class="form-group">
-                    <label for="billing_category">Billing Category</label>
-                    <input type="text" id="billing_category" name="billing_category" class="form-control" placeholder="e.g. Standard, Private">
+                    <label for="campus">Campus Location</label>
+                    <select id="campus" name="campus" class="form-control">
+                        <option value="">Select Campus...</option>
+                        {% for campus in campuses %}
+                            <option value="{{ campus.id }}">{{ campus.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <div class="form-group">
-                    <label for="sponsorship">Sponsorship</label>
-                    <input type="text" id="sponsorship" name="sponsorship" class="form-control" placeholder="e.g. Government, Self-Sponsored">
+                    <label for="student_course">Programme / Course *</label>
+                    <select id="student_course" name="course" class="form-control" required>
+                        <option value="" disabled selected>Select Target Course Code...</option>
+                        {% for course in active_courses_list %}
+                            <option value="{{ course.code }}">{{ course.code }} - {{ course.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                <div class="form-group full-width">
+                <div class="form-group">
+                    <label for="student_stream">Academic Stream</label>
+                    <select id="student_stream" name="stream" class="form-control">
+                        <option value="">Select Stream Assignment...</option>
+                        {% for stream in active_streams_list %}
+                            <option value="{{ stream.id }}">{{ stream.name }} ({{ stream.course.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="year_of_study">Year of Study</label>
+                    <input type="number" id="year_of_study" name="year_of_study" class="form-control" value="1" min="1" max="7">
+                </div>
+                <div class="form-group">
+                    <label for="programme_type">Programme Type</label>
+                    <select id="programme_type" name="programme_type" class="form-control">
+                        <option value="">Select Programme Type...</option>
+                        {% for key, label in programme_type_choices %}
+                            <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="entry_academic_year">Entry Academic Year</label>
+                    <select id="entry_academic_year" name="entry_academic_year" class="form-control">
+                        <option value="">Select Entry Year...</option>
+                        {% for year in entry_years %}
+                            <option value="{{ year }}">{{ year }}</option>
+                        {% endfor %}
+                        {% if academic_years %}
+                            <optgroup label="Registered Academic Years">
+                                {% for ay in academic_years %}
+                                    <option value="{{ ay.id }}">{{ ay.name }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="academic_year">Current Academic Year</label>
+                    <select id="academic_year" name="academic_year" class="form-control">
+                        <option value="">Select Academic Year...</option>
+                        {% for ay in academic_years %}
+                            <option value="{{ ay.id }}">{{ ay.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="term">Term Structure</label>
+                    <select id="term" name="term" class="form-control">
+                        <option value="">Select Term (Optional)...</option>
+                        {% for t in terms %}
+                            <option value="{{ t.id }}">{{ t.get_name_display }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="semester">Semester Structure</label>
+                    <select id="semester" name="semester" class="form-control">
+                        <option value="">Select Semester (Optional)...</option>
+                        {% for sem in semesters %}
+                            <option value="{{ sem.id }}">{{ sem.get_name_display }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="intake">Intake Month</label>
+                    <select id="intake" name="intake" class="form-control">
+                        <option value="">Select Intake...</option>
+                        {% for intake in intakes %}
+                            <option value="{{ intake.id }}">{{ intake.get_name_display|default:intake.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- 3. Status, Sponsorship & Billing -->
+            <div class="section-title"><i class="fas fa-file-invoice-dollar"></i> 3. Status, Sponsorship & Billing</div>
+            <div class="form-grid">
+                <div class="form-group">
                     <label for="academic_status">Academic Status</label>
                     <select id="academic_status" name="academic_status" class="form-control">
-                        <option value="ACTIVE" selected>Active</option>
-                        <option value="SUSPENDED">Suspended</option>
-                        <option value="PROBATION">Probation</option>
-                        <option value="GRADUATED">Graduated</option>
+                        <option value="ACTIVE" selected>ACTIVE</option>
+                        <option value="SUSPENDED">SUSPENDED</option>
+                        <option value="PROBATION">PROBATION</option>
+                        <option value="GRADUATED">GRADUATED</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="billing_category">Billing Category</label>
+                    <input type="text" id="billing_category" name="billing_category" class="form-control" placeholder="e.g. Standard, International">
+                </div>
+                <div class="form-group">
+                    <label for="sponsorship_type">Sponsorship Type</label>
+                    <select id="sponsorship_type" name="sponsorship_type" class="form-control">
+                        <option value="">Select Type...</option>
+                        {% for key, label in sponsorship_type_choices %}
+                            <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sponsorship_scheme">Sponsorship Scheme</label>
+                    <input type="text" id="sponsorship_scheme" name="sponsorship_scheme" class="form-control" placeholder="e.g. GOVERNMENT SPONSORSHIP">
+                </div>
+                <div class="form-group">
+                    <label for="sponsorship">Sponsorship Note</label>
+                    <input type="text" id="sponsorship" name="sponsorship" class="form-control" placeholder="Legacy / free-text note">
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="is_blocked" name="is_blocked">
+                        Block Student Account
+                    </label>
+                </div>
+            </div>
+
+            <!-- 4. Enrollment & Registration Flags -->
+            <div class="section-title"><i class="fas fa-user-check"></i> 4. Enrollment & Registration Details</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="is_enrolled" name="is_enrolled">
+                        Is Enrolled
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="enrollment_token">Enrollment Token</label>
+                    <input type="text" id="enrollment_token" name="enrollment_token" class="form-control" placeholder="e.g. ENR1712688936">
+                </div>
+                <div class="form-group">
+                    <label for="enrollment_condition">Enrollment Condition</label>
+                    <input type="text" id="enrollment_condition" name="enrollment_condition" class="form-control" placeholder="e.g. EARLY ENROLLMENT">
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="is_registered" name="is_registered">
+                        Is Registered
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="registration_status">Registration Status</label>
+                    <input type="text" id="registration_status" name="registration_status" class="form-control" placeholder="e.g. REGISTERED">
+                </div>
+                <div class="form-group">
+                    <label for="registration_type">Registration Type</label>
+                    <input type="text" id="registration_type" name="registration_type" class="form-control" placeholder="e.g. FULL REGISTRATION">
+                </div>
+                <div class="form-group">
+                    <label for="provisional_registration_type">Provisional Reg Type</label>
+                    <input type="text" id="provisional_registration_type" name="provisional_registration_type" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="registration_condition">Registration Condition</label>
+                    <input type="text" id="registration_condition" name="registration_condition" class="form-control" placeholder="e.g. LATE REGISTRATION">
+                </div>
+            </div>
+
+            <!-- 5. Residence & Accommodation -->
+            <div class="section-title"><i class="fas fa-building"></i> 5. Residence & Accommodation</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="residence_status">Residence Status</label>
+                    <input type="text" id="residence_status" name="residence_status" class="form-control" placeholder="e.g. Resident / Non-Resident">
+                </div>
+                <div class="form-group">
+                    <label for="hostel">Assigned Hostel</label>
+                    <select id="hostel" name="hostel" class="form-control">
+                        <option value="">Select Hostel...</option>
+                        {% for h in hostels %}
+                            <option value="{{ h.id }}">{{ h.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- 6. Next of Kin & Academic History -->
+            <div class="section-title"><i class="fas fa-users"></i> 6. Next of Kin & Academic Background</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="next_of_kin_name">Next of Kin Name</label>
+                    <input type="text" id="next_of_kin_name" name="next_of_kin_name" class="form-control" placeholder="Full Name">
+                </div>
+                <div class="form-group">
+                    <label for="next_of_kin_phone">Next of Kin Phone</label>
+                    <input type="text" id="next_of_kin_phone" name="next_of_kin_phone" class="form-control" placeholder="+256700000000">
+                </div>
+                <div class="form-group">
+                    <label for="next_of_kin_relationship">Relationship</label>
+                    <input type="text" id="next_of_kin_relationship" name="next_of_kin_relationship" class="form-control" placeholder="e.g. Parent, Guardian">
+                </div>
+                <div class="form-group">
+                    <label for="uce_index_number">UCE Index Number</label>
+                    <input type="text" id="uce_index_number" name="uce_index_number" class="form-control" placeholder="e.g. U0001/001">
+                </div>
+                <div class="form-group">
+                    <label for="uace_index_number">UACE Index Number</label>
+                    <input type="text" id="uace_index_number" name="uace_index_number" class="form-control" placeholder="e.g. U0001/501">
                 </div>
             </div>
 
             <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
                 <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
-                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Register Student</button>
+                <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none; font-weight: 600; padding: 0.65rem; border-radius: 6px; cursor: pointer;">Register Student Profile</button>
             </div>
         </form>
     </div>

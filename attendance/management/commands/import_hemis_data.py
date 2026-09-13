@@ -27,21 +27,59 @@ HOW TO RUN
   python manage.py import_hemis_data                       # uses ~/Downloads
   python manage.py import_hemis_data --dir /path/to/files
   python manage.py import_hemis_data --dry-run              # parse only, write nothing
+  python manage.py import_hemis_data --no-emails             # skip staff emails, CSV only
+  python manage.py import_hemis_data --no-student-csv        # skip the student CSV
+  python manage.py import_hemis_data --test-email you@x.com  # redirect all staff emails to you@x.com
+  python manage.py import_hemis_data --no-test-email         # force real staff addresses this run
+
+CREDENTIAL DELIVERY
+  * Staff (teacher, HOD, dean, registrar, admin, etc.) accounts are emailed
+    their username + a freshly generated random password, using whatever
+    email backend is already configured in settings.py. EVERY newly created
+    staff account - whether its email was sent successfully, failed to send,
+    or was never attempted (--no-emails) - is ALSO written to a
+    staff_credentials_fallback_<timestamp>.csv file in --dir, tagged with an
+    email_status column ('sent' / 'failed' / 'skipped_no_emails'). This is a
+    deliberate belt-and-suspenders: a successful send is never a reason to
+    lose the only record of a plaintext temporary password.
+  * TEST_EMAIL_OVERRIDE (near the top of this file) can redirect every staff
+    credential email to one test address instead of each staff member's real
+    .email, e.g. while testing the send path. Set it to None to send to real
+    addresses again, or leave it set and pass --no-test-email for a one-off
+    real run without editing the file. The fallback CSV always records the
+    real staff email regardless of this setting.
+  * Student accounts are never emailed. Every created student's name and
+    password (their registration number - see PASSWORD POLICY below) is
+    written to a student_credentials_<timestamp>.csv file in --dir instead.
+  * Both CSVs contain unhashed passwords - distribute securely and delete
+    promptly. See --no-staff-fallback-file / --no-student-csv to suppress
+    either file.
+
+PASSWORD POLICY
+  * Students: username AND password are both the student's registration
+    number.
+  * Everyone else: a unique, randomly generated password per account (see
+    generate_strong_password()) - nobody shares a role-wide password.
 
 REQUIREMENTS
   pip install openpyxl pdfplumber
+  A working email backend configured in settings.py (EMAIL_BACKEND,
+  EMAIL_HOST*, DEFAULT_FROM_EMAIL) for staff credential emails to send.
 """
 
 import csv
 import glob
 import os
 import re
+import secrets
+import string
 from datetime import date, timedelta
 
 import openpyxl
 import pdfplumber
 
 from django.core.management.base import BaseCommand
+from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 
@@ -54,25 +92,68 @@ from attendance.models import (
 
 # ==================== CONFIGURATION & CONSTANTS ====================
 
-DEFAULT_PASSWORDS = {
-    User.IS_STUDENT:             'Student@2026',
-    User.IS_TEACHER:             'Lecturer@2026',
-    User.IS_HOD:                 'Hod@2026',
-    User.IS_DEAN:                'Dean@2026',
-    User.IS_REGISTRAR:           'Registrar@2026',
-    User.IS_ASSISTANT_REGISTRAR: 'AsstRegistrar@2026',
-    User.IS_ACCOUNTANT:          'Accountant@2026',
-    User.IS_FINANCE:             'Finance@2026',
-    User.IS_ADMIN:               'Admin@2026',
-    User.IS_SYSTEM_ADMIN:        'SysAdmin@2026',
-    User.IS_SYSTEM_SUPPORT:      'Support@2026',
-    User.IS_POINT_OF_SERVICE:    'PointOfService@2026',
-    User.IS_PRINCIPAL:           'Principal@2026',
-    User.IS_WARDEN:              'Warden@2026',
-    User.IS_LIBRARIAN:           'Librarian@2026',
-    User.IS_PARENT:              'Parent@2026',
-}
-FALLBACK_PASSWORD = 'Welcome@2026'
+# Password policy
+# ----------------
+#   * Students   -> username AND password are both the student's registration
+#                   number (see safe_username()/import_student_file()). This
+#                   intentionally trades password secrecy for something every
+#                   student already has memorized; advise students to change
+#                   it on first login if your app supports that.
+#   * Every other role (teacher, HOD, dean, registrar, admin, etc.) gets its
+#     own randomly generated password at account-creation time - see
+#     generate_strong_password(). Nobody shares a role-wide password anymore,
+#     so compromising one account never exposes the rest. The generated
+#     password is only ever available at creation time via the credentials
+#     CSV report, so distribute and then purge that file promptly.
+STRONG_PASSWORD_LENGTH = 14
+STRONG_PASSWORD_SPECIALS = '!@#$%^&*()-_=+'
+
+# Credential delivery
+# -------------------
+#   * Staff (teachers, HODs, deans, registrars, admins, etc.) are emailed
+#     their username + temporary password directly, using whatever email
+#     backend is already configured in settings.py (EMAIL_BACKEND,
+#     EMAIL_HOST*, DEFAULT_FROM_EMAIL). Regardless of whether that email
+#     succeeds, fails (bad address, SMTP outage, etc.), or is never attempted
+#     (--no-emails), the account's credentials are ALSO recorded in the
+#     staff_credential_fallback CSV so a plaintext temporary password is
+#     never lost to a send that silently didn't land, or to admin error -
+#     see staff_credential_fallback in handle() below.
+#   * Students are never emailed (their accounts are usually created in bulk
+#     before they have a personal email on file). Instead every created
+#     student's name + password (their registration number) is written to
+#     one plain CSV file for the registrar/admin office to distribute.
+# Edit SYSTEM_NAME to match your institution/portal's actual name.
+SYSTEM_NAME = "UTC Bushenyi HEMIS Portal"
+
+# Test-email override
+# --------------------
+#   * When set to an address, EVERY staff credential email is redirected to
+#     that address instead of the real staff member's email - handy for
+#     testing the send path without spamming real inboxes. The email
+#     subject is tagged with the real recipient so you can still tell whose
+#     credentials you're looking at, and the fallback CSV always carries the
+#     real staff email regardless of this setting.
+#   * Set this back to None to resume sending to each staff member's real
+#     .email address (production behaviour).
+#   * Can also be overridden per-run from the command line without touching
+#     this constant - see --test-email / --no-test-email below.
+TEST_EMAIL_OVERRIDE = "okellojm125@gmail.com"  # <- set to None for production
+
+STAFF_EMAIL_SUBJECT = f"Your {SYSTEM_NAME} account"
+STAFF_EMAIL_BODY_TEMPLATE = """\
+Dear {display_name},
+
+An account has been created for you on the {system_name}.
+
+    Username: {username}
+    Temporary password: {password}
+
+Please log in and change this password as soon as possible. If you did not
+expect this email, please contact the system administrator.
+
+This is an automated message - please do not reply to it.
+"""
 
 ROLE_TEXT_TO_CODE = {
     'SYSTEM SUPPORT': User.IS_SYSTEM_SUPPORT,
@@ -229,8 +310,66 @@ def role_code_from_text(text):
     return ROLE_TEXT_TO_CODE.get(key)
 
 
-def default_password_for(role_code):
-    return DEFAULT_PASSWORDS.get(role_code, FALLBACK_PASSWORD)
+def generate_strong_password(length=STRONG_PASSWORD_LENGTH):
+    """Generates a cryptographically random password unique to one account.
+
+    Guarantees at least one lowercase letter, one uppercase letter, one
+    digit, and one special character, then fills the remainder from the
+    full character set and shuffles - so every call produces a different,
+    hard-to-guess password even for accounts created in the same batch.
+    """
+    if length < 8:
+        length = 8
+
+    required = [
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.digits),
+        secrets.choice(STRONG_PASSWORD_SPECIALS),
+    ]
+    all_chars = string.ascii_lowercase + string.ascii_uppercase + string.digits + STRONG_PASSWORD_SPECIALS
+    required += [secrets.choice(all_chars) for _ in range(length - len(required))]
+
+    rng = secrets.SystemRandom()
+    rng.shuffle(required)
+    return ''.join(required)
+
+
+def staff_display_name(user):
+    parts = [p for p in (user.title, user.surname, user.other_names) if p]
+    return ' '.join(parts) or user.username
+
+
+def send_staff_credentials_email(user, plain_password, test_email=None):
+    """Emails a newly created staff account its username + temporary password.
+
+    If test_email is given, the message is redirected to that address
+    instead of user.email (with the real recipient noted in the subject
+    line), so the send path can be exercised without touching real staff
+    inboxes. Pass test_email=None (the default) for production behaviour.
+
+    Raises whatever exception the configured email backend raises (SMTP
+    errors, connection failures, etc.) - the caller is responsible for
+    catching it and falling back to the CSV log so credentials are never
+    silently lost.
+    """
+    recipient = test_email or user.email
+    subject = STAFF_EMAIL_SUBJECT
+    if test_email:
+        subject = f"[TEST - real recipient: {user.email}] {STAFF_EMAIL_SUBJECT}"
+    body = STAFF_EMAIL_BODY_TEMPLATE.format(
+        display_name=staff_display_name(user),
+        system_name=SYSTEM_NAME,
+        username=user.username,
+        password=plain_password,
+    )
+    send_mail(
+        subject=subject,
+        message=body,
+        from_email=None,  # falls back to settings.DEFAULT_FROM_EMAIL
+        recipient_list=[recipient],
+        fail_silently=False,
+    )
 
 
 def parse_title_block(text):
@@ -358,7 +497,7 @@ def get_or_create_course(code, name):
 
 # ==================== INGESTION SUBSYSTEMS ====================
 
-def import_group_users(pdf_path, dry_run, stats):
+def import_group_users(pdf_path, dry_run, stats, send_emails=True, test_email=None):
     print(f"\n--- Processing Staff Directory: {os.path.basename(pdf_path)} ---")
     with pdfplumber.open(pdf_path) as pdf:
         rows = []
@@ -411,8 +550,10 @@ def import_group_users(pdf_path, dry_run, stats):
             user.role = primary_role
             user.is_verified = to_bool(verified_raw)
             user.is_staff = True
+            plain_password = None
             if created:
-                user.set_password(default_password_for(primary_role))
+                plain_password = generate_strong_password()
+                user.set_password(plain_password)
             user.save()
 
             StaffRole.objects.filter(user=user).exclude(role__in=role_codes).delete()
@@ -420,8 +561,35 @@ def import_group_users(pdf_path, dry_run, stats):
                 StaffRole.objects.get_or_create(user=user, role=code)
 
             stats['staff_created' if created else 'staff_updated'] += 1
-            if created:
-                stats['credentials'].append((username, email, primary_role, default_password_for(primary_role)))
+
+        # Send the email (or fall back to the CSV log) after the transaction
+        # above has committed, so a slow/failing email backend never holds a
+        # database transaction open.
+        if created:
+            if send_emails:
+                try:
+                    send_staff_credentials_email(user, plain_password, test_email=test_email)
+                    stats['staff_emails_sent'] += 1
+                    # Email succeeded, but still log to the fallback CSV as a safety
+                    # net - a "sent" status here means "don't distribute this again",
+                    # not "this row can be discarded". Losing the only copy of a
+                    # plaintext temporary password to a send we can't fully verify
+                    # (spam-filtered, bounced silently, wrong mailbox, etc.) is worse
+                    # than one extra row in a file that gets purged after distribution.
+                    stats['staff_credential_fallback'].append(
+                        (username, email, primary_role, plain_password, 'sent')
+                    )
+                except Exception as exc:
+                    print(f"  WARNING: Could not email credentials to {email} ({exc}). "
+                          f"Falling back to CSV log for this account.")
+                    stats['staff_emails_failed'] += 1
+                    stats['staff_credential_fallback'].append(
+                        (username, email, primary_role, plain_password, 'failed')
+                    )
+            else:
+                stats['staff_credential_fallback'].append(
+                    (username, email, primary_role, plain_password, 'skipped_no_emails')
+                )
 
 
 def import_student_file(xlsx_path, dry_run, stats):
@@ -482,7 +650,12 @@ def import_student_file(xlsx_path, dry_run, stats):
 
         try:
             with transaction.atomic():
-                username = username_from_email(email) if email else safe_username(student_number or reg_no)
+                # Per policy: a student's username AND password are both their
+                # registration number. safe_username() only sanitizes characters
+                # that Django's username field can't store (e.g. stray slashes);
+                # the password is set from the untouched reg_no so it matches
+                # exactly what's printed on the student's documents.
+                username = safe_username(reg_no)
                 user, user_created = User.objects.get_or_create(
                     username=username,
                     defaults={'email': email or ''},
@@ -494,7 +667,7 @@ def import_student_file(xlsx_path, dry_run, stats):
                 user.phone_number = clean(ws.cell(row=row_idx, column=COL_PHONE).value)
                 user.role = User.IS_STUDENT
                 if user_created:
-                    user.set_password(default_password_for(User.IS_STUDENT))
+                    user.set_password(reg_no)
                 user.save()
 
                 profile, profile_created = StudentProfile.objects.get_or_create(
@@ -561,8 +734,7 @@ def import_student_file(xlsx_path, dry_run, stats):
 
         stats['students_created' if profile_created else 'students_updated'] += 1
         if user_created:
-            stats['credentials'].append((username, email or reg_no, User.IS_STUDENT,
-                                          default_password_for(User.IS_STUDENT)))
+            stats['student_credentials'].append((name, reg_no))
 
 
 def import_all_programmes(xlsx_path, dry_run, stats):
@@ -762,13 +934,44 @@ class Command(BaseCommand):
             help="Executes parsing and validation without writing changes to the database.",
         )
         parser.add_argument(
-            '--no-credentials-file', action='store_true',
-            help="Suppresses output generation of the temporary credentials CSV file.",
+            '--no-emails', action='store_true',
+            help="Don't email staff their credentials - send every newly created staff "
+                 "account straight to the fallback CSV file instead.",
+        )
+        parser.add_argument(
+            '--no-staff-fallback-file', action='store_true',
+            help="Suppresses the CSV written for staff whose credentials could not be "
+                 "emailed (or all staff, if --no-emails was passed).",
+        )
+        parser.add_argument(
+            '--no-student-csv', action='store_true',
+            help="Suppresses output generation of the student name/password CSV file.",
+        )
+        parser.add_argument(
+            '--test-email', default=TEST_EMAIL_OVERRIDE,
+            help="Route ALL staff credential emails to this address instead of each "
+                 "staff member's real .email (useful for testing the send path "
+                 "without emailing real staff). Defaults to the TEST_EMAIL_OVERRIDE "
+                 "constant at the top of this file; pass --no-test-email to force "
+                 "real addresses for a single run regardless of that constant.",
+        )
+        parser.add_argument(
+            '--no-test-email', action='store_true',
+            help="Force sending to each staff member's real email for this run, "
+                 "overriding TEST_EMAIL_OVERRIDE / --test-email.",
         )
 
     def handle(self, *args, **options):
         directory = options['dir']
         dry_run = options['dry_run']
+        send_emails = not options['no_emails']
+        test_email = None if options['no_test_email'] else options['test_email']
+
+        if send_emails and test_email:
+            print(f"TEST EMAIL MODE: all staff credential emails will be sent to "
+                  f"{test_email} instead of each staff member's real address. "
+                  f"Pass --no-test-email (or set TEST_EMAIL_OVERRIDE = None in the "
+                  f"script) to resume sending to real addresses.\n")
 
         def find_files(pattern):
             return sorted(glob.glob(os.path.join(directory, pattern)))
@@ -784,15 +987,17 @@ class Command(BaseCommand):
 
         stats = {
             'staff_seen': 0, 'staff_created': 0, 'staff_updated': 0, 'staff_skipped': 0,
+            'staff_emails_sent': 0, 'staff_emails_failed': 0,
             'programmes_seen': 0, 'programmes_created': 0, 'programmes_updated': 0,
             'students_seen': 0, 'students_created': 0, 'students_updated': 0,
             'students_skipped': 0, 'students_failed': 0,
             'units_seen': 0, 'units_created': 0, 'units_updated': 0,
-            'credentials': [],
+            'staff_credential_fallback': [],   # (username, email, role, password, email_status) - EVERY staff account created this run, regardless of email outcome
+            'student_credentials': [],         # (student_name, password==reg_no) - every student created
         }
 
         for path in pdf_files:
-            import_group_users(path, dry_run, stats)
+            import_group_users(path, dry_run, stats, send_emails=send_emails, test_email=test_email)
 
         # Run ALL_Programmes first to seed canonical Department/Course records
         # before student files and course units try to resolve/create them.
@@ -807,18 +1012,37 @@ class Command(BaseCommand):
             import_course_units(path, dry_run, stats)
 
         print("\n=== HEMIS INGESTION SUMMARY ===")
+        skip_keys = ('staff_credential_fallback', 'student_credentials')
         for key, value in stats.items():
-            if key != 'credentials':
+            if key not in skip_keys:
                 print(f"  {key}: {value}")
 
-        if not dry_run and stats['credentials'] and not options['no_credentials_file']:
+        if not dry_run and stats['staff_credential_fallback'] and not options['no_staff_fallback_file']:
             out_path = os.path.join(
-                directory, f"credentials_report_{timezone.now():%Y%m%d_%H%M%S}.csv"
+                directory, f"staff_credentials_fallback_{timezone.now():%Y%m%d_%H%M%S}.csv"
             )
             with open(out_path, 'w', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(['username', 'email_or_reg_no', 'role', 'temporary_password'])
-                writer.writerows(stats['credentials'])
-            print(f"\nGenerated credentials log written to: {out_path}")
-            print("SECURITY WARNING: This file contains unhashed temporary passwords. "
-                  "Securely distribute credentials and purge this file immediately.")
+                writer.writerow(['username', 'email', 'role', 'temporary_password', 'email_status'])
+                writer.writerows(stats['staff_credential_fallback'])
+            print(f"\n{len(stats['staff_credential_fallback'])} staff account(s) written to fallback CSV "
+                  f"(as a safety net, this includes accounts whose email sent successfully, not just "
+                  f"failures/skips - see the email_status column; {stats['staff_emails_sent']} sent, "
+                  f"{stats['staff_emails_failed']} failed): {out_path}")
+            print("SECURITY WARNING: This file contains unhashed temporary passwords, "
+                  "including for accounts already emailed successfully. Securely distribute/purge "
+                  "credentials and delete this file immediately.")
+
+        if not dry_run and stats['student_credentials'] and not options['no_student_csv']:
+            out_path = os.path.join(
+                directory, f"student_credentials_{timezone.now():%Y%m%d_%H%M%S}.csv"
+            )
+            with open(out_path, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['student_name', 'password'])
+                writer.writerows(stats['student_credentials'])
+            print(f"\nStudent credentials CSV ({len(stats['student_credentials'])} students) "
+                  f"written to: {out_path}")
+            print("SECURITY WARNING: This file contains unhashed passwords (registration "
+                  "numbers). Securely distribute it to the registrar's office and purge "
+                  "this file immediately afterward.")

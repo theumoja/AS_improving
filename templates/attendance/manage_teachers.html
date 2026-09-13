@@ -17,11 +17,6 @@
         border-radius: var(--radius-md);
         border: 1px solid var(--border);
     }
-    .header-title-area {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
     .action-group {
         display: flex;
         align-items: center;
@@ -55,9 +50,9 @@
         font-weight: 600;
         background: rgba(37, 99, 235, 0.1);
         color: #2563eb;
+        margin: 2px;
     }
 
-    /* Clickable Teacher Link */
     .teacher-link {
         font-weight: 600;
         color: var(--text-main, #0f172a);
@@ -89,12 +84,19 @@
         background: #fff;
         border-radius: var(--radius-md);
         width: 100%;
-        max-width: 500px;
+        max-width: 600px;
         padding: 2rem;
+        max-height: 90vh;
+        overflow-y: auto;
         box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+    .form-row {
+        display: flex;
+        gap: 1rem;
     }
     .form-group {
         margin-bottom: 1.25rem;
+        flex: 1;
     }
     .form-group label {
         display: block;
@@ -119,7 +121,7 @@
         </a>
         <div style="position: relative; min-width: 260px; flex: 1; max-width: 400px;">
             <i class="fas fa-search" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search instructor name, email, assignment..." style="padding-left: 2.25rem;">
+            <input type="text" id="dashboardSearch" class="form-control" placeholder="Search instructor name, email, phone..." style="padding-left: 2.25rem;">
         </div>
     </div>
     
@@ -137,21 +139,28 @@
     <table class="table">
         <thead>
             <tr>
-                <th>Instructor Name</th>
+                <th>Title & Full Name</th>
+                <th>Surname / Other Names</th>
+                <th>Phone Number</th>
                 <th>Institutional Email</th>
-                <th>Assigned Pipelines</th>
+                <th>Assigned Courses</th>
                 <th style="text-align: right;">Management Operations</th>
             </tr>
         </thead>
         <tbody id="teacherTableBody">
             {% for teacher in teachers %}
             <tr class="teacher-row">
-                <!-- Clickable Instructor Name -->
                 <td>
                     <a href="{% url 'attendance:teacher_detail' teacher.pk %}" class="teacher-link" title="View details for {{ teacher.name }}">
                         <i class="fas fa-chalkboard-teacher" style="font-size:0.8rem; margin-right:0.35rem; color:#2563eb;"></i>
-                        {{ teacher.name }}
+                        {% if teacher.user.title %}{{ teacher.user.get_title_display }}{% endif %} {{ teacher.name }}
                     </a>
+                </td>
+                <td>
+                    {{ teacher.user.surname|default:"—" }} / {{ teacher.user.other_names|default:"—" }}
+                </td>
+                <td>
+                    {{ teacher.user.phone_number|default:"—" }}
                 </td>
                 <td><code style="font-size:0.9rem;">{{ teacher.user.email }}</code></td>
                 <td>
@@ -162,7 +171,6 @@
                     {% endfor %}
                 </td>
                 <td style="text-align: right;">
-                    <!-- Action Options Dropdown -->
                     <select onchange="handleAction(this, '{% url 'attendance:edit_teacher' teacher.pk %}', '{% url 'attendance:delete_teacher' teacher.pk %}')" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; cursor: pointer;">
                         <option value="">-- Action --</option>
                         <option value="edit">Edit</option>
@@ -172,14 +180,14 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-folder-open" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No active instructor accounts found.
                 </td>
             </tr>
             {% endfor %}
             <tr id="searchEmptyRow" style="display: none;">
-                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-search" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
                     No matching instructor accounts discovered for your filter criteria.
                 </td>
@@ -194,17 +202,78 @@
             <h3>New Instructor Profile</h3>
             <button type="button" id="closeModalBtn" style="background:none; border:none; font-size:1.25rem; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
+        
         <form method="POST" action="">
             {% csrf_token %}
             <input type="hidden" name="action" value="single">
-            <div class="form-group">
-                <label for="teacher_name">Teacher Full Name</label>
-                <input type="text" id="teacher_name" name="name" class="form-control" required placeholder="e.g. Dr. Arthur Tumusiime">
+
+            <!-- Select Existing User with Teacher Role -->
+            <div class="form-group" style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 1.5rem;">
+                <label for="select_existing_teacher"><i class="fas fa-search"></i> Select Existing User with Teacher Role</label>
+                <select id="select_existing_teacher" class="form-control">
+                    <option value="">-- Choose an existing teacher user or enter details below --</option>
+                    {% for t_user in teacher_users %}
+                        <option value="{{ t_user.email }}"
+                                data-title="{{ t_user.title|default:'' }}"
+                                data-surname="{{ t_user.surname|default:'' }}"
+                                data-other-names="{{ t_user.other_names|default:'' }}"
+                                data-phone="{{ t_user.phone_number|default:'' }}"
+                                data-email="{{ t_user.email }}"
+                                data-name="{% if t_user.title %}{{ t_user.get_title_display }} {% endif %}{{ t_user.surname|default:'' }} {{ t_user.other_names|default:'' }}">
+                            {{ t_user.username }} ({{ t_user.email }})
+                        </option>
+                    {% endfor %}
+                </select>
             </div>
-            <div class="form-group">
-                <label for="teacher_email">Institutional Email</label>
-                <input type="email" id="teacher_email" name="email" class="form-control" required placeholder="username@utcbushenyi.ac.ug">
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 0 0 30%;">
+                    <label for="teacher_title">Title</label>
+                    <select id="teacher_title" name="title" class="form-control">
+                        <option value="">-- Select --</option>
+                        {% for code, label in title_choices %}
+                            <option value="{{ code }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="teacher_surname">Surname</label>
+                    <input type="text" id="teacher_surname" name="surname" class="form-control" placeholder="e.g. Tumusiime">
+                </div>
             </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="teacher_other_names">Other Names</label>
+                    <input type="text" id="teacher_other_names" name="other_names" class="form-control" placeholder="e.g. Arthur">
+                </div>
+                <div class="form-group">
+                    <label for="teacher_name">Display Full Name</label>
+                    <input type="text" id="teacher_name" name="name" class="form-control" placeholder="e.g. Dr. Arthur Tumusiime">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="teacher_email">Institutional Email</label>
+                    <input type="email" id="teacher_email" name="email" class="form-control" required placeholder="username@utcbushenyi.ac.ug">
+                </div>
+                <div class="form-group">
+                    <label for="teacher_phone">Phone Number</label>
+                    <input type="text" id="teacher_phone" name="phone_number" class="form-control" placeholder="+256 700 000 000">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="teacher_courses">Assigned Courses / Programmes</label>
+                <select id="teacher_courses" name="courses" class="form-control" multiple style="height: 110px;">
+                    {% for course in all_courses %}
+                        <option value="{{ course.code }}">{{ course.code }} - {{ course.name }}</option>
+                    {% endfor %}
+                </select>
+                <small style="color: var(--text-muted); font-size: 0.75rem;">Hold Ctrl (Cmd on Mac) to select multiple courses.</small>
+            </div>
+
             <div style="display:flex; gap:0.75rem; margin-top:2rem;">
                 <button type="button" class="btn btn-outline" id="cancelModalBtn" style="flex:1;">Cancel</button>
                 <button type="submit" class="btn" style="flex:2; background: linear-gradient(135deg, #2563eb, #1d4ed8);">Save Account</button>
@@ -214,7 +283,6 @@
 </div>
 
 <script>
-    // Handle Dropdown Actions (Edit & Delete)
     function handleAction(selectElement, editUrl, deleteUrl) {
         const action = selectElement.value;
         if (action === 'edit') {
@@ -224,11 +292,10 @@
                 window.location.href = deleteUrl;
             }
         }
-        selectElement.value = ''; // Reset selection back to "-- Action --"
+        selectElement.value = '';
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Modal Event Handlers
         const modal = document.getElementById('singleAddModal');
         const openBtn = document.getElementById('openModalBtn');
         const closeBtn = document.getElementById('closeModalBtn');
@@ -241,7 +308,22 @@
         if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
         window.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
 
-        // Automated Frontend Search Matrix
+        // Auto-fill form fields when an existing user with teacher role is selected
+        const teacherSelect = document.getElementById('select_existing_teacher');
+        if (teacherSelect) {
+            teacherSelect.addEventListener('change', function() {
+                const selectedOpt = this.options[this.selectedIndex];
+                if (selectedOpt && selectedOpt.value) {
+                    document.getElementById('teacher_title').value = selectedOpt.getAttribute('data-title') || '';
+                    document.getElementById('teacher_surname').value = selectedOpt.getAttribute('data-surname') || '';
+                    document.getElementById('teacher_other_names').value = selectedOpt.getAttribute('data-other-names') || '';
+                    document.getElementById('teacher_email').value = selectedOpt.getAttribute('data-email') || '';
+                    document.getElementById('teacher_phone').value = selectedOpt.getAttribute('data-phone') || '';
+                    document.getElementById('teacher_name').value = selectedOpt.getAttribute('data-name').trim() || '';
+                }
+            });
+        }
+
         const searchInput = document.getElementById('dashboardSearch');
         const dataRows = document.querySelectorAll('.teacher-row');
         const emptyRow = document.getElementById('searchEmptyRow');

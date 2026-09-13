@@ -88,7 +88,7 @@ TEMPLATES = [
 
 
 WSGI_APPLICATION = 'core.wsgi.application'
-
+"""
 # Database setup for PostgreSQL
 DATABASES = {
     'default': {
@@ -110,7 +110,7 @@ DATABASES = {
     }
 }
 
-
+"""
 
 DATABASES = {
     'default': {
@@ -198,6 +198,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'zantamore@gmail.com'
-EMAIL_HOST_PASSWORD = 'bchp kkcz cwqx conp'
-DEFAULT_FROM_EMAIL = 'Attendance Hub <zantamore@gmail.com>'
+EMAIL_HOST_USER = 'technologiestescal@gmail.com'
+EMAIL_HOST_PASSWORD = 'zgdn rnjv drmp ddag'
+DEFAULT_FROM_EMAIL = 'Attendance Hub <technologiestescal@gmail.com>'

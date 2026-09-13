@@ -134,6 +134,18 @@ def bulk_upload_streams(request):
 # 1. TEACHERS MANAGEMENT
 # =========================================================================
 
+import csv
+import io
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.contrib import messages
+from django.db import transaction
+from django.db.models import Q
+from django.contrib.auth.decorators import login_required
+from .models import User, TeacherProfile, Course, StaffRole
+
+
+
 @login_required
 @transaction.atomic
 def manage_teachers(request):
@@ -143,28 +155,58 @@ def manage_teachers(request):
     if request.method == 'POST':
         action = request.POST.get('action')
         
-        if action == 'single' or ('name' in request.POST and 'email' in request.POST):
-            name = request.POST.get('name', '').strip()
+        if action == 'single' or ('email' in request.POST and ('name' in request.POST or 'surname' in request.POST)):
+            title = request.POST.get('title', '').strip()
+            surname = request.POST.get('surname', '').strip()
+            other_names = request.POST.get('other_names', '').strip()
+            phone_number = request.POST.get('phone_number', '').strip()
             email = request.POST.get('email', '').strip()
+            name = request.POST.get('name', '').strip()
             course_codes = request.POST.getlist('courses')
             
-            if name and email:
+            # Auto-build display name if not explicitly provided
+            if not name:
+                name_parts = [p for p in [title, surname, other_names] if p]
+                name = " ".join(name_parts) if name_parts else email.split('@')[0]
+
+            if email:
                 username = email.split('@')[0]
                 password = generate_secure_password()
-                user, created = User.objects.get_or_create(email=email, defaults={
-                    'username': username,
-                    'role': User.IS_TEACHER,
-                    'raw_password_archive': password
-                })
-                if created:
+                
+                user = User.objects.filter(email=email).first()
+                if not user:
+                    user = User.objects.create(
+                        email=email,
+                        username=username,
+                        title=title,
+                        surname=surname,
+                        other_names=other_names,
+                        phone_number=phone_number,
+                        role=User.IS_TEACHER,
+                        raw_password_archive=password
+                    )
                     user.set_password(password)
                     user.save()
-                    teacher = TeacherProfile.objects.create(user=user, name=name)
-                    if course_codes:
-                        teacher.courses.set(Course.objects.filter(code__in=course_codes))
                     messages.success(request, f"Teacher account created for {name}.")
                 else:
-                    messages.warning(request, "A user with this email already exists.")
+                    # Update profile fields if existing user selected
+                    if title: user.title = title
+                    if surname: user.surname = surname
+                    if other_names: user.other_names = other_names
+                    if phone_number: user.phone_number = phone_number
+                    user.save()
+                    
+                    # Ensure user has teacher role assigned
+                    if user.role != User.IS_TEACHER and not user.staff_roles.filter(role=User.IS_TEACHER).exists():
+                        StaffRole.objects.get_or_create(user=user, role=User.IS_TEACHER)
+
+                teacher, _ = TeacherProfile.objects.get_or_create(user=user, defaults={'name': name})
+                teacher.name = name
+                teacher.save()
+
+                if course_codes:
+                    teacher.courses.set(Course.objects.filter(code__in=course_codes))
+
             return redirect('attendance:manage_teachers')
 
         elif action == 'bulk' and request.FILES.get('csv_file'):
@@ -176,27 +218,49 @@ def manage_teachers(request):
             for row in reader:
                 if len(row) >= 2:
                     name, email = row[0].strip(), row[1].strip()
+                    phone = row[2].strip() if len(row) > 2 else ''
                     username = email.split('@')[0]
                     password = generate_secure_password()
+                    
                     user, created = User.objects.get_or_create(email=email, defaults={
                         'username': username,
+                        'phone_number': phone,
                         'role': User.IS_TEACHER,
                         'raw_password_archive': password
                     })
                     if created:
                         user.set_password(password)
                         user.save()
-                        TeacherProfile.objects.create(user=user, name=name)
+
+                    teacher, _ = TeacherProfile.objects.get_or_create(user=user, defaults={'name': name})
+                    teacher.name = name
+                    teacher.save()
+
             return redirect('attendance:export_credentials', role_type='teachers')
+
+    # Query all users having the teacher role (either as primary role or in StaffRole)
+    teacher_users = User.objects.filter(
+        Q(role=User.IS_TEACHER) | Q(staff_roles__role=User.IS_TEACHER)
+    ).distinct()
+
+    # Automatically create missing TeacherProfile records for teacher users
+    for t_user in teacher_users:
+        if not hasattr(t_user, 'teacher_profile'):
+            display_name = " ".join(filter(None, [t_user.title, t_user.surname, t_user.other_names])).strip()
+            if not display_name:
+                display_name = f"{t_user.first_name} {t_user.last_name}".strip() or t_user.username
+            TeacherProfile.objects.get_or_create(user=t_user, defaults={'name': display_name})
 
     teachers = TeacherProfile.objects.select_related('user').prefetch_related('courses').all()
     all_courses = Course.objects.all()
+    
     return render(request, 'attendance/manage_teachers.html', {
         'teachers': teachers, 
+        'teacher_users': teacher_users,
         'all_courses': all_courses,
-        'active_courses_list': all_courses
+        'active_courses_list': all_courses,
+        'title_choices': User.TITLE_CHOICES,
     })
-
 
 @login_required
 @transaction.atomic
@@ -269,6 +333,35 @@ def generate_secure_password(length=10):
   return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.utils import timezone
+import secrets
+import string
+
+from .models import (
+    User,
+    StudentProfile,
+    Course,
+    Stream,
+    Campus,
+    Hostel,
+    AcademicYear,
+    Term,
+    Semester,
+    Intake,
+    AcademicTerm,
+)
+
+
+def generate_secure_password(length=12):
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
 @login_required
 @transaction.atomic
 def manage_students(request):
@@ -282,26 +375,96 @@ def manage_students(request):
         action = request.POST.get("action")
 
         if action == "single":
-            name = (request.POST.get("students_name") or request.POST.get("name", "")).strip()
-            reg_number = (request.POST.get("registration_number") or request.POST.get("reg_number", "")).strip()
+            # Primary Identifiers & Name
+            reg_number = (
+                request.POST.get("reg_number")
+                or request.POST.get("registration_number", "")
+            ).strip()
+            student_number = request.POST.get("student_number", "").strip() or None
+            surname = request.POST.get("surname", "").strip()
+            first_name = request.POST.get("first_name", "").strip()
+            other_names = request.POST.get("other_names", "").strip()
+
+            # Name fallback if single name field was posted
+            combined_name = (
+                request.POST.get("name") or request.POST.get("students_name", "")
+            ).strip()
+            if not (surname or first_name) and combined_name:
+                parts = combined_name.split(" ", 1)
+                first_name = parts[0]
+                surname = parts[1] if len(parts) > 1 else ""
+
+            # Bio-data & Contacts
+            phone_number = request.POST.get("phone_number", "").strip() or None
             email = request.POST.get("email", "").strip()
+            nin = request.POST.get("nin", "").strip() or None
+            nationality = request.POST.get("nationality", "Ugandan").strip() or "Ugandan"
+            district_of_origin = request.POST.get("district_of_origin", "").strip() or None
+            gender = request.POST.get("gender", "").strip() or None
+            date_of_birth = request.POST.get("date_of_birth", "").strip() or None
+
+            # Academic Structure & Campus
+            campus_id = request.POST.get("campus", "").strip()
             course_code = request.POST.get("course", "").strip()
             stream_id = request.POST.get("stream", "").strip()
+            year_of_study_raw = request.POST.get("year_of_study", "1").strip()
+            try:
+                year_of_study = int(year_of_study_raw)
+            except ValueError:
+                year_of_study = 1
 
+            entry_academic_year_id = request.POST.get("entry_academic_year", "").strip()
             academic_year_id = request.POST.get("academic_year", "").strip()
             term_id = request.POST.get("term", "").strip()
             semester_id = request.POST.get("semester", "").strip()
             intake_id = request.POST.get("intake", "").strip()
-            gender = request.POST.get("gender", "").strip()
-            date_of_birth = request.POST.get("date_of_birth", "").strip() or None
-            billing_category = request.POST.get("billing_category", "").strip()
-            sponsorship = request.POST.get("sponsorship", "").strip()
-            academic_status = request.POST.get("academic_status", "ACTIVE").strip()
+            programme_type = request.POST.get("programme_type", "").strip() or None
 
-            if name and reg_number and email and course_code and stream_id:
+            # Status, Billing & Sponsorship
+            academic_status = request.POST.get("academic_status", "ACTIVE").strip() or "ACTIVE"
+            billing_category = request.POST.get("billing_category", "").strip() or None
+            sponsorship = request.POST.get("sponsorship", "").strip() or None
+            sponsorship_type = request.POST.get("sponsorship_type", "").strip() or None
+            sponsorship_scheme = request.POST.get("sponsorship_scheme", "").strip() or None
+            is_blocked = request.POST.get("is_blocked") in ["true", "on", "1"]
+
+            # Enrollment Details
+            is_enrolled = request.POST.get("is_enrolled") in ["true", "on", "1"]
+            enrollment_token = request.POST.get("enrollment_token", "").strip() or None
+            enrollment_condition = request.POST.get("enrollment_condition", "").strip() or None
+
+            # Registration Details
+            is_registered = request.POST.get("is_registered") in ["true", "on", "1"]
+            registration_type = request.POST.get("registration_type", "").strip() or None
+            registration_status = request.POST.get("registration_status", "").strip() or None
+            provisional_registration_type = request.POST.get("provisional_registration_type", "").strip() or None
+            registration_condition = request.POST.get("registration_condition", "").strip() or None
+
+            # Residence & Accommodation
+            residence_status = request.POST.get("residence_status", "").strip() or None
+            hostel_id = request.POST.get("hostel", "").strip()
+
+            # Next of Kin & Prior Academic Records
+            next_of_kin_name = request.POST.get("next_of_kin_name", "").strip() or None
+            next_of_kin_phone = request.POST.get("next_of_kin_phone", "").strip() or None
+            next_of_kin_relationship = request.POST.get("next_of_kin_relationship", "").strip() or None
+            uce_index_number = request.POST.get("uce_index_number", "").strip() or None
+            uace_index_number = request.POST.get("uace_index_number", "").strip() or None
+
+            if reg_number and email and course_code:
                 try:
                     course = Course.objects.get(code=course_code)
-                    stream = Stream.objects.get(id=stream_id)
+                    stream = Stream.objects.filter(id=stream_id).first() if stream_id else None
+                    campus_obj = Campus.objects.filter(id=campus_id).first() if campus_id else None
+                    hostel_obj = Hostel.objects.filter(id=hostel_id).first() if hostel_id else None
+
+                    # Academic Year lookups
+                    entry_ay_obj = None
+                    if entry_academic_year_id:
+                        if entry_academic_year_id.isdigit():
+                            entry_ay_obj = AcademicYear.objects.filter(id=entry_academic_year_id).first()
+                        if not entry_ay_obj:
+                            entry_ay_obj = AcademicYear.objects.filter(name=entry_academic_year_id).first()
 
                     academic_year = None
                     if academic_year_id:
@@ -319,65 +482,115 @@ def manage_students(request):
                     password = generate_secure_password()
                     username = email.split("@")[0]
 
-                    user = User.objects.create_user(
+                    user, created = User.objects.get_or_create(
                         username=username,
-                        email=email,
-                        password=password,
-                        role=User.IS_STUDENT,
+                        defaults={
+                            "email": email,
+                            "role": User.IS_STUDENT,
+                            "surname": surname,
+                            "other_names": f"{first_name} {other_names}".strip(),
+                            "phone_number": phone_number,
+                        },
                     )
-                    user.raw_password_archive = password
-                    user.save()
+                    if created:
+                        user.set_password(password)
+                        user.raw_password_archive = password
+                        user.save()
 
                     student = StudentProfile.objects.create(
                         reg_number=reg_number,
+                        student_number=student_number,
                         user=user,
-                        name=name,
+                        surname=surname,
+                        first_name=first_name,
+                        other_names=other_names,
+                        phone_number=phone_number,
+                        email=email,
+                        nin=nin,
+                        nationality=nationality,
+                        district_of_origin=district_of_origin,
+                        campus=campus_obj,
                         course=course,
                         stream=stream,
+                        year_of_study=year_of_study,
+                        entry_academic_year=entry_ay_obj,
                         academic_year=academic_year,
                         term=term_obj,
                         semester=semester_obj,
                         intake=intake_obj,
-                        gender=gender if gender else None,
                         date_of_birth=date_of_birth,
-                        billing_category=billing_category if billing_category else None,
-                        sponsorship=sponsorship if sponsorship else None,
-                        academic_status=academic_status if academic_status else "ACTIVE",
+                        gender=gender,
+                        is_blocked=is_blocked,
+                        academic_status=academic_status,
+                        billing_category=billing_category,
+                        sponsorship=sponsorship,
+                        sponsorship_type=sponsorship_type,
+                        sponsorship_scheme=sponsorship_scheme,
+                        programme_type=programme_type,
+                        is_enrolled=is_enrolled,
+                        enrollment_token=enrollment_token,
+                        enrollment_condition=enrollment_condition,
+                        is_registered=is_registered,
+                        registration_type=registration_type,
+                        registration_status=registration_status,
+                        provisional_registration_type=provisional_registration_type,
+                        registration_condition=registration_condition,
+                        residence_status=residence_status,
+                        hostel=hostel_obj,
+                        next_of_kin_name=next_of_kin_name,
+                        next_of_kin_phone=next_of_kin_phone,
+                        next_of_kin_relationship=next_of_kin_relationship,
+                        uce_index_number=uce_index_number,
+                        uace_index_number=uace_index_number,
                     )
 
-                    # Automatically retrieve active academic term for course fee ledger generation
                     current_academic_term = AcademicTerm.objects.filter(is_current=True).first()
+                    ledger, total_due = (
+                        student.initialize_fee_ledger(term=current_academic_term)
+                        if hasattr(student, "initialize_fee_ledger")
+                        else (None, 0)
+                    )
 
-                    # Automated Fee Ledger Generation based on chosen course & current active term
-                    ledger, total_due = student.initialize_fee_ledger(term=current_academic_term)
-
+                    student_display_name = student.name
                     if ledger:
                         messages.success(
                             request,
-                            f"Student {name} registered successfully. Fee ledger initialized for "
+                            f"Student {student_display_name} registered successfully. Fee ledger initialized for "
                             f"{ledger.term} based on {course.code} fee structure totaling UGX {total_due:,.2f}.",
                         )
                     else:
-                        messages.warning(
+                        messages.success(
                             request,
-                            f"Student {name} registered, but no active term was found in the system. "
-                            f"Ledger was not initialized.",
+                            f"Student {student_display_name} registered successfully.",
                         )
 
                 except Course.DoesNotExist:
                     messages.error(request, "Selected course does not exist.")
-                except Stream.DoesNotExist:
-                    messages.error(request, "Selected stream does not exist.")
                 except Exception as e:
                     messages.error(request, f"Error occurred: {str(e)}")
             else:
-                messages.error(request, "Please fill in all mandatory student details.")
+                messages.error(
+                    request, "Please fill in all mandatory student details (Reg Number, Email, Course)."
+                )
 
             return redirect("attendance:manage_students")
 
-    students = StudentProfile.objects.select_related(
-        "user", "course", "stream", "academic_year", "term", "semester", "intake"
-    ).prefetch_related("term_fees").all()
+    students = (
+        StudentProfile.objects.select_related(
+            "user",
+            "course",
+            "stream",
+            "campus",
+            "entry_academic_year",
+            "academic_year",
+            "term",
+            "semester",
+            "intake",
+            "hostel",
+        )
+        .prefetch_related("term_fees")
+        .all()
+    )
 
     return render(
         request,
@@ -386,6 +599,8 @@ def manage_students(request):
             "students": students,
             "active_courses_list": Course.objects.all(),
             "active_streams_list": Stream.objects.all(),
+            "campuses": Campus.objects.all(),
+            "hostels": Hostel.objects.all(),
             "academic_years": AcademicYear.objects.all(),
             "entry_years": entry_years,
             "current_year": current_year,
@@ -393,8 +608,11 @@ def manage_students(request):
             "semesters": Semester.objects.all(),
             "intakes": Intake.objects.all(),
             "gender_choices": StudentProfile.GENDER_CHOICES,
+            "sponsorship_type_choices": StudentProfile.SPONSORSHIP_TYPE_CHOICES,
+            "programme_type_choices": StudentProfile.PROGRAMME_TYPE_CHOICES,
         },
     )
+
 
 @login_required
 @transaction.atomic

@@ -705,9 +705,12 @@
                 <a href="{% url 'attendance:change_password' %}" class="{% if request.resolver_match.url_name == 'change_password' %}active{% endif %}">
                     <i class="fas fa-key"></i> Change Password
                 </a>
-                <a href="{% url 'attendance:logout' %}" style="color:var(--danger);">
-                    <i class="fas fa-sign-out-alt" style="color:var(--danger);"></i> Logout
-                </a>
+                <form method="POST" action="{% url 'attendance:logout' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="nav-link btn btn-link" style="display: inline; border: none; background: none; padding: 0; color: inherit; cursor: pointer;">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </form>
 
             {% else %}
                 <a href="{% url 'attendance:login' %}" style="background:var(--primary);color:#fff;justify-content:center;margin-top:1rem;border-radius: var(--radius-sm);display: flex;align-items: center;gap: 0.5rem;padding:0.75rem;">
@@ -719,7 +722,12 @@
         {% if user.is_authenticated %}
         <div class="drawer-user">
             <span class="user-info"><i class="fas fa-user-circle"></i> {{ user.username }}</span>
-            <a href="{% url 'attendance:logout' %}" class="logout-btn">Logout</a>
+            <form method="POST" action="{% url 'attendance:logout' %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="nav-link btn btn-link" style="display: inline; border: none; background: none; padding: 0; color: inherit; cursor: pointer;">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </form>
         </div>
         {% endif %}
     </div>

@@ -654,9 +654,13 @@
     <a href="{% url 'attendance:change_password' %}" class="sidebar-link {% if request.resolver_match.url_name == 'change_password' %}active{% endif %}">
         <i class="fas fa-key"></i> Change Password
     </a>
-    <a href="{% url 'attendance:logout' %}" class="sidebar-link" style="color:var(--danger);">
-        <i class="fas fa-sign-out-alt" style="color:var(--danger);"></i> Logout
-    </a>
+
+    <form method="POST" action="{% url 'attendance:logout' %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="nav-link btn btn-link" style="display: inline; border: none; background: none; padding: 0; color:var(--danger); cursor: pointer;">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+    </form>
 </aside>
 
 <script>
