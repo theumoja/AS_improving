@@ -89,7 +89,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# Database setup for PostgreSQL
+
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'attendance_db',
+        'USER': 'attendance_user',
+        'PASSWORD': 'EcnC#PZTZgvV3jJ',
+        'HOST': '174.138.46.225',
+        'PORT': '5432',
+    }
+}
+
+
+"""# Database setup for PostgreSQL
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -102,7 +116,7 @@ DATABASES = {
 }
 
 
-"""
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
